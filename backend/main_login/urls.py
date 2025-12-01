@@ -17,6 +17,9 @@ urlpatterns = [
     # Routing endpoints
     path('routes/', views.get_role_routes, name='get_role_routes'),
     
+    # Database test endpoint
+    path('test-db/', views.test_db_connection, name='test_db_connection'),
+    
     # User profile endpoints
     path('profile/', views.profile, name='profile'),
     path('profile/update/', views.update_profile, name='update_profile'),

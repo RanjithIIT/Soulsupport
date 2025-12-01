@@ -197,6 +197,53 @@ def get_role_routes(request):
     }, status=status.HTTP_200_OK)
 
 
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def test_db_connection(request):
+    """Test endpoint to verify database connection and list users"""
+    try:
+        from django.db import connection
+        
+        # Test database connection
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT version();")
+            db_version = cursor.fetchone()[0]
+        
+        # Get user count
+        user_count = User.objects.count()
+        role_count = Role.objects.count()
+        
+        # Get sample users
+        users = User.objects.all()[:10]
+        user_list = [
+            {
+                'email': user.email,
+                'username': user.username,
+                'role': user.role.name if user.role else None,
+                'is_active': user.is_active
+            }
+            for user in users
+        ]
+        
+        return Response({
+            'success': True,
+            'database': {
+                'connected': True,
+                'version': db_version.split(',')[0] if db_version else 'Unknown',
+                'user_count': user_count,
+                'role_count': role_count,
+            },
+            'users': user_list,
+            'message': 'Database connection successful'
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e),
+            'message': 'Database connection failed'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def role_login(request):

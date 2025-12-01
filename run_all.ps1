@@ -23,7 +23,7 @@ if ($App -eq 'main_login') {
 }
 
 # Check for Python virtualenv
-$pythonExe = Join-Path $projectRoot '.venv\Scripts\python.exe'
+$pythonExe = Join-Path $projectRoot 'venv\Scripts\python.exe'
 if (!(Test-Path $pythonExe)) {
     $pythonExe = Join-Path $backendPath 'venv\Scripts\python.exe'
     if (!(Test-Path $pythonExe)) {

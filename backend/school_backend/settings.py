@@ -38,7 +38,8 @@ INSTALLED_APPS = [
     'management_admin',
     'teacher',
     'student_parent',
-]
+    
+    ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -72,10 +73,21 @@ TEMPLATES = [
 WSGI_APPLICATION = 'school_backend.wsgi.application'
 
 # Database
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'school_management_system_db',       # The database you created
+        'USER': 'postgres',        # PostgreSQL username
+        'PASSWORD': '123456',    # PostgreSQL password
+        'HOST': 'localhost',               # or your server IP
+        'PORT': '5432',                    # default PostgreSQL port
     }
 }
 
