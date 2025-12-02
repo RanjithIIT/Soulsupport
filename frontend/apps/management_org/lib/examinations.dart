@@ -1,0 +1,1477 @@
+import 'package:flutter/material.dart';
+import 'package:main_login/main.dart' as main_login;
+import 'dashboard.dart';
+
+class Examination {
+  final int id;
+  final String title;
+  final String type;
+  final DateTime date;
+  final TimeOfDay time;
+  final String grade;
+  final String subject;
+  final int durationMinutes;
+  final int maxMarks;
+  final String description;
+  final String location;
+  final String status;
+
+  Examination({
+    required this.id,
+    required this.title,
+    required this.type,
+    required this.date,
+    required this.time,
+    required this.grade,
+    required this.subject,
+    required this.durationMinutes,
+    required this.maxMarks,
+    required this.description,
+    required this.location,
+    required this.status,
+  });
+
+  Examination copyWith({
+    int? id,
+    String? title,
+    String? type,
+    DateTime? date,
+    TimeOfDay? time,
+    String? grade,
+    String? subject,
+    int? durationMinutes,
+    int? maxMarks,
+    String? description,
+    String? location,
+    String? status,
+  }) {
+    return Examination(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      type: type ?? this.type,
+      date: date ?? this.date,
+      time: time ?? this.time,
+      grade: grade ?? this.grade,
+      subject: subject ?? this.subject,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
+      maxMarks: maxMarks ?? this.maxMarks,
+      description: description ?? this.description,
+      location: location ?? this.location,
+      status: status ?? this.status,
+    );
+  }
+}
+
+class ExaminationManagementPage extends StatefulWidget {
+  const ExaminationManagementPage({super.key});
+
+  @override
+  State<ExaminationManagementPage> createState() =>
+      _ExaminationManagementPageState();
+}
+
+class _ExaminationManagementPageState
+    extends State<ExaminationManagementPage> {
+  final List<Examination> _allExams = [
+    Examination(
+      id: 1,
+      title: 'Mathematics Mid Term',
+      type: 'mid-term',
+      date: DateTime(2024, 1, 15),
+      time: const TimeOfDay(hour: 9, minute: 0),
+      grade: 'class-10',
+      subject: 'mathematics',
+      durationMinutes: 90,
+      maxMarks: 100,
+      description: 'Mid term examination covering algebra and geometry',
+      location: 'Room 101',
+      status: 'completed',
+    ),
+    Examination(
+      id: 2,
+      title: 'Science Unit Test',
+      type: 'unit-test',
+      date: DateTime(2024, 1, 20),
+      time: const TimeOfDay(hour: 10, minute: 30),
+      grade: 'class-8',
+      subject: 'science',
+      durationMinutes: 60,
+      maxMarks: 50,
+      description: 'Unit test on chemical reactions',
+      location: 'Lab 2',
+      status: 'upcoming',
+    ),
+    Examination(
+      id: 3,
+      title: 'English Final Exam',
+      type: 'final',
+      date: DateTime(2024, 1, 25),
+      time: const TimeOfDay(hour: 14, minute: 0),
+      grade: 'class-12',
+      subject: 'english',
+      durationMinutes: 120,
+      maxMarks: 100,
+      description: 'Final examination covering literature and grammar',
+      location: 'Hall A',
+      status: 'upcoming',
+    ),
+    Examination(
+      id: 4,
+      title: 'Computer Science Practical',
+      type: 'practical',
+      date: DateTime(2024, 1, 18),
+      time: const TimeOfDay(hour: 11, minute: 0),
+      grade: 'class-11',
+      subject: 'computer-science',
+      durationMinutes: 90,
+      maxMarks: 50,
+      description: 'Practical examination on programming',
+      location: 'Computer Lab',
+      status: 'ongoing',
+    ),
+    Examination(
+      id: 5,
+      title: 'Physics Project',
+      type: 'project',
+      date: DateTime(2024, 1, 22),
+      time: const TimeOfDay(hour: 15, minute: 30),
+      grade: 'class-9',
+      subject: 'physics',
+      durationMinutes: 180,
+      maxMarks: 30,
+      description: 'Project presentation on mechanics',
+      location: 'Room 205',
+      status: 'upcoming',
+    ),
+    Examination(
+      id: 6,
+      title: 'History Unit Test',
+      type: 'unit-test',
+      date: DateTime(2024, 1, 12),
+      time: const TimeOfDay(hour: 8, minute: 0),
+      grade: 'class-7',
+      subject: 'social-studies',
+      durationMinutes: 45,
+      maxMarks: 25,
+      description: 'Unit test on ancient civilizations',
+      location: 'Room 103',
+      status: 'completed',
+    ),
+  ];
+
+  late List<Examination> _visibleExams;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _durationController = TextEditingController();
+  final _marksController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _locationController = TextEditingController();
+
+  String? _newType;
+  String? _newClass;
+  String? _newSubject;
+  DateTime? _newDate;
+  TimeOfDay? _newTime;
+
+  String _searchQuery = '';
+  String? _statusFilter;
+  String? _classFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    _visibleExams = List<Examination>.from(_allExams);
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _durationController.dispose();
+    _marksController.dispose();
+    _descriptionController.dispose();
+    _locationController.dispose();
+    super.dispose();
+  }
+
+  void _filterExams() {
+    setState(() {
+      _visibleExams = _allExams.where((exam) {
+        final matchesSearch = _searchQuery.isEmpty ||
+            exam.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            exam.subject.toLowerCase().contains(_searchQuery.toLowerCase());
+        final matchesStatus =
+            _statusFilter == null || exam.status == _statusFilter;
+        final matchesClass = _classFilter == null || exam.grade == _classFilter;
+        return matchesSearch && matchesStatus && matchesClass;
+      }).toList();
+    });
+  }
+
+  Map<String, int> _stats() {
+    final total = _allExams.length;
+    final upcoming =
+        _allExams.where((exam) => exam.status == 'upcoming').length;
+    final completed =
+        _allExams.where((exam) => exam.status == 'completed').length;
+    final ongoing =
+        _allExams.where((exam) => exam.status == 'ongoing').length;
+    final avgScore = completed == 0
+        ? 0
+        : (_allExams
+                .where((exam) => exam.status == 'completed')
+                .fold<int>(0, (sum, exam) => sum + exam.maxMarks) /
+            completed);
+    return {
+      'total': total,
+      'upcoming': upcoming,
+      'completed': completed,
+      'ongoing': ongoing,
+      'avg': avgScore.round(),
+    };
+  }
+
+  Future<void> _pickDate() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _newDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (date != null) {
+      setState(() => _newDate = date);
+    }
+  }
+
+  Future<void> _pickTime() async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: _newTime ?? TimeOfDay.now(),
+    );
+    if (time != null) {
+      setState(() => _newTime = time);
+    }
+  }
+
+  void _addExam() {
+    if (!_formKey.currentState!.validate()) return;
+    if (_newType == null ||
+        _newClass == null ||
+        _newSubject == null ||
+        _newDate == null ||
+        _newTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill all required fields')),
+      );
+      return;
+    }
+
+    final exam = Examination(
+      id: DateTime.now().millisecondsSinceEpoch,
+      title: _titleController.text.trim(),
+      type: _newType!,
+      date: _newDate!,
+      time: _newTime!,
+      grade: _newClass!,
+      subject: _newSubject!,
+      durationMinutes: int.parse(_durationController.text.trim()),
+      maxMarks: int.parse(_marksController.text.trim()),
+      description: _descriptionController.text.trim(),
+      location: _locationController.text.trim(),
+      status: 'upcoming',
+    );
+
+    setState(() {
+      _allExams.insert(0, exam);
+      _filterExams();
+    });
+
+    _formKey.currentState!.reset();
+    _titleController.clear();
+    _durationController.clear();
+    _marksController.clear();
+    _descriptionController.clear();
+    _locationController.clear();
+    setState(() {
+      _newType = null;
+      _newClass = null;
+      _newSubject = null;
+      _newDate = null;
+      _newTime = null;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Examination added successfully!')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final gradient = const LinearGradient(
+      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+    final stats = _stats();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showSidebar = constraints.maxWidth >= 1100;
+        return Scaffold(
+          key: _scaffoldKey,
+          drawer: showSidebar
+              ? null
+              : Drawer(
+                  child: SizedBox(
+                    width: 280,
+                    child: _Sidebar(gradient: gradient),
+                  ),
+                ),
+          body: Row(
+            children: [
+              if (showSidebar) _Sidebar(gradient: gradient),
+              Expanded(
+                child: Container(
+                  color: Colors.white,
+                  child: SafeArea(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _BackButton(
+                            onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardPage())),
+                          ),
+                          const SizedBox(height: 16),
+                          _Header(
+                            showMenuButton: !showSidebar,
+                            onMenuTap: () =>
+                                _scaffoldKey.currentState?.openDrawer(),
+                            onLogout: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Logout'),
+                                  content: const Text('Are you sure you want to logout?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        // Navigate to main login page
+                                        Navigator.pushAndRemoveUntil(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => const main_login.LoginScreen(),
+                                          ),
+                                          (route) => false,
+                                        );
+                                      },
+                                      child: const Text('Logout', style: TextStyle(color: Colors.red)),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 24),
+                          _StatsOverview(stats: stats),
+                          const SizedBox(height: 24),
+                          LayoutBuilder(
+                            builder: (context, inner) {
+                              final stacked = inner.maxWidth < 1100;
+                              return Flex(
+                                mainAxisSize: MainAxisSize.min,
+                                direction:
+                                    stacked ? Axis.vertical : Axis.horizontal,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                              Flexible(
+                                fit: FlexFit.loose,
+                                    child: _AddExamSection(
+                                      formKey: _formKey,
+                                      titleController: _titleController,
+                                      typeValue: _newType,
+                                      onTypeChanged: (value) =>
+                                          setState(() => _newType = value),
+                                      dateValue: _newDate,
+                                      onPickDate: _pickDate,
+                                      timeValue: _newTime,
+                                      onPickTime: _pickTime,
+                                      classValue: _newClass,
+                                      onClassChanged: (value) =>
+                                          setState(() => _newClass = value),
+                                      subjectValue: _newSubject,
+                                      onSubjectChanged: (value) =>
+                                          setState(() => _newSubject = value),
+                                      durationController: _durationController,
+                                      marksController: _marksController,
+                                      descriptionController:
+                                          _descriptionController,
+                                      locationController: _locationController,
+                                      onSubmit: _addExam,
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: stacked ? 0 : 24,
+                                    height: stacked ? 24 : 0,
+                                  ),
+                              Flexible(
+                                fit: FlexFit.loose,
+                                    child: _SearchFilterSection(
+                                      searchQuery: _searchQuery,
+                                      onSearchChanged: (value) {
+                                        setState(() => _searchQuery = value);
+                                        _filterExams();
+                                      },
+                                      statusFilter: _statusFilter,
+                                      onStatusChanged: (value) {
+                                        setState(() => _statusFilter = value);
+                                        _filterExams();
+                                      },
+                                      classFilter: _classFilter,
+                                      onClassChanged: (value) {
+                                        setState(() => _classFilter = value);
+                                        _filterExams();
+                                      },
+                                      exams: _visibleExams,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _Sidebar extends StatelessWidget {
+  final LinearGradient gradient;
+
+  const _Sidebar({required this.gradient});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 280,
+      decoration: BoxDecoration(
+        gradient: gradient,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 20,
+            offset: const Offset(2, 0),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: gradient,
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: Colors.white30),
+              ),
+              child: const Column(
+                children: [
+                  Text(
+                    '🏫 SMS',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'School Management System',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _NavItem(
+                    icon: '📊',
+                    title: 'Dashboard',
+                    onTap: () =>
+                        Navigator.pushReplacementNamed(context, '/dashboard'),
+                  ),
+                  _NavItem(
+                    icon: '👨‍🏫',
+                    title: 'Teachers',
+                    onTap: () =>
+                        Navigator.pushReplacementNamed(context, '/teachers'),
+                  ),
+                  _NavItem(
+                    icon: '👥',
+                    title: 'Students',
+                    onTap: () =>
+                        Navigator.pushReplacementNamed(context, '/students'),
+                  ),
+                  _NavItem(
+                    icon: '🚌',
+                    title: 'Buses',
+                    onTap: () =>
+                        Navigator.pushReplacementNamed(context, '/buses'),
+                  ),
+                  _NavItem(
+                    icon: '🎯',
+                    title: 'Activities',
+                    onTap: () =>
+                        Navigator.pushReplacementNamed(context, '/activities'),
+                  ),
+                  _NavItem(
+                    icon: '📅',
+                    title: 'Events',
+                    onTap: () =>
+                        Navigator.pushReplacementNamed(context, '/events'),
+                  ),
+                  _NavItem(
+                    icon: '📆',
+                    title: 'Calendar',
+                    onTap: () =>
+                        Navigator.pushReplacementNamed(context, '/calendar'),
+                  ),
+                  _NavItem(
+                    icon: '🔔',
+                    title: 'Notifications',
+                    onTap: () => Navigator.pushReplacementNamed(context, '/notifications'),
+                  ),
+                  _NavItem(
+                    icon: '📝',
+                    title: 'Examinations',
+                    isActive: true,
+                    onTap: () {},
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatefulWidget {
+  final String icon;
+  final String title;
+  final VoidCallback? onTap;
+  final bool isActive;
+
+  const _NavItem({
+    required this.icon,
+    required this.title,
+    this.onTap,
+    this.isActive = false,
+  });
+
+  @override
+  State<_NavItem> createState() => _NavItemState();
+}
+
+class _NavItemState extends State<_NavItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: widget.isActive
+              ? Colors.white.withValues(alpha: 0.3)
+              : _isHovered
+                  ? Colors.white.withValues(alpha: 0.25)
+                  : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: _isHovered
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              : null,
+        ),
+        child: ListTile(
+          leading: Text(widget.icon, style: const TextStyle(fontSize: 18, color: Colors.white)),
+          title: AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 200),
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: widget.isActive || _isHovered
+                  ? FontWeight.bold
+                  : FontWeight.normal,
+              fontSize: widget.isActive || _isHovered ? 15.0 : 14.0,
+            ),
+            child: Text(widget.title),
+          ),
+          selected: widget.isActive,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          onTap: widget.onTap,
+        ),
+      ),
+    );
+  }
+}
+
+class _BackButton extends StatelessWidget {
+  final VoidCallback? onTap;
+
+  const _BackButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF6C757D),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.arrow_back),
+          SizedBox(width: 8),
+          Text('Back to Dashboard'),
+        ],
+      ),
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  final bool showMenuButton;
+  final VoidCallback? onMenuTap;
+  final VoidCallback onLogout;
+
+  const _Header({
+    required this.showMenuButton,
+    this.onMenuTap,
+    required this.onLogout,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              if (showMenuButton)
+                IconButton(
+                  onPressed: onMenuTap,
+                  icon: const Icon(Icons.menu, color: Colors.black87),
+                ),
+              const Text(
+                '📝 Examination Management',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                  ),
+                ),
+                child: const Center(
+                  child: Text(
+                    'M',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 15),
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'Management User',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    'School Manager',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 15),
+              ElevatedButton(
+                onPressed: onLogout,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF6B6B),
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                ),
+                child: const Text('Logout'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatsOverview extends StatelessWidget {
+  final Map<String, int> stats;
+
+  const _StatsOverview({required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 20,
+      runSpacing: 20,
+      children: [
+        _StatCard(icon: '📝', number: stats['total']!, label: 'Total Exams'),
+        _StatCard(icon: '⏰', number: stats['upcoming']!, label: 'Upcoming'),
+        _StatCard(icon: '✅', number: stats['completed']!, label: 'Completed'),
+        _StatCard(
+          icon: '📊',
+          number: stats['avg']!,
+          label: 'Avg Max Marks',
+          suffix: '%',
+        ),
+      ],
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final String icon;
+  final int number;
+  final String label;
+  final String suffix;
+
+  const _StatCard({
+    required this.icon,
+    required this.number,
+    required this.label,
+    this.suffix = '',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 220,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            icon,
+            style: const TextStyle(fontSize: 32),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '$number$suffix',
+            style: const TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF333333),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.grey,
+              letterSpacing: 1,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddExamSection extends StatelessWidget {
+  final GlobalKey<FormState> formKey;
+  final TextEditingController titleController;
+  final String? typeValue;
+  final ValueChanged<String?> onTypeChanged;
+  final DateTime? dateValue;
+  final Future<void> Function() onPickDate;
+  final TimeOfDay? timeValue;
+  final Future<void> Function() onPickTime;
+  final String? classValue;
+  final ValueChanged<String?> onClassChanged;
+  final String? subjectValue;
+  final ValueChanged<String?> onSubjectChanged;
+  final TextEditingController durationController;
+  final TextEditingController marksController;
+  final TextEditingController descriptionController;
+  final TextEditingController locationController;
+  final VoidCallback onSubmit;
+
+  const _AddExamSection({
+    required this.formKey,
+    required this.titleController,
+    required this.typeValue,
+    required this.onTypeChanged,
+    required this.dateValue,
+    required this.onPickDate,
+    required this.timeValue,
+    required this.onPickTime,
+    required this.classValue,
+    required this.onClassChanged,
+    required this.subjectValue,
+    required this.onSubjectChanged,
+    required this.durationController,
+    required this.marksController,
+    required this.descriptionController,
+    required this.locationController,
+    required this.onSubmit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Form(
+        key: formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '➕ Add New Examination',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 20),
+            _buildTextField(
+              controller: titleController,
+              label: 'Exam Title',
+              hint: 'Enter exam title',
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildDropdown(
+                    label: 'Exam Type',
+                    value: typeValue,
+                    onChanged: onTypeChanged,
+                    items: const [
+                      DropdownMenuItem(value: 'unit-test', child: Text('Unit Test')),
+                      DropdownMenuItem(value: 'mid-term', child: Text('Mid Term')),
+                      DropdownMenuItem(value: 'final', child: Text('Final Exam')),
+                      DropdownMenuItem(value: 'practical', child: Text('Practical')),
+                      DropdownMenuItem(value: 'project', child: Text('Project')),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _DatePickerField(
+                    label: 'Exam Date',
+                    value: dateValue,
+                    onTap: onPickDate,
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: _TimePickerField(
+                    label: 'Exam Time',
+                    value: timeValue,
+                    onTap: onPickTime,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildDropdown(
+                    label: 'Class',
+                    value: classValue,
+                    onChanged: onClassChanged,
+                    items: _classOptions,
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildDropdown(
+                    label: 'Subject',
+                    value: subjectValue,
+                    onChanged: onSubjectChanged,
+                    items: _subjectOptions,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildTextField(
+                    controller: durationController,
+                    label: 'Duration (minutes)',
+                    hint: '90',
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    controller: marksController,
+                    label: 'Maximum Marks',
+                    hint: '100',
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildTextField(
+                    controller: locationController,
+                    label: 'Exam Location',
+                    hint: 'Hall A / Room 101',
+                  ),
+                ),
+              ],
+            ),
+            _buildTextField(
+              controller: descriptionController,
+              label: 'Description',
+              hint: 'Enter exam description and instructions',
+              maxLines: 3,
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: onSubmit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF667EEA),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text('Add Examination'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    int maxLines = 1,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextFormField(
+        controller: controller,
+        maxLines: maxLines,
+        keyboardType: keyboardType,
+        validator: (value) =>
+            value == null || value.isEmpty ? 'This field is required' : null,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDropdown({
+    required String label,
+    required String? value,
+    required ValueChanged<String?> onChanged,
+    required List<DropdownMenuItem<String>> items,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: DropdownButtonFormField<String>(
+        value: value,
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+        items: [
+          const DropdownMenuItem(value: null, child: Text('Select')),
+          ...items,
+        ],
+        validator: (val) => val == null ? 'Required' : null,
+        onChanged: onChanged,
+      ),
+    );
+  }
+}
+
+class _DatePickerField extends StatelessWidget {
+  final String label;
+  final DateTime? value;
+  final Future<void> Function() onTap;
+
+  const _DatePickerField({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final text = value == null
+        ? 'Select date'
+        : '${value!.day}/${value!.month}/${value!.year}';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: InkWell(
+        onTap: onTap,
+        child: InputDecorator(
+          decoration: InputDecoration(
+            labelText: label,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            suffixIcon: const Icon(Icons.calendar_today),
+          ),
+          child: Text(
+            text,
+            style: TextStyle(
+              color: value == null ? Colors.grey : Colors.black87,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TimePickerField extends StatelessWidget {
+  final String label;
+  final TimeOfDay? value;
+  final Future<void> Function() onTap;
+
+  const _TimePickerField({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final text =
+        value == null ? 'Select time' : value!.format(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: InkWell(
+        onTap: onTap,
+        child: InputDecorator(
+          decoration: InputDecoration(
+            labelText: label,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            suffixIcon: const Icon(Icons.access_time),
+          ),
+          child: Text(
+            text,
+            style: TextStyle(
+              color: value == null ? Colors.grey : Colors.black87,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchFilterSection extends StatelessWidget {
+  final String searchQuery;
+  final ValueChanged<String> onSearchChanged;
+  final String? statusFilter;
+  final ValueChanged<String?> onStatusChanged;
+  final String? classFilter;
+  final ValueChanged<String?> onClassChanged;
+  final List<Examination> exams;
+
+  const _SearchFilterSection({
+    required this.searchQuery,
+    required this.onSearchChanged,
+    required this.statusFilter,
+    required this.onStatusChanged,
+    required this.classFilter,
+    required this.onClassChanged,
+    required this.exams,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '🔍 Search & Filter',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            decoration: InputDecoration(
+              hintText: 'Search examinations...',
+              prefixIcon: const Icon(Icons.search),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onChanged: onSearchChanged,
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: statusFilter,
+                  decoration: InputDecoration(
+                    labelText: 'Status',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('All Status')),
+                    DropdownMenuItem(value: 'upcoming', child: Text('Upcoming')),
+                    DropdownMenuItem(value: 'ongoing', child: Text('Ongoing')),
+                    DropdownMenuItem(value: 'completed', child: Text('Completed')),
+                  ],
+                  onChanged: onStatusChanged,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: classFilter,
+                  decoration: InputDecoration(
+                    labelText: 'Class',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('All Classes')),
+                    ..._classOptions,
+                  ],
+                  onChanged: onClassChanged,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _ExamGrid(exams: exams),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExamGrid extends StatelessWidget {
+  final List<Examination> exams;
+
+  const _ExamGrid({required this.exams});
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'upcoming':
+        return const Color(0xFFFEEBC8);
+      case 'ongoing':
+        return const Color(0xFFC6F6D5);
+      case 'completed':
+        return const Color(0xFFBEE3F8);
+      default:
+        return Colors.grey.shade200;
+    }
+  }
+
+  Color _statusTextColor(String status) {
+    switch (status) {
+      case 'upcoming':
+        return const Color(0xFF7B341E);
+      case 'ongoing':
+        return const Color(0xFF2F855A);
+      case 'completed':
+        return const Color(0xFF2C5282);
+      default:
+        return Colors.black54;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (exams.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(40),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: const [
+            Icon(Icons.error_outline, size: 48, color: Colors.grey),
+            SizedBox(height: 12),
+            Text('No examinations match your filters'),
+          ],
+        ),
+      );
+    }
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 20,
+        mainAxisSpacing: 20,
+        mainAxisExtent: 260,
+      ),
+      itemCount: exams.length,
+      itemBuilder: (context, index) {
+        final exam = exams[index];
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 15,
+                offset: const Offset(0, 4),
+              ),
+            ],
+            border: Border(
+              left: BorderSide(
+                color: _statusTextColor(exam.status),
+                width: 5,
+              ),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                exam.title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  _Chip(label: exam.type.replaceAll('-', ' ').toUpperCase()),
+                  _Chip(label: exam.grade.replaceAll('-', ' ').toUpperCase()),
+                  _Chip(label: exam.subject.replaceAll('-', ' ').toUpperCase()),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Date: ${exam.date.day}/${exam.date.month}/${exam.date.year}',
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Time: ${exam.time.format(context)}',
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Duration: ${exam.durationMinutes} mins',
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Max Marks: ${exam.maxMarks}',
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Location: ${exam.location.isEmpty ? 'TBA' : exam.location}',
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.bottomLeft,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _statusColor(exam.status),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    exam.status.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _statusTextColor(exam.status),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final String label;
+
+  const _Chip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 12, color: Colors.black54),
+      ),
+    );
+  }
+}
+
+List<DropdownMenuItem<String>> get _classOptions => const [
+      DropdownMenuItem(value: 'class-1', child: Text('Class 1')),
+      DropdownMenuItem(value: 'class-2', child: Text('Class 2')),
+      DropdownMenuItem(value: 'class-3', child: Text('Class 3')),
+      DropdownMenuItem(value: 'class-4', child: Text('Class 4')),
+      DropdownMenuItem(value: 'class-5', child: Text('Class 5')),
+      DropdownMenuItem(value: 'class-6', child: Text('Class 6')),
+      DropdownMenuItem(value: 'class-7', child: Text('Class 7')),
+      DropdownMenuItem(value: 'class-8', child: Text('Class 8')),
+      DropdownMenuItem(value: 'class-9', child: Text('Class 9')),
+      DropdownMenuItem(value: 'class-10', child: Text('Class 10')),
+      DropdownMenuItem(value: 'class-11', child: Text('Class 11')),
+      DropdownMenuItem(value: 'class-12', child: Text('Class 12')),
+    ];
+
+List<DropdownMenuItem<String>> get _subjectOptions => const [
+      DropdownMenuItem(value: 'mathematics', child: Text('Mathematics')),
+      DropdownMenuItem(value: 'science', child: Text('Science')),
+      DropdownMenuItem(value: 'english', child: Text('English')),
+      DropdownMenuItem(value: 'hindi', child: Text('Hindi')),
+      DropdownMenuItem(value: 'social-studies', child: Text('Social Studies')),
+      DropdownMenuItem(value: 'computer-science', child: Text('Computer Science')),
+      DropdownMenuItem(value: 'physics', child: Text('Physics')),
+      DropdownMenuItem(value: 'chemistry', child: Text('Chemistry')),
+      DropdownMenuItem(value: 'biology', child: Text('Biology')),
+    ];
+
