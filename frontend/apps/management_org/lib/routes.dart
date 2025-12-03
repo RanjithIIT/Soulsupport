@@ -1,0 +1,71 @@
+import 'package:flutter/material.dart';
+
+import 'management_routes.dart';
+
+// Import screens
+import 'dashboard.dart';
+import 'students.dart';
+import 'teachers.dart';
+import 'gallery.dart';
+import 'buses.dart';
+import 'events.dart';
+import 'notifications.dart';
+import 'calendar.dart';
+import 'activities.dart';
+import 'examinations.dart';
+import 'fees.dart';
+import 'admissions.dart';
+import 'departments.dart';
+import 'awards.dart';
+import 'bus_routes.dart';
+import 'campus_life.dart';
+import 'add_student.dart';
+import 'add_teacher.dart';
+import 'edit_student.dart';
+import 'edit_teacher.dart';
+import 'edit_bus.dart';
+import 'edit_activity.dart';
+
+class ManagementRoutePages {
+  static Map<String, WidgetBuilder> routes = {
+    ManagementRoutes.dashboard: (_) => const DashboardPage(),
+    ManagementRoutes.students: (_) => const StudentsManagementPage(),
+    ManagementRoutes.teachers: (_) => const TeachersManagementPage(),
+    ManagementRoutes.buses: (_) => const BusesManagementPage(),
+    ManagementRoutes.gallery: (_) => const PhotoGalleryPage(),
+    ManagementRoutes.events: (_) => const EventsManagementPage(),
+    ManagementRoutes.notifications: (_) => const NotificationsManagementPage(),
+    ManagementRoutes.calendar: (_) => const CalendarManagementPage(),
+    ManagementRoutes.activities: (_) => const ActivitiesManagementPage(),
+    ManagementRoutes.examinations: (_) => const ExaminationManagementPage(),
+    ManagementRoutes.fees: (_) => const FeesManagementPage(),
+    ManagementRoutes.admissions: (_) => const AdmissionsManagementPage(),
+    ManagementRoutes.departments: (_) => const DepartmentsManagementPage(),
+    ManagementRoutes.awards: (_) => const AwardsManagementPage(),
+    ManagementRoutes.busRoutes: (_) => const BusRoutesManagementPage(),
+    ManagementRoutes.campusLife: (_) => const CampusLifeManagementPage(),
+    ManagementRoutes.addStudent: (_) => const AddStudentPage(),
+    ManagementRoutes.addTeacher: (_) => const AddTeacherPage(),
+    ManagementRoutes.editStudent: (context) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      final studentId = args is int ? args : null;
+      return EditStudentPage(studentId: studentId);
+    },
+    ManagementRoutes.editTeacher: (context) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      final teacherId = args is int ? args : null;
+      return EditTeacherPage(teacherId: teacherId);
+    },
+    ManagementRoutes.editBus: (context) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      final busId = args is int ? args : null;
+      return EditBusPage(busId: busId);
+    },
+    ManagementRoutes.editActivity: (context) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      final activityId = args is int ? args : null;
+      return EditActivityPage(activityId: activityId);
+    },
+  };
+}
+

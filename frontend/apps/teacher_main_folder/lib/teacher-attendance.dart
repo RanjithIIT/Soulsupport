@@ -350,7 +350,7 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
       ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.white),
-        onPressed: () {},
+        onPressed: () => Navigator.of(context).pop(),
       ),
       title: const Text(
         'Teacher Attendance',
@@ -859,9 +859,15 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: _buildAppBar(),
-      body: SingleChildScrollView(
+    return PopScope(
+      canPop: true,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        Navigator.of(context).pop();
+      },
+      child: Scaffold(
+        appBar: _buildAppBar(),
+        body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Center(
           child: ConstrainedBox(
@@ -888,6 +894,7 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

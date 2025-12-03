@@ -10,6 +10,8 @@ import 'activities.dart';
 import 'awards.dart';
 import 'gallery.dart';
 import 'calendar.dart';
+import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
 
 void main() {
   runApp(const AdmissionsManagementPage());
@@ -117,56 +119,7 @@ class AdmissionsScreen extends StatefulWidget {
 
 class _AdmissionsScreenState extends State<AdmissionsScreen> {
   // -- State Variables --
-  final List<Admission> _allAdmissions = [
-    Admission(
-      id: 1,
-      studentName: 'Rahul Kumar',
-      parentName: 'Rajesh Kumar',
-      dateOfBirth: DateTime(2015, 3, 15),
-      gender: 'Male',
-      applyingClass: 'Class 9',
-      contactNumber: '9876543210',
-      address: '123, Green Park, New Delhi',
-      applicationDate: DateTime(2024, 1, 15),
-      category: 'General',
-      status: 'Pending',
-      email: 'rahul.kumar@email.com',
-      previousSchool: 'ABC School',
-    ),
-    Admission(
-      id: 2,
-      studentName: 'Priya Sharma',
-      parentName: 'Amit Sharma',
-      dateOfBirth: DateTime(2018, 7, 22),
-      gender: 'Female',
-      applyingClass: 'Class 5',
-      contactNumber: '8765432109',
-      address: '456, Sector 15, Gurgaon',
-      applicationDate: DateTime(2024, 1, 20),
-      category: 'OBC',
-      status: 'Approved',
-      admissionNumber: 'ADM-2024-002',
-      email: 'priya.sharma@email.com',
-      previousSchool: 'XYZ School',
-    ),
-    Admission(
-      id: 3,
-      studentName: 'Arjun Singh',
-      parentName: 'Vikram Singh',
-      dateOfBirth: DateTime(2016, 11, 8),
-      gender: 'Male',
-      applyingClass: 'Class 7',
-      contactNumber: '7654321098',
-      address: '789, Model Town, Delhi',
-      applicationDate: DateTime(2024, 2, 1),
-      category: 'General',
-      status: 'Enrolled',
-      admissionNumber: 'ADM-2024-003',
-      email: 'arjun.singh@email.com',
-      previousSchool: 'DEF School',
-    ),
-  ];
-
+  List<Admission> _allAdmissions = [];
   List<Admission> _filteredAdmissions = [];
   
   // Main Form Controllers
@@ -187,14 +140,168 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
   String? _selectedCategory;
   DateTime? _selectedDob;
   DateTime? _selectedAppDate;
+  int? _selectedSchoolId;
 
   String _filterStatus = "";
   String _filterClass = "";
+  
+  bool _isSubmitting = false;
+  bool _isLoading = false;
+  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
     super.initState();
-    _filteredAdmissions = List.from(_allAdmissions);
+    _loadAdmissions();
+    _searchController.addListener(_filterAdmissions);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_filterAdmissions);
+    _searchController.dispose();
+    _nameController.dispose();
+    _parentController.dispose();
+    _contactController.dispose();
+    _addressController.dispose();
+    _emailController.dispose();
+    _prevSchoolController.dispose();
+    _remarksController.dispose();
+    super.dispose();
+  }
+
+  // -- API Methods --
+
+  Future<void> _loadAdmissions() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final response = await _apiService.get(Endpoints.admissions);
+
+      if (response.success && response.data != null) {
+        List<Admission> admissions = [];
+        
+        // Handle different response formats
+        dynamic data = response.data;
+        
+        // If response is a list, use it directly
+        if (data is List) {
+          for (var item in data) {
+            if (item is Map<String, dynamic>) {
+              final admission = _parseAdmissionFromJson(item);
+              if (admission != null) {
+                admissions.add(admission);
+              }
+            }
+          }
+        }
+        // If response is an object with a 'results' field (pagination)
+        else if (data is Map<String, dynamic>) {
+          if (data['results'] != null && data['results'] is List) {
+            for (var item in data['results'] as List) {
+              if (item is Map<String, dynamic>) {
+                final admission = _parseAdmissionFromJson(item);
+                if (admission != null) {
+                  admissions.add(admission);
+                }
+              }
+            }
+          }
+          // If data itself is a list-like structure
+          else if (data['data'] != null && data['data'] is List) {
+            for (var item in data['data'] as List) {
+              if (item is Map<String, dynamic>) {
+                final admission = _parseAdmissionFromJson(item);
+                if (admission != null) {
+                  admissions.add(admission);
+                }
+              }
+            }
+          }
+        }
+
+        setState(() {
+          _allAdmissions = admissions;
+          _filteredAdmissions = List.from(_allAdmissions);
+        });
+      } else {
+        // Handle error
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to load admissions: ${response.error ?? "Unknown error"}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading admissions: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Admission? _parseAdmissionFromJson(Map<String, dynamic> json) {
+    try {
+      // Parse dates
+      DateTime? dateOfBirth;
+      DateTime? applicationDate;
+      
+      if (json['date_of_birth'] != null) {
+        if (json['date_of_birth'] is String) {
+          dateOfBirth = DateTime.tryParse(json['date_of_birth']);
+        } else if (json['date_of_birth'] is DateTime) {
+          dateOfBirth = json['date_of_birth'];
+        }
+      }
+      
+      if (json['application_date'] != null) {
+        if (json['application_date'] is String) {
+          applicationDate = DateTime.tryParse(json['application_date']);
+        } else if (json['application_date'] is DateTime) {
+          applicationDate = json['application_date'];
+        }
+      }
+
+      if (dateOfBirth == null || applicationDate == null) {
+        return null;
+      }
+
+      return Admission(
+        id: json['id'] ?? 0,
+        studentName: json['student_name'] ?? '',
+        parentName: json['parent_name'] ?? '',
+        dateOfBirth: dateOfBirth,
+        gender: json['gender'] ?? '',
+        applyingClass: json['applying_class'] ?? '',
+        contactNumber: json['contact_number'] ?? '',
+        address: json['address'] ?? '',
+        applicationDate: applicationDate,
+        category: json['category'] ?? '',
+        status: json['status'] ?? 'Pending',
+        admissionNumber: json['admission_number'],
+        email: json['email'],
+        previousSchool: json['previous_school'],
+        remarks: json['remarks'],
+      );
+    } catch (e) {
+      print('Error parsing admission: $e');
+      return null;
+    }
   }
 
   // -- Logic Methods --
@@ -215,7 +322,7 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
     });
   }
 
-  void _addNewAdmissionFromPage() {
+  Future<void> _addNewAdmissionFromPage() async {
     if (_formKey.currentState!.validate() &&
         _selectedDob != null &&
         _selectedAppDate != null &&
@@ -223,49 +330,147 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
         _selectedClass != null &&
         _selectedCategory != null) {
       
-      final newAdmission = Admission(
-        id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-        studentName: _nameController.text,
-        parentName: _parentController.text,
-        dateOfBirth: _selectedDob!,
-        gender: _selectedGender!,
-        applyingClass: _selectedClass!,
-        contactNumber: _contactController.text,
-        address: _addressController.text,
-        applicationDate: _selectedAppDate!,
-        category: _selectedCategory!,
-        status: "Pending",
-        email: _emailController.text.isEmpty ? null : _emailController.text,
-        previousSchool: _prevSchoolController.text.isEmpty ? null : _prevSchoolController.text,
-        remarks: _remarksController.text.isEmpty ? null : _remarksController.text,
-      );
-
       setState(() {
-        _allAdmissions.insert(0, newAdmission);
-        
-        // Reset Form
-        _nameController.clear();
-        _parentController.clear();
-        _contactController.clear();
-        _addressController.clear();
-        _emailController.clear();
-        _prevSchoolController.clear();
-        _remarksController.clear();
-        _selectedGender = null;
-        _selectedClass = null;
-        _selectedCategory = null;
-        _selectedDob = null;
-        _selectedAppDate = null;
+        _isSubmitting = true;
       });
-      
-      _filterAdmissions();
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Application submitted successfully!"), backgroundColor: Color(0xFF667EEA)),
-      );
+
+      try {
+        // Prepare data for API
+        final admissionData = {
+          'school': _selectedSchoolId ?? 1, // Default to school ID 1 if not selected
+          'student_name': _nameController.text.trim(),
+          'parent_name': _parentController.text.trim(),
+          'date_of_birth': DateFormat('yyyy-MM-dd').format(_selectedDob!),
+          'gender': _selectedGender!,
+          'applying_class': _selectedClass!,
+          'contact_number': _contactController.text.trim(),
+          'address': _addressController.text.trim(),
+          'application_date': DateFormat('yyyy-MM-dd').format(_selectedAppDate!),
+          'category': _selectedCategory!,
+          'status': 'Pending',
+          if (_emailController.text.trim().isNotEmpty)
+            'email': _emailController.text.trim(),
+          if (_prevSchoolController.text.trim().isNotEmpty)
+            'previous_school': _prevSchoolController.text.trim(),
+          if (_remarksController.text.trim().isNotEmpty)
+            'remarks': _remarksController.text.trim(),
+        };
+
+        // Call backend API
+        final response = await _apiService.post(
+          Endpoints.admissions,
+          body: admissionData,
+        );
+
+        if (response.success && response.data != null) {
+        // Parse response - backend returns {success, message, data: {...}}
+        final responseData = response.data as Map<String, dynamic>;
+        
+        // Check if response has success field
+        final isSuccess = responseData['success'] as bool? ?? true;
+        
+        if (!isSuccess) {
+          final errorMsg = responseData['message'] ?? responseData['error'] ?? 'Failed to create admission';
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(errorMsg),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+        
+        // Admission data will be loaded from server after successful creation
+
+          // Reset Form
+          _nameController.clear();
+          _parentController.clear();
+          _contactController.clear();
+          _addressController.clear();
+          _emailController.clear();
+          _prevSchoolController.clear();
+          _remarksController.clear();
+          _selectedGender = null;
+          _selectedClass = null;
+          _selectedCategory = null;
+          _selectedDob = null;
+          _selectedAppDate = null;
+          _selectedSchoolId = null;
+
+          // Reload admissions from server
+          await _loadAdmissions();
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Application submitted successfully!"),
+                backgroundColor: Color(0xFF667EEA),
+              ),
+            );
+          }
+        } else {
+          // Handle API error
+          String errorMessage = 'Failed to submit application. Please try again.';
+          
+          if (response.data != null && response.data is Map) {
+            final errorData = response.data as Map<String, dynamic>;
+            
+            // Check for validation errors
+            if (errorData['errors'] != null) {
+              final errors = errorData['errors'] as Map<String, dynamic>;
+              final errorList = <String>[];
+              errors.forEach((key, value) {
+                if (value is List) {
+                  errorList.addAll(value.map((e) => '$key: $e').toList());
+                } else {
+                  errorList.add('$key: $value');
+                }
+              });
+              errorMessage = errorList.join(', ');
+            } else {
+              errorMessage = errorData['message'] ?? 
+                            errorData['error'] ?? 
+                            errorMessage;
+            }
+          } else if (response.error != null) {
+            errorMessage = response.error!;
+          }
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(errorMessage),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isSubmitting = false;
+          });
+        }
+      }
     } else if (_selectedDob == null || _selectedAppDate == null) {
        ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please select valid dates."), backgroundColor: Colors.red),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please fill all required fields."), backgroundColor: Colors.red),
       );
     }
   }
@@ -280,29 +485,119 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
     });
   }
 
-  void _deleteAdmission(int id) {
-    setState(() {
-      _allAdmissions.removeWhere((a) => a.id == id);
-      _filterAdmissions();
-    });
+  Future<void> _deleteAdmission(int id) async {
+    try {
+      // Call backend API to delete
+      final response = await _apiService.delete('${Endpoints.admissions}$id/');
+
+      if (response.success) {
+        // Reload admissions from server
+        await _loadAdmissions();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Admission deleted successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to delete: ${response.error ?? "Unknown error"}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting admission: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
-  void _changeStatus(int id, String newStatus) {
-    setState(() {
+  Future<void> _changeStatus(int id, String newStatus) async {
+    try {
       final index = _allAdmissions.indexWhere((a) => a.id == id);
-      if (index != -1) {
-        final admission = _allAdmissions[index];
-        String? admissionNumber = admission.admissionNumber;
-        if (newStatus == 'Approved' && admissionNumber == null) {
-          admissionNumber = 'ADM-2024-${_allAdmissions.length.toString().padLeft(3, '0')}';
-        }
-        _allAdmissions[index] = admission.copyWith(
-          status: newStatus,
-          admissionNumber: admissionNumber,
-        );
-        _filterAdmissions();
+      if (index == -1) return;
+
+      final admission = _allAdmissions[index];
+      
+      // Generate admission number if approving and not already set
+      String? admissionNumber = admission.admissionNumber;
+      if (newStatus == 'Approved' && admissionNumber == null) {
+        // Generate unique admission number
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        admissionNumber = 'ADM-${DateTime.now().year}-${timestamp.toString().substring(timestamp.toString().length - 6)}';
       }
-    });
+
+      // Prepare update data
+      final updateData = {
+        'status': newStatus,
+      };
+      
+      // Include admission number if it's being set
+      if (admissionNumber != null) {
+        updateData['admission_number'] = admissionNumber;
+      }
+
+      // Call backend API to update status
+      final response = await _apiService.patch(
+        '${Endpoints.admissions}$id/',
+        body: updateData,
+      );
+
+      if (response.success && response.data != null) {
+        // Reload admissions to get updated data from server
+        await _loadAdmissions();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Status updated to $newStatus successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        // Handle error
+        String errorMessage = 'Failed to update status. Please try again.';
+        if (response.data != null && response.data is Map) {
+          final errorData = response.data as Map<String, dynamic>;
+          errorMessage = errorData['message'] ?? 
+                        errorData['error'] ?? 
+                        errorMessage;
+        } else if (response.error != null) {
+          errorMessage = response.error!;
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMessage),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating status: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   // -- Helpers --
@@ -336,12 +631,19 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
           if (isDesktop)
             Container(
               width: 250,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
                   colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 20,
+                    offset: const Offset(2, 0),
+                  ),
+                ],
               ),
               child: Column(
                 children: [
@@ -743,26 +1045,77 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 15),
+            TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                labelText: 'Email (Optional)',
+                hintText: 'Enter email address',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                filled: true,
+                fillColor: Colors.grey[50],
+              ),
+            ),
+            const SizedBox(height: 15),
+            TextFormField(
+              controller: _prevSchoolController,
+              decoration: InputDecoration(
+                labelText: 'Previous School (Optional)',
+                hintText: 'Enter previous school name',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                filled: true,
+                fillColor: Colors.grey[50],
+              ),
+            ),
+            const SizedBox(height: 15),
+            TextFormField(
+              controller: _remarksController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: 'Remarks (Optional)',
+                hintText: 'Enter any additional remarks',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                filled: true,
+                fillColor: Colors.grey[50],
+              ),
+            ),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _addNewAdmissionFromPage,
+                onPressed: _isSubmitting ? null : _addNewAdmissionFromPage,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF667EEA),
                   padding: const EdgeInsets.symmetric(vertical: 15),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
+                  disabledBackgroundColor: Colors.grey,
                 ),
-                child: const Text(
-                  'Submit Application',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text(
+                        'Submit Application',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
           ],
@@ -873,11 +1226,57 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
   }
 
   Widget _buildAdmissionsGrid() {
-    if (_filteredAdmissions.isEmpty) {
+    if (_isLoading) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(40),
-          child: Text("No admissions found", style: TextStyle(color: Colors.grey, fontSize: 18)),
+          padding: EdgeInsets.all(40.0),
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF667EEA)),
+          ),
+        ),
+      );
+    }
+
+    if (_filteredAdmissions.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              Text(
+                _allAdmissions.isEmpty 
+                  ? 'No admissions found. Add a new admission to get started.'
+                  : 'No admissions match your search criteria.',
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_filteredAdmissions.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              Text(
+                _allAdmissions.isEmpty 
+                  ? 'No admissions found. Add a new admission to get started.'
+                  : 'No admissions match your search criteria.',
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       );
     }

@@ -403,7 +403,13 @@ class _EditBusPageState extends State<EditBusPage> {
                                 ),
                                 const SizedBox(width: 15),
                                 ElevatedButton.icon(
-                                  onPressed: () => Navigator.pushReplacementNamed(context, '/buses'),
+                                  onPressed: () {
+                                    if (Navigator.canPop(context)) {
+                                      Navigator.pop(context);
+                                    } else {
+                                      Navigator.pushReplacementNamed(context, '/buses');
+                                    }
+                                  },
                                   icon: const Icon(Icons.arrow_back),
                                   label: const Text('Back to Buses'),
                                   style: ElevatedButton.styleFrom(
@@ -1081,7 +1087,13 @@ class _EditBusPageState extends State<EditBusPage> {
                                   ),
                                   const SizedBox(width: 15),
                                   ElevatedButton.icon(
-                                    onPressed: () => Navigator.pushReplacementNamed(context, '/buses'),
+                                    onPressed: () {
+                                      if (Navigator.canPop(context)) {
+                                        Navigator.pop(context);
+                                      } else {
+                                        Navigator.pushReplacementNamed(context, '/buses');
+                                      }
+                                    },
                                     icon: const Icon(Icons.cancel),
                                     label: const Text('Cancel'),
                                     style: ElevatedButton.styleFrom(

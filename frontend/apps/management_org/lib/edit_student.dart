@@ -414,7 +414,13 @@ class _EditStudentPageState extends State<EditStudentPage> {
                                 ),
                                 const SizedBox(width: 15),
                                 ElevatedButton.icon(
-                                  onPressed: () => Navigator.pushReplacementNamed(context, '/students'),
+                                  onPressed: () {
+                                    if (Navigator.canPop(context)) {
+                                      Navigator.pop(context);
+                                    } else {
+                                      Navigator.pushReplacementNamed(context, '/students');
+                                    }
+                                  },
                                   icon: const Icon(Icons.arrow_back),
                                   label: const Text('Back to Students'),
                                   style: ElevatedButton.styleFrom(

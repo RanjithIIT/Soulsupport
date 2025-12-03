@@ -169,12 +169,19 @@ class _AwardsScreenState extends State<AwardsScreen> {
           if (isDesktop)
             Container(
               width: 250,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 20,
+                    offset: const Offset(2, 0),
+                  ),
+                ],
               ),
               child: Column(
                 children: [

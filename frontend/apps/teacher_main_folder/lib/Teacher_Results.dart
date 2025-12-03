@@ -392,10 +392,16 @@ class _EnterResultsScreenState extends State<EnterResultsScreen> {
         !_isLoading &&
         _currentStudents.isNotEmpty; // Check if students are loaded
 
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          _buildHeader(context),
+    return PopScope(
+      canPop: true,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        Navigator.of(context).pop();
+      },
+      child: Scaffold(
+        body: CustomScrollView(
+          slivers: [
+            _buildHeader(context),
           SliverList(
             delegate: SliverChildListDelegate([
               Padding(
@@ -418,6 +424,7 @@ class _EnterResultsScreenState extends State<EnterResultsScreen> {
             ]),
           ),
         ],
+      ),
       ),
     );
   }

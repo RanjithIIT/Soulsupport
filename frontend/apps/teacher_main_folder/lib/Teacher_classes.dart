@@ -99,10 +99,16 @@ class _MyClassesPageState extends State<MyClassesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          _buildHeader(context),
+    return PopScope(
+      canPop: true,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        Navigator.of(context).pop();
+      },
+      child: Scaffold(
+        body: Column(
+          children: [
+            _buildHeader(context),
           Expanded(
             child: isLoading
                 ? _buildLoading()
@@ -146,6 +152,7 @@ class _MyClassesPageState extends State<MyClassesPage> {
                   ),
           ),
         ],
+      ),
       ),
     );
   }

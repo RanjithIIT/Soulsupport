@@ -1,6 +1,18 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math; // Used for random data generation
 import 'package:main_login/main.dart' as main_login;
+import 'parent-profile.dart';
+import 'parent-academics.dart';
+import 'parent-bus.dart';
+import 'parent-calendar.dart';
+import 'parent-daily-task.dart';
+import 'parent-Extracurricular.dart';
+import 'parent-gallery.dart';
+import 'parent-homework.dart';
+import 'parent-projects.dart';
+import 'parent-results.dart';
+import 'parent-test.dart';
+import 'parent_fees.dart';
 
 // -------------------------------------------------------------------------
 // 1. UTILITY FUNCTIONS & DATA MODELS
@@ -227,91 +239,127 @@ class _HomeScreenState extends State<HomeScreen> {
         'number': 'Profile',
         'label': 'Student Profile',
         'color': const Color(0xFF5A67C4), // Primary
-        'action': () => _showSnackBar("Redirecting to Profile"),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const StudentProfilePage()),
+        ),
       },
       {
         'icon': Icons.directions_bus,
         'number': mockData.busDetails['busNumber'] as String,
         'label': 'Bus Details',
         'color': const Color(0xFF17a2b8),
-        'action': () => _showSnackBar("Redirecting to Bus Details"),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const BusDetailsPage()),
+        ),
       },
       {
         'icon': Icons.science,
         'number': 'Projects',
         'label': 'Student Projects',
         'color': const Color(0xFF6f42c1),
-        'action': () => _showSnackBar("Redirecting to Projects"),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const StudentProjectsPage()),
+        ),
       },
       {
         'icon': Icons.check_circle_outline,
         'number': 'Tasks',
         'label': 'Daily Tasks',
         'color': const Color(0xFF20c997),
-        'action': () => _showSnackBar("Redirecting to Daily Tasks"),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const DailyTasksPage()),
+        ),
       },
       {
         'icon': Icons.assessment,
         'number': mockData.upcomingTests,
         'label': 'Tests',
         'color': const Color(0xFFf093fb),
-        'action': () => _showSnackBar("Redirecting to Tests"),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const TestManagementPage()),
+        ),
       },
       {
         'icon': Icons.bar_chart,
         'number': mockData.totalResults,
         'label': 'Results',
         'color': const Color(0xFF28a745),
-        'action': () => _showSnackBar("Redirecting to Results"),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ResultsPage()),
+        ),
       },
       {
         'icon': Icons.assignment,
         'number': mockData.totalHomework,
         'label': 'Homework',
         'color': const Color(0xFF764ba2),
-        'action': () => _showSnackBar("Redirecting to Homework"),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeworkManagementPage()),
+        ),
       },
       {
         'icon': Icons.school,
         'number': mockData.academicsScore,
         'label': 'Academics',
         'color': const Color(0xFF5A67C4), // Primary
-        'action': () => _showSnackBar("Redirecting to Academics"),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AcademicsPage()),
+        ),
       },
       {
         'icon': Icons.sports_soccer,
         'number': mockData.extracurricularCount,
         'label': 'Activities',
         'color': const Color(0xFFFFC107),
-        'action': () => _showSnackBar("Redirecting to Activities"),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ActivityScreen()),
+        ),
       },
       {
         'icon': Icons.house,
         'number': 'Gallery',
         'label': 'School Gallery',
         'color': const Color(0xFFfd7e14),
-        'action': () => _showSnackBar("Redirecting to Gallery"),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const SchoolGalleryPage()),
+        ),
       },
       {
         'icon': Icons.payment,
         'number': mockData.feesStatus,
         'label': 'Fees',
         'color': const Color(0xFF20c997),
-        'action': () => _showSnackBar("Redirecting to Fees"),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const StudentFeesPage()),
+        ),
       },
       {
         'icon': Icons.message,
         'number': 'Contact',
         'label': 'Teacher',
         'color': const Color(0xFFe83e8c),
-        'action': () => _showSnackBar("Contacting Teacher"),
+        'action': () => _showChatDialog(context),
       },
       {
         'icon': Icons.calendar_month,
         'number': 'Calendar',
         'label': 'Academic Calendar',
         'color': const Color(0xFF6c757d),
-        'action': () => _showSnackBar("Redirecting to Academic Calendar"),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AcademicCalendarPage()),
+        ),
       },
     ];
 

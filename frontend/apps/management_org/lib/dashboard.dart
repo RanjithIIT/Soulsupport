@@ -1,5 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:main_login/main.dart' as main_login;
+import 'main.dart' as app;
+import 'activities.dart';
+import 'add_student.dart';
+import 'add_teacher.dart';
+import 'admissions.dart';
+import 'awards.dart';
+import 'bus_routes.dart';
+import 'buses.dart';
+import 'calendar.dart';
+import 'campus_life.dart';
+import 'departments.dart';
+import 'edit_activity.dart';
+import 'edit_bus.dart';
+import 'edit_student.dart';
+import 'edit_teacher.dart';
+import 'events.dart';
+import 'examinations.dart';
+import 'fees.dart';
+import 'gallery.dart';
+import 'notifications.dart';
+import 'students.dart';
+import 'teachers.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -10,6 +32,19 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  // Safe navigation helper that ensures context is valid
+  void _navigateToRoute(String route) {
+    // Use the global navigator key to ensure correct navigation
+    final navigator = app.SchoolManagementApp.navigatorKey.currentState;
+    if (navigator != null) {
+      if (navigator.canPop() || route != '/dashboard') {
+        navigator.pushReplacementNamed(route);
+      } else {
+        navigator.pushNamed(route);
+      }
+    }
+  }
 
   final List<Map<String, dynamic>> _recentTeachers = [
     {
@@ -400,10 +435,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           const SizedBox(height: 24),
                           _StatsGrid(
                             onNavigate: (section) {
-                              Navigator.pushReplacementNamed(
-                                context,
-                                '/$section',
-                              );
+                              _navigateToRoute('/$section');
                             },
                           ),
                           const SizedBox(height: 24),
@@ -483,6 +515,16 @@ class _Sidebar extends StatelessWidget {
 
   const _Sidebar({required this.gradient});
 
+  // Safe navigation helper for sidebar
+  void _navigateToRoute(BuildContext context, String route) {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop() || route != '/dashboard') {
+      navigator.pushReplacementNamed(route);
+    } else {
+      navigator.pushNamed(route);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -544,55 +586,47 @@ class _Sidebar extends StatelessWidget {
                     icon: '📊',
                     title: 'Overview',
                     isActive: true,
-                    onTap: () => Navigator.pushReplacementNamed(context, '/dashboard'),
+                    onTap: () => _navigateToRoute(context, '/dashboard'),
                   ),
                   _NavItem(
                     icon: '👨‍🏫',
                     title: 'Teachers',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/teachers'),
+                    onTap: () => _navigateToRoute(context, '/teachers'),
                   ),
                   _NavItem(
                     icon: '👥',
                     title: 'Students',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/students'),
+                    onTap: () => _navigateToRoute(context, '/students'),
                   ),
                   _NavItem(
                     icon: '🚌',
                     title: 'Buses',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/buses'),
+                    onTap: () => _navigateToRoute(context, '/buses'),
                   ),
                   _NavItem(
                     icon: '🎯',
                     title: 'Activities',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/activities'),
+                    onTap: () => _navigateToRoute(context, '/activities'),
                   ),
                   _NavItem(
                     icon: '📅',
                     title: 'Events',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/events'),
+                    onTap: () => _navigateToRoute(context, '/events'),
                   ),
                   _NavItem(
                     icon: '📆',
                     title: 'Calendar',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/calendar'),
+                    onTap: () => _navigateToRoute(context, '/calendar'),
                   ),
                   _NavItem(
                     icon: '🔔',
                     title: 'Notifications',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/notifications'),
+                    onTap: () => _navigateToRoute(context, '/notifications'),
                   ),
                   _NavItem(
                     icon: '🛣️',
                     title: 'Bus Routes',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/bus-routes'),
+                    onTap: () => _navigateToRoute(context, '/bus-routes'),
                   ),
                 ],
               ),
@@ -1149,8 +1183,9 @@ class _RecentTeachersSection extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: TextButton(
-                  onPressed: () =>
-                      Navigator.pushReplacementNamed(context, '/teachers'),
+                  onPressed: () {
+                    app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/teachers');
+                  },
                   style: TextButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     foregroundColor: Colors.white,
@@ -1173,8 +1208,9 @@ class _RecentTeachersSection extends StatelessWidget {
                 avatar: teacher['initials'] as String,
                 title: teacher['name'] as String,
                 subtitle: teacher['designation'] as String,
-                onTap: () =>
-                    Navigator.pushReplacementNamed(context, '/teachers'),
+                onTap: () {
+                  app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/teachers');
+                },
               )),
         ],
       ),
@@ -1233,8 +1269,9 @@ class _RecentStudentsSection extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: TextButton(
-                  onPressed: () =>
-                      Navigator.pushReplacementNamed(context, '/students'),
+                  onPressed: () {
+                    app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/students');
+                  },
                   style: TextButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     foregroundColor: Colors.white,
@@ -1258,8 +1295,9 @@ class _RecentStudentsSection extends StatelessWidget {
                 title: student['name'] as String,
                 subtitle:
                     '${student['class']} • Section ${student['section']}',
-                onTap: () =>
-                    Navigator.pushReplacementNamed(context, '/students'),
+                onTap: () {
+                  app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/students');
+                },
               )),
         ],
       ),
@@ -1642,8 +1680,9 @@ class _RecentActivitiesSection extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: TextButton(
-                  onPressed: () =>
-                      Navigator.pushReplacementNamed(context, '/activities'),
+                  onPressed: () {
+                    app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/activities');
+                  },
                   style: TextButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     foregroundColor: Colors.white,
@@ -1953,8 +1992,9 @@ class _RecentAwardsSection extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: TextButton(
-                  onPressed: () =>
-                      Navigator.pushReplacementNamed(context, '/awards'),
+                  onPressed: () {
+                    app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/awards');
+                  },
                   style: TextButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     foregroundColor: Colors.white,
@@ -1978,8 +2018,9 @@ class _RecentAwardsSection extends StatelessWidget {
                 title: award['name'] as String,
                 subtitle:
                     '${award['student']} • ${award['category']} • ${award['date']}',
-                onTap: () =>
-                    Navigator.pushReplacementNamed(context, '/awards'),
+                onTap: () {
+                  app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/awards');
+                },
               )),
         ],
       ),
@@ -2037,8 +2078,9 @@ class _GallerySection extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: TextButton(
-                  onPressed: () =>
-                      Navigator.pushReplacementNamed(context, '/gallery'),
+                  onPressed: () {
+                    app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/gallery');
+                  },
                   style: TextButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     foregroundColor: Colors.white,
@@ -2101,7 +2143,10 @@ class _GalleryItemState extends State<_GalleryItem> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
-        onTap: () => Navigator.pushReplacementNamed(context, '/gallery'),
+        onTap: () {
+          final navigator = Navigator.of(context);
+          navigator.pushReplacementNamed('/gallery');
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           transform: _isHovered
@@ -2226,8 +2271,9 @@ class _RecentAdmissionsSection extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: TextButton(
-                  onPressed: () =>
-                      Navigator.pushReplacementNamed(context, '/admissions'),
+                  onPressed: () {
+                    app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/admissions');
+                  },
                   style: TextButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     foregroundColor: Colors.white,
@@ -2251,8 +2297,9 @@ class _RecentAdmissionsSection extends StatelessWidget {
                 title: admission['name'] as String,
                 subtitle:
                     'Class ${admission['class']} • ${admission['status']} • ${admission['date']}',
-                onTap: () =>
-                    Navigator.pushReplacementNamed(context, '/admissions'),
+                onTap: () {
+                  app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/admissions');
+                },
               )),
         ],
       ),
@@ -2311,7 +2358,7 @@ class _ExtracurricularSection extends StatelessWidget {
                 ),
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    Navigator.pushReplacementNamed(context, '/activities');
+                    app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/activities');
                   },
                   icon: const Icon(Icons.add, size: 16),
                   label: const Row(

@@ -462,7 +462,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    onPressed: () => _showSnack('Back (demo)'),
+                    onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.arrow_back, color: Colors.white),
                   ),
                   const SizedBox(width: 8),

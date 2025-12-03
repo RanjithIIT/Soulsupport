@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dashboard.dart';
 
 class AddTeacherPage extends StatefulWidget {
   const AddTeacherPage({super.key});
@@ -204,6 +205,28 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _buildHeader(),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardPage())),
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.white.withValues(alpha: 0.2),
+                          foregroundColor: Colors.white,
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.3),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.arrow_back, size: 16),
+                            SizedBox(width: 6),
+                            Text('Back to Dashboard'),
+                          ],
+                        ),
+                      ),
+                    ),
                     Padding(
                       padding: EdgeInsets.all(isCompact ? 20 : 40),
                       child: Form(

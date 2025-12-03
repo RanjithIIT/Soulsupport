@@ -1090,9 +1090,15 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: _buildHeader(context),
-      body: SingleChildScrollView(
+    return PopScope(
+      canPop: true,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        Navigator.of(context).pop();
+      },
+      child: Scaffold(
+        appBar: _buildHeader(context),
+        body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1126,6 +1132,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

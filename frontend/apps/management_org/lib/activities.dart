@@ -639,6 +639,7 @@ class _ActivityCardWithHoverState extends State<_ActivityCardWithHover> {
         child: GlassContainer(
           padding: const EdgeInsets.all(25),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(

@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'main.dart' as app;
 import 'dashboard.dart';
 
 class Teacher {
@@ -177,11 +178,11 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
   }
 
   void _addTeacher() {
-    Navigator.pushNamed(context, '/add-teacher');
+    app.SchoolManagementApp.navigatorKey.currentState?.pushNamed('/add-teacher');
   }
 
   void _editTeacher(Teacher teacher) {
-    Navigator.pushNamed(context, '/edit-teacher', arguments: teacher.id);
+    app.SchoolManagementApp.navigatorKey.currentState?.pushNamed('/edit-teacher', arguments: teacher.id);
   }
 
   void _deleteTeacher(Teacher teacher) {
@@ -502,7 +503,8 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
                 };
                 final route = routeMap[item['label']];
                 if (route != null) {
-                  Navigator.pushReplacementNamed(context, route);
+                  // Use the global navigator key to ensure correct navigation
+                  app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed(route);
                 }
               },
             ),
@@ -795,6 +797,7 @@ class _TeacherCardWithHoverState extends State<_TeacherCardWithHover> {
         child: GlassContainer(
           padding: const EdgeInsets.all(25),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(

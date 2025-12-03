@@ -242,7 +242,7 @@ class ResultsPage extends StatelessWidget {
         // Back Button
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => _showSnackbar(context, "Navigating back..."),
+          onPressed: () => Navigator.pop(context),
         ),
 
         // Title (Matching the blurred white text from the image)

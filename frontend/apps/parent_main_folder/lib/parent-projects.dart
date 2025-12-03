@@ -278,7 +278,7 @@ class _StudentProjectsPageState extends State<StudentProjectsPage> {
         // Back Button
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => _showSnackbar("Navigating Back (Simulated)"),
+          onPressed: () => Navigator.pop(context),
         ),
 
         // Title

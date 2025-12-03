@@ -18,13 +18,13 @@ class Endpoints {
   static const String adminBilling = '/admin/billing';
 
   // Management endpoints
-  static const String students = '/management/students';
-  static const String teachers = '/management/teachers';
-  static const String departments = '/management/departments';
+  static const String students = '/management-admin/students/';
+  static const String teachers = '/management-admin/teachers/';
+  static const String departments = '/management-admin/departments/';
   static const String buses = '/management/buses';
   static const String busRoutes = '/management/bus-routes';
   static const String fees = '/management/fees';
-  static const String admissions = '/management/admissions';
+  static const String admissions = '/management-admin/admissions/';
   static const String examinations = '/management/examinations';
   static const String events = '/management/events';
   static const String activities = '/management/activities';

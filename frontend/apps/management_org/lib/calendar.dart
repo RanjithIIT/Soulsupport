@@ -392,6 +392,13 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(2, 0),
+          ),
+        ],
       ),
       child: Column(
         children: [

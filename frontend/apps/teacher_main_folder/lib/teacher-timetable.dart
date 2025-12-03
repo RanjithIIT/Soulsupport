@@ -454,7 +454,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    onPressed: null,
+                    onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.arrow_back, color: Colors.white),
                   ),
                   const SizedBox(width: 8),
@@ -1171,9 +1171,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     final m = items[idx];
                                     return MaterialCard(
                                       item: m,
-                                      onDownload: null,
-                                      onEdit: null,
-                                      onDelete: null,
+                                      onDownload: () => _downloadMaterial(m),
+                                      onEdit: () => _editMaterial(m.id),
+                                      onDelete: () => _deleteMaterial(m.id),
                                     );
                                   },
                                 );

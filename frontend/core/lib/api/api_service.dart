@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:core/api/endpoints.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Base API handler
 class ApiService {
@@ -9,15 +10,58 @@ class ApiService {
   ApiService._internal();
 
   String? _authToken;
+  String? _refreshToken;
   Duration _timeout = const Duration(seconds: 30);
+  bool _isRefreshing = false;
+
+  // Initialize - load tokens from storage
+  Future<void> initialize() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _authToken = prefs.getString('access_token');
+      _refreshToken = prefs.getString('refresh_token');
+    } catch (e) {
+      // If SharedPreferences fails, continue without stored tokens
+      _authToken = null;
+      _refreshToken = null;
+    }
+  }
 
   // Set authentication token
-  void setAuthToken(String? token) {
+  Future<void> setAuthToken(String? token) async {
     _authToken = token;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (token != null) {
+        await prefs.setString('access_token', token);
+      } else {
+        await prefs.remove('access_token');
+      }
+    } catch (e) {
+      // If SharedPreferences fails, continue with in-memory token
+    }
+  }
+
+  // Set refresh token
+  Future<void> setRefreshToken(String? token) async {
+    _refreshToken = token;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (token != null) {
+        await prefs.setString('refresh_token', token);
+      } else {
+        await prefs.remove('refresh_token');
+      }
+    } catch (e) {
+      // If SharedPreferences fails, continue with in-memory token
+    }
   }
 
   // Get authentication token
   String? get authToken => _authToken;
+  
+  // Get refresh token
+  String? get refreshToken => _refreshToken;
 
   // Set request timeout
   void setTimeout(Duration duration) {
@@ -42,11 +86,52 @@ class ApiService {
     return headers;
   }
 
-  // GET request
+  // Refresh access token using refresh token
+  Future<bool> _refreshAccessToken() async {
+    if (_refreshToken == null || _isRefreshing) {
+      return false;
+    }
+
+    _isRefreshing = true;
+    try {
+      final uri = Uri.parse(Endpoints.buildUrl(Endpoints.refreshToken));
+      final response = await http
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode({'refresh': _refreshToken}),
+          )
+          .timeout(_timeout);
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        final newAccessToken = body['access'] as String?;
+        if (newAccessToken != null) {
+          await setAuthToken(newAccessToken);
+          _isRefreshing = false;
+          return true;
+        }
+      }
+    } catch (e) {
+      // Refresh failed - will be handled below
+    }
+    
+    _isRefreshing = false;
+    // Clear tokens if refresh fails
+    await setAuthToken(null);
+    await setRefreshToken(null);
+    return false;
+  }
+
+  // GET request with automatic token refresh
   Future<ApiResponse> get(
     String endpoint, {
     Map<String, String>? queryParameters,
     Map<String, String>? headers,
+    bool retryOn401 = true,
   }) async {
     try {
       Uri uri = Uri.parse(Endpoints.buildUrl(endpoint));
@@ -58,17 +143,37 @@ class ApiService {
           .get(uri, headers: _getHeaders(additionalHeaders: headers))
           .timeout(_timeout);
 
+      // Handle 401 - try to refresh token
+      if (response.statusCode == 401 && retryOn401) {
+        final refreshed = await _refreshAccessToken();
+        if (refreshed) {
+          // Retry the request with new token
+          return get(
+            endpoint,
+            queryParameters: queryParameters,
+            headers: headers,
+            retryOn401: false,
+          );
+        } else {
+          return ApiResponse.error(
+            'Session expired. Please login again.',
+            statusCode: 401,
+          );
+        }
+      }
+
       return _handleResponse(response);
     } catch (e) {
       return ApiResponse.error('Network error: ${e.toString()}');
     }
   }
 
-  // POST request
+  // POST request with automatic token refresh
   Future<ApiResponse> post(
     String endpoint, {
     Map<String, dynamic>? body,
     Map<String, String>? headers,
+    bool retryOn401 = true,
   }) async {
     try {
       final uri = Uri.parse(Endpoints.buildUrl(endpoint));
@@ -80,17 +185,37 @@ class ApiService {
           )
           .timeout(_timeout);
 
+      // Handle 401 - try to refresh token
+      if (response.statusCode == 401 && retryOn401) {
+        final refreshed = await _refreshAccessToken();
+        if (refreshed) {
+          // Retry the request with new token
+          return post(
+            endpoint,
+            body: body,
+            headers: headers,
+            retryOn401: false,
+          );
+        } else {
+          return ApiResponse.error(
+            'Session expired. Please login again.',
+            statusCode: 401,
+          );
+        }
+      }
+
       return _handleResponse(response);
     } catch (e) {
       return ApiResponse.error('Network error: ${e.toString()}');
     }
   }
 
-  // PUT request
+  // PUT request with automatic token refresh
   Future<ApiResponse> put(
     String endpoint, {
     Map<String, dynamic>? body,
     Map<String, String>? headers,
+    bool retryOn401 = true,
   }) async {
     try {
       final uri = Uri.parse(Endpoints.buildUrl(endpoint));
@@ -102,17 +227,37 @@ class ApiService {
           )
           .timeout(_timeout);
 
+      // Handle 401 - try to refresh token
+      if (response.statusCode == 401 && retryOn401) {
+        final refreshed = await _refreshAccessToken();
+        if (refreshed) {
+          // Retry the request with new token
+          return put(
+            endpoint,
+            body: body,
+            headers: headers,
+            retryOn401: false,
+          );
+        } else {
+          return ApiResponse.error(
+            'Session expired. Please login again.',
+            statusCode: 401,
+          );
+        }
+      }
+
       return _handleResponse(response);
     } catch (e) {
       return ApiResponse.error('Network error: ${e.toString()}');
     }
   }
 
-  // PATCH request
+  // PATCH request with automatic token refresh
   Future<ApiResponse> patch(
     String endpoint, {
     Map<String, dynamic>? body,
     Map<String, String>? headers,
+    bool retryOn401 = true,
   }) async {
     try {
       final uri = Uri.parse(Endpoints.buildUrl(endpoint));
@@ -124,22 +269,60 @@ class ApiService {
           )
           .timeout(_timeout);
 
+      // Handle 401 - try to refresh token
+      if (response.statusCode == 401 && retryOn401) {
+        final refreshed = await _refreshAccessToken();
+        if (refreshed) {
+          // Retry the request with new token
+          return patch(
+            endpoint,
+            body: body,
+            headers: headers,
+            retryOn401: false,
+          );
+        } else {
+          return ApiResponse.error(
+            'Session expired. Please login again.',
+            statusCode: 401,
+          );
+        }
+      }
+
       return _handleResponse(response);
     } catch (e) {
       return ApiResponse.error('Network error: ${e.toString()}');
     }
   }
 
-  // DELETE request
+  // DELETE request with automatic token refresh
   Future<ApiResponse> delete(
     String endpoint, {
     Map<String, String>? headers,
+    bool retryOn401 = true,
   }) async {
     try {
       final uri = Uri.parse(Endpoints.buildUrl(endpoint));
       final response = await http
           .delete(uri, headers: _getHeaders(additionalHeaders: headers))
           .timeout(_timeout);
+
+      // Handle 401 - try to refresh token
+      if (response.statusCode == 401 && retryOn401) {
+        final refreshed = await _refreshAccessToken();
+        if (refreshed) {
+          // Retry the request with new token
+          return delete(
+            endpoint,
+            headers: headers,
+            retryOn401: false,
+          );
+        } else {
+          return ApiResponse.error(
+            'Session expired. Please login again.',
+            statusCode: 401,
+          );
+        }
+      }
 
       return _handleResponse(response);
     } catch (e) {

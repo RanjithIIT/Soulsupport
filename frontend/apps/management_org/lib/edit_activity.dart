@@ -358,9 +358,13 @@ class _EditActivityPageState extends State<EditActivityPage> {
                                 ),
                                 const SizedBox(width: 15),
                                 ElevatedButton.icon(
-                                  onPressed: () =>
-                                      Navigator.pushReplacementNamed(
-                                          context, '/activities'),
+                                  onPressed: () {
+                                    if (Navigator.canPop(context)) {
+                                      Navigator.pop(context);
+                                    } else {
+                                      Navigator.pushReplacementNamed(context, '/activities');
+                                    }
+                                  },
                                   icon: const Icon(Icons.arrow_back),
                                   label: const Text('Back to Activities'),
                                   style: ElevatedButton.styleFrom(

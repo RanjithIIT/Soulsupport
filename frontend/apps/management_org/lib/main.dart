@@ -1,38 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:core/api/api_service.dart';
 
-import 'activities.dart';
-import 'add_student.dart';
-import 'add_teacher.dart';
-import 'admissions.dart';
-import 'awards.dart';
-import 'bus_routes.dart';
-import 'buses.dart';
-import 'calendar.dart';
-import 'campus_life.dart';
+import 'routes.dart';
+import 'management_routes.dart';
 import 'dashboard.dart';
-import 'departments.dart';
-import 'edit_activity.dart';
-import 'edit_bus.dart';
-import 'edit_student.dart';
-import 'edit_teacher.dart';
-import 'events.dart';
-import 'examinations.dart';
-import 'fees.dart';
-import 'gallery.dart';
-import 'notifications.dart';
-import 'students.dart';
-import 'teachers.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize ApiService to load stored tokens
+  await ApiService().initialize();
+  
   runApp(const SchoolManagementApp());
 }
 
 class SchoolManagementApp extends StatelessWidget {
   const SchoolManagementApp({super.key});
 
+  // Global navigator key to ensure routes work even when nested
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+  // Helper method to navigate using the global navigator key
+  static void navigateTo(String route, {Object? arguments}) {
+    navigatorKey.currentState?.pushReplacementNamed(route, arguments: arguments);
+  }
+
+  // Helper to get the navigator - use this instead of Navigator.of(context)
+  static NavigatorState? get navigator => navigatorKey.currentState;
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'School Management System',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -40,30 +39,14 @@ class SchoolManagementApp extends StatelessWidget {
         primarySwatch: Colors.indigo,
         useMaterial3: true,
       ),
+      initialRoute: ManagementRoutes.dashboard,
       home: const DashboardPage(),
-      routes: {
-        '/dashboard': (_) => const DashboardPage(),
-        '/teachers': (_) => const TeachersManagementPage(),
-        '/students': (_) => const StudentsManagementPage(),
-        '/buses': (_) => const BusesManagementPage(),
-        '/activities': (_) => const ActivitiesManagementPage(),
-        '/events': (_) => const EventsManagementPage(),
-        '/notifications': (_) => const NotificationsManagementPage(),
-        '/gallery': (_) => const PhotoGalleryPage(),
-        '/fees': (_) => const FeesManagementPage(),
-        '/examinations': (_) => const ExaminationManagementPage(),
-        '/calendar': (_) => const CalendarManagementPage(),
-        '/awards': (_) => const AwardsManagementPage(),
-        '/admissions': (_) => const AdmissionsManagementPage(),
-        '/bus-routes': (_) => const BusRoutesManagementPage(),
-        '/campus-life': (_) => const CampusLifeManagementPage(),
-        '/departments': (_) => const DepartmentsManagementPage(),
-        '/add-student': (_) => const AddStudentPage(),
-        '/add-teacher': (_) => const AddTeacherPage(),
-        '/edit-student': (_) => const EditStudentPage(),
-        '/edit-teacher': (_) => const EditTeacherPage(),
-        '/edit-bus': (_) => const EditBusPage(),
-        '/edit-activity': (_) => const EditActivityPage(),
+      routes: ManagementRoutePages.routes,
+      onUnknownRoute: (settings) {
+        // Fallback route handler - redirect to dashboard if route not found
+        return MaterialPageRoute(
+          builder: (_) => const DashboardPage(),
+        );
       },
     );
   }

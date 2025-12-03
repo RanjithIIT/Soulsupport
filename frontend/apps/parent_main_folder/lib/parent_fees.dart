@@ -584,7 +584,7 @@ class _StudentFeesPageState extends State<StudentFeesPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => _showMsg("Back to Dashboard (Simulated)"),
+          onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(

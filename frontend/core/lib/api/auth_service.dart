@@ -42,12 +42,12 @@ class AuthService {
           final message = data['message'] as String? ?? 'Login successful';
 
           if (accessToken != null) {
-            _apiService.setAuthToken(accessToken);
+            await _apiService.setAuthToken(accessToken);
             
             // Store refresh token if available
             final refreshToken = tokens?['refresh'] as String?;
             if (refreshToken != null) {
-              // You can store this in shared preferences for token refresh
+              await _apiService.setRefreshToken(refreshToken);
             }
 
             return {
@@ -141,26 +141,36 @@ class AuthService {
     try {
       final response = await _apiService.post(Endpoints.logout);
 
-      // Clear token regardless of response
-      _apiService.setAuthToken(null);
+      // Clear tokens regardless of response
+      await _apiService.setAuthToken(null);
+      await _apiService.setRefreshToken(null);
 
       return response.success;
     } catch (e) {
-      // Clear token even if request fails
-      _apiService.setAuthToken(null);
+      // Clear tokens even if request fails
+      await _apiService.setAuthToken(null);
+      await _apiService.setRefreshToken(null);
       return false;
     }
   }
 
   // Refresh token
   Future<AuthResponse> refreshToken() async {
-    final response = await _apiService.post(Endpoints.refreshToken);
+    final refreshToken = _apiService.refreshToken;
+    if (refreshToken == null) {
+      return AuthResponse.error('No refresh token available');
+    }
+
+    final response = await _apiService.post(
+      Endpoints.refreshToken,
+      body: {'refresh': refreshToken},
+    );
 
     if (response.success && response.data != null) {
-      final token = response.data['token'] as String?;
+      final token = response.data['access'] as String?;
 
       if (token != null) {
-        _apiService.setAuthToken(token);
+        await _apiService.setAuthToken(token);
         return AuthResponse.success(token: token);
       }
     }

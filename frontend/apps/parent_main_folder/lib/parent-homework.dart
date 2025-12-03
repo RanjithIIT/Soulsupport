@@ -502,7 +502,7 @@ class _HomeworkManagementPageState extends State<HomeworkManagementPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => _showMsg("Back to Dashboard (Simulated)"),
+          onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(

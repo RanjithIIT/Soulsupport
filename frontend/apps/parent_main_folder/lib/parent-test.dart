@@ -157,7 +157,7 @@ class TestManagementPage extends StatelessWidget {
 
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => _showAction(context, "Navigating Back..."),
+          onPressed: () => Navigator.pop(context),
         ),
 
         title: const Text(

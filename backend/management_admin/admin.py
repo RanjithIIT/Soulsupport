@@ -2,7 +2,7 @@
 Admin configuration for management_admin app
 """
 from django.contrib import admin
-from .models import Department, Teacher, Student, DashboardStats
+from .models import Department, Teacher, Student, DashboardStats, NewAdmission
 
 
 @admin.register(Department)
@@ -24,6 +24,15 @@ class StudentAdmin(admin.ModelAdmin):
     list_display = ['user', 'school', 'student_id', 'class_name', 'section', 'admission_date']
     list_filter = ['school', 'class_name', 'section', 'admission_date']
     search_fields = ['user__username', 'user__email', 'student_id', 'parent_name']
+
+
+@admin.register(NewAdmission)
+class NewAdmissionAdmin(admin.ModelAdmin):
+    list_display = ['student_name', 'parent_name', 'school', 'applying_class', 'status', 'application_date']
+    list_filter = ['school', 'status', 'applying_class', 'category', 'gender', 'application_date']
+    search_fields = ['student_name', 'parent_name', 'contact_number', 'email', 'admission_number']
+    readonly_fields = ['created_at', 'updated_at']
+    date_hierarchy = 'application_date'
 
 
 @admin.register(DashboardStats)

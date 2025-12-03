@@ -254,7 +254,7 @@ class ActivityScreen extends StatelessWidget {
       title: const Text('Extracurricular Dashboard'),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
-        onPressed: () => _handleAction(context, 'Back to Dashboard'),
+        onPressed: () => Navigator.pop(context),
       ),
       actions: [
         // Quick shortcut to open the full Activity Schedule screen

@@ -10,6 +10,8 @@ import 'teacher-attendance.dart';
 import 'teacher-exam.dart';
 import 'teacher-grades.dart';
 import 'teacher-profile.dart';
+import 'teacher-studymaterial.dart' as study_material;
+import 'teacher-timetable.dart' as timetable;
 import 'Teacher_classes.dart';
 import 'Teacher_class_students.dart';
 import 'Teacher_Communication.dart';
@@ -437,78 +439,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
         break;
       case 'study materials':
-        // Import StudyMaterialsDashboardScreen - using alias to avoid conflict
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (context) => Builder(
-              builder: (ctx) => Scaffold(
-                appBar: PreferredSize(
-                  preferredSize: const Size.fromHeight(72),
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF8E6BFF), Color(0xFF7A4BE6)],
-                      ),
-                    ),
-                    child: SafeArea(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              onPressed: () => Navigator.pop(ctx),
-                              icon: const Icon(Icons.arrow_back, color: Colors.white),
-                            ),
-                            const SizedBox(width: 8),
-                            const Text('Study Materials', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                body: const Center(child: Text('Study Materials - Coming Soon')),
-              ),
-            ),
-          ),
+          MaterialPageRoute(builder: (context) => const study_material.DashboardScreen()),
         );
         break;
       case 'time-table':
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (context) => Builder(
-              builder: (ctx) => Scaffold(
-                appBar: PreferredSize(
-                  preferredSize: const Size.fromHeight(72),
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF8E6BFF), Color(0xFF7A4BE6)],
-                      ),
-                    ),
-                    child: SafeArea(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              onPressed: () => Navigator.pop(ctx),
-                              icon: const Icon(Icons.arrow_back, color: Colors.white),
-                            ),
-                            const SizedBox(width: 8),
-                            const Text('Timetable', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                body: const Center(child: Text('Timetable - Coming Soon')),
-              ),
-            ),
-          ),
+          MaterialPageRoute(builder: (context) => const timetable.DashboardScreen()),
         );
         break;
       default:
@@ -1635,7 +1574,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final classesGridCount = isTablet ? 2 : 1;
     final horizontalPadding = isDesktop ? 20.0 : 10.0;
 
-    return Scaffold(
+    return PopScope(
+      canPop: true,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        // Handle back button - close chat if open, otherwise allow normal navigation
+        if (_isChatOpen) {
+          setState(() {
+            _isChatOpen = false;
+            _selectedChatId = null;
+          });
+        } else {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(80.0),
         child: _buildHeader(),
@@ -1807,6 +1760,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // Chat container is now responsible for the toggle button in the closed state.
           _buildChatContainer(context),
         ],
+      ),
       ),
     );
   }
@@ -2501,7 +2455,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         } else if (label.contains('Results')) {
           Navigator.push(context, MaterialPageRoute(builder: (context) => const EnterResultsScreen()));
         } else if (label.contains('Timetable')) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const timetable.DashboardScreen()));
         } else if (label.contains('Profile')) {
           Navigator.push(context, MaterialPageRoute(builder: (context) => const TeacherProfilePage()));
         } else if (label.contains('Communication')) {
@@ -3205,12 +3159,18 @@ class StatDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('$title Details'),
-        backgroundColor: const Color(0xFF667eea),
-      ),
-      body: Center(
+    return PopScope(
+      canPop: true,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        Navigator.of(context).pop();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('$title Details'),
+          backgroundColor: const Color(0xFF667eea),
+        ),
+        body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -3245,6 +3205,7 @@ class StatDetailScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

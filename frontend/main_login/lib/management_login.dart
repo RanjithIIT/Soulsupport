@@ -197,12 +197,13 @@ class _ManagementLoginPageState extends State<ManagementLoginPage> {
                                 );
 
                                 if (result['success']) {
-                                  // Navigate to Management dashboard
-                                  Navigator.pushReplacement(
+                                  // Navigate to Management dashboard - completely replace the app
+                                  Navigator.pushAndRemoveUntil(
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) => const management.SchoolManagementApp(),
                                     ),
+                                    (route) => false, // Remove all previous routes
                                   );
                                 }
                               }

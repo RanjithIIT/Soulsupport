@@ -190,9 +190,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   }
 
   void _goBack() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Navigating back...')));
+    Navigator.of(context).pop();
   }
 
   void _logout() {
@@ -269,10 +267,16 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: Container(
+    return PopScope(
+      canPop: true,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        Navigator.of(context).pop();
+      },
+      child: Scaffold(
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(75),
+          child: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               colors: [Color(0xFF4C5FD7), Color(0xFF6A11CB)],
@@ -478,6 +482,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
               ),
           ],
         ),
+      ),
       ),
     );
   }

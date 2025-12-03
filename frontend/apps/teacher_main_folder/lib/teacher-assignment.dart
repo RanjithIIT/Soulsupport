@@ -1134,10 +1134,16 @@ class _AssignmentDashboardScreenState extends State<AssignmentDashboardScreen> {
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width > 768;
 
-    return Scaffold(
-      // The background color of the Scaffold determines the background color outside the main scrollable area
-      backgroundColor: Colors.white,
-      appBar: AppBar(
+    return PopScope(
+      canPop: true,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        Navigator.of(context).pop();
+      },
+      child: Scaffold(
+        // The background color of the Scaffold determines the background color outside the main scrollable area
+        backgroundColor: Colors.white,
+        appBar: AppBar(
         // --- START NEW APP BAR IMPLEMENTATION ---
         toolbarHeight: 70, // Slightly taller for the gradient effect
         leading: IconButton(
@@ -1213,6 +1219,7 @@ class _AssignmentDashboardScreenState extends State<AssignmentDashboardScreen> {
             const SizedBox(height: 20),
           ],
         ),
+      ),
       ),
     );
   }

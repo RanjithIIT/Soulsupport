@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'main.dart' as app;
 import 'package:image_picker/image_picker.dart';
 
 class EditTeacherPage extends StatefulWidget {
@@ -401,8 +402,13 @@ class _Header extends StatelessWidget {
               ),
               const SizedBox(width: 15),
               ElevatedButton.icon(
-                onPressed: () =>
-                    Navigator.pushReplacementNamed(context, '/teachers'),
+                onPressed: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  } else {
+                    Navigator.pushReplacementNamed(context, '/teachers');
+                  }
+                },
                 icon: const Icon(Icons.arrow_back),
                 label: const Text('Back to Teachers'),
                 style: ElevatedButton.styleFrom(
@@ -785,8 +791,13 @@ class _FormCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 15),
                 ElevatedButton.icon(
-                  onPressed: () =>
-                      Navigator.pushReplacementNamed(context, '/teachers'),
+                  onPressed: () {
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    } else {
+                      Navigator.pushReplacementNamed(context, '/teachers');
+                    }
+                  },
                   icon: const Icon(Icons.cancel),
                   label: const Text('Cancel'),
                   style: ElevatedButton.styleFrom(

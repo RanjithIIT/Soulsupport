@@ -22,6 +22,12 @@ class SchoolApp extends StatelessWidget {
         fontFamily: 'Segoe UI',
       ),
       home: const LoginScreen(),
+      onUnknownRoute: (settings) {
+        // Fallback for unknown routes - return to login
+        return MaterialPageRoute(
+          builder: (_) => const LoginScreen(),
+        );
+      },
     );
   }
 }

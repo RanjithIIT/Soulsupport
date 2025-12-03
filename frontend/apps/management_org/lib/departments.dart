@@ -284,7 +284,16 @@ class _DepartmentsManagementPageState extends State<DepartmentsManagementPage> {
           // Sidebar
           Container(
             width: 250,
-            decoration: BoxDecoration(gradient: gradient),
+            decoration: BoxDecoration(
+              gradient: gradient,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 20,
+                  offset: const Offset(2, 0),
+                ),
+              ],
+            ),
             child: SafeArea(
               child: Column(
                 children: [

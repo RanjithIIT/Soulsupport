@@ -772,9 +772,7 @@ class _TeacherCommunicationScreenState extends State<TeacherCommunicationScreen>
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    _showSnackBar('Compose message (simulated)');
-                  },
+                  onPressed: _onCompose,
                   icon: const Icon(Icons.edit_outlined),
                   label: const Text('Compose'),
                   style: ElevatedButton.styleFrom(
@@ -886,9 +884,7 @@ class _TeacherCommunicationScreenState extends State<TeacherCommunicationScreen>
         child: Column(
           children: [
             ElevatedButton.icon(
-              onPressed: () {
-                _showSnackBar('Compose message (simulated)');
-              },
+              onPressed: _onCompose,
               icon: const Icon(Icons.edit_outlined),
               label: const Text('Compose Message'),
               style: ElevatedButton.styleFrom(

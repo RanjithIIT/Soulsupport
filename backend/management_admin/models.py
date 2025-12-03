@@ -79,6 +79,60 @@ class Student(models.Model):
         verbose_name_plural = 'Students'
 
 
+class NewAdmission(models.Model):
+    """New Admission model for managing student admissions"""
+    STATUS_CHOICES = [
+        ('Pending', 'Pending'),
+        ('Approved', 'Approved'),
+        ('Rejected', 'Rejected'),
+        ('Under Review', 'Under Review'),
+        ('Waitlisted', 'Waitlisted'),
+        ('Enrolled', 'Enrolled'),
+    ]
+    
+    GENDER_CHOICES = [
+        ('Male', 'Male'),
+        ('Female', 'Female'),
+        ('Other', 'Other'),
+    ]
+    
+    CATEGORY_CHOICES = [
+        ('General', 'General'),
+        ('OBC', 'OBC'),
+        ('SC', 'SC'),
+        ('ST', 'ST'),
+        ('EWS', 'EWS'),
+        ('Other', 'Other'),
+    ]
+    
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='new_admissions')
+    student_name = models.CharField(max_length=255)
+    parent_name = models.CharField(max_length=255)
+    date_of_birth = models.DateField()
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
+    applying_class = models.CharField(max_length=50)
+    contact_number = models.CharField(max_length=20)
+    address = models.TextField()
+    application_date = models.DateField()
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    admission_number = models.CharField(max_length=50, unique=True, null=True, blank=True)
+    email = models.EmailField(null=True, blank=True)
+    previous_school = models.CharField(max_length=255, null=True, blank=True)
+    remarks = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.student_name} - {self.applying_class} ({self.status})"
+    
+    class Meta:
+        db_table = 'new_admissions'
+        verbose_name = 'New Admission'
+        verbose_name_plural = 'New Admissions'
+        ordering = ['-application_date', '-created_at']
+
+
 class DashboardStats(models.Model):
     """Dashboard statistics for management admin"""
     school = models.OneToOneField(School, on_delete=models.CASCADE, related_name='dashboard_stats')

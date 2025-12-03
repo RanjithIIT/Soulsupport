@@ -1054,9 +1054,7 @@ class _AcademicCalendarPageState extends State<AcademicCalendarPage> {
         ],
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text("Back to Dashboard"))),
+          onPressed: () => Navigator.pop(context),
         ),
       ),
       body: SingleChildScrollView(
