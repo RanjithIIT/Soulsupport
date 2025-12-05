@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dashboard.dart';
+import 'services/api_service.dart';
 
 class AddTeacherPage extends StatefulWidget {
   const AddTeacherPage({super.key});
@@ -29,6 +30,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
   bool _isSubmitting = false;
   bool _showSuccess = false;
   bool _showError = false;
+  String _errorMessage = '';
 
   TeacherPreviewData get _previewData => TeacherPreviewData(
         name: _nameController.text,
@@ -75,22 +77,56 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
     });
 
     try {
-      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      // Get the default school ID (assuming school_id = 1 for now)
+      const schoolId = 1;
+      
+      // Split name into first and last name
+      final nameParts = _nameController.text.trim().split(' ');
+      final firstName = nameParts.first;
+      final lastName = nameParts.length > 1 ? nameParts.skip(1).join(' ') : '';
+      final baseUsername = _emailController.text.split('@').first.replaceAll('.', '_');
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final username = '${baseUsername}_$timestamp';
+      
+      // Prepare teacher data for API
+      final teacherData = {
+        'school': schoolId,
+        'employee_id': 'EMP-${DateTime.now().millisecondsSinceEpoch}',
+        'first_name': firstName,
+        'last_name': lastName,
+        'username': username,
+        'email_user': _emailController.text,
+        'designation': _designation ?? 'Teacher',
+        'phone': _phoneController.text,
+        'email': _emailController.text,
+        'address': _addressController.text,
+        'experience': _experienceController.text,
+        'qualifications': _qualificationsController.text,
+        'specializations': _specializationsController.text,
+        'class_teacher': _classTeacher ?? '',
+      };
+
+      // Call API to create teacher
+      await ApiService.createTeacher(teacherData);
+      
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
         _showSuccess = true;
         _showError = false;
+        _errorMessage = '';
       });
+      
       await Future<void>.delayed(const Duration(seconds: 2));
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/teachers');
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
         _showSuccess = false;
         _showError = true;
+        _errorMessage = e.toString();
       });
     }
   }
@@ -239,9 +275,9 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                     '✅ Teacher added successfully! Redirecting to dashboard...',
                               ),
                             if (_showError)
-                              const _MessageBanner.error(
+                              _MessageBanner.error(
                                 message:
-                                    '❌ Error adding teacher. Please try again.',
+                                    _errorMessage.isNotEmpty ? _errorMessage : '❌ Error adding teacher. Please try again.',
                               ),
                             if (_isSubmitting)
                               const Padding(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:core/api/api_service.dart';
 
+
 import 'routes.dart';
 import 'management_routes.dart';
 import 'dashboard.dart';
@@ -51,4 +52,3 @@ class SchoolManagementApp extends StatelessWidget {
     );
   }
 }
-

@@ -25,21 +25,21 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     # Third party apps
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
     'django_filters',
-    
+    'channels',
+
     # Local apps
     'main_login',
     'super_admin',
     'management_admin',
     'teacher',
     'student_parent',
-    
-    ]
+]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -169,3 +169,12 @@ if DEBUG:
 else:
     CORS_ALLOW_CREDENTIALS = True
 
+
+ASGI_APPLICATION = 'school_backend.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',  # OK for dev
+        # For production you'd usually switch to Redis
+    },
+}

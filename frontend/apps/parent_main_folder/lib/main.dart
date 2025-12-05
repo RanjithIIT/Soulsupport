@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math; // Used for random data generation
+import 'package:intl/intl.dart' as intl;
 import 'package:main_login/main.dart' as main_login;
 import 'parent-profile.dart';
 import 'parent-academics.dart';
@@ -13,6 +16,8 @@ import 'parent-projects.dart';
 import 'parent-results.dart';
 import 'parent-test.dart';
 import 'parent_fees.dart';
+import 'services/api_service.dart' as api;
+import 'services/realtime_chat_service.dart';
 
 // -------------------------------------------------------------------------
 // 1. UTILITY FUNCTIONS & DATA MODELS
@@ -2192,93 +2197,15 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
-  final List<Map<String, dynamic>> _teachers = [
-    {
-      'name': 'Mr. John Smith',
-      'subject': 'Mathematics',
-      'online': true,
-      'unread': 2,
-      'lastMessage': 'Great progress this week!',
-      'time': '10:30 AM',
-      'avatar': '👨‍🏫',
-    },
-    {
-      'name': 'Ms. Sarah Johnson',
-      'subject': 'English',
-      'online': false,
-      'unread': 0,
-      'lastMessage': 'Assignment submitted',
-      'time': 'Yesterday',
-      'avatar': '👩‍🏫',
-    },
-    {
-      'name': 'Dr. Michael Brown',
-      'subject': 'Science',
-      'online': true,
-      'unread': 1,
-      'lastMessage': 'Lab report feedback ready',
-      'time': '2:15 PM',
-      'avatar': '👨‍🔬',
-    },
-    {
-      'name': 'Mrs. Emily Davis',
-      'subject': 'History',
-      'online': false,
-      'unread': 0,
-      'lastMessage': 'See you in class',
-      'time': '2 days ago',
-      'avatar': '👩‍🏫',
-    },
-    {
-      'name': 'Mr. Robert Wilson',
-      'subject': 'Physical Education',
-      'online': true,
-      'unread': 0,
-      'lastMessage': 'Sports day next week',
-      'time': '11:45 AM',
-      'avatar': '⚽',
-    },
-  ];
-
-  final List<Map<String, dynamic>> _groups = [
-    {
-      'name': 'Class 10-A Parents',
-      'members': 35,
-      'unread': 5,
-      'lastMessage': 'Parent meeting on Friday',
-      'time': '1:20 PM',
-      'avatar': '👨‍👩‍👧‍👦',
-    },
-    {
-      'name': 'Mathematics Study Group',
-      'members': 12,
-      'unread': 0,
-      'lastMessage': 'Practice problems shared',
-      'time': 'Yesterday',
-      'avatar': '📐',
-    },
-    {
-      'name': 'School Events Committee',
-      'members': 8,
-      'unread': 3,
-      'lastMessage': 'Annual day preparations',
-      'time': '3:30 PM',
-      'avatar': '🎭',
-    },
-    {
-      'name': 'Sports Team Parents',
-      'members': 20,
-      'unread': 0,
-      'lastMessage': 'Tournament schedule',
-      'time': '3 days ago',
-      'avatar': '🏆',
-    },
-  ];
+  List<Map<String, dynamic>> _teachers = [];
+  List<Map<String, dynamic>> _groups = [];
+  bool _loadingTeachers = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadTeachers();
   }
 
   @override
@@ -2289,6 +2216,7 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
   }
 
   List<Map<String, dynamic>> get _filteredTeachers {
+    if (_loadingTeachers) return [];
     if (_searchQuery.isEmpty) return _teachers;
     return _teachers
         .where(
@@ -2304,6 +2232,7 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
   }
 
   List<Map<String, dynamic>> get _filteredGroups {
+    if (_loadingTeachers) return [];
     if (_searchQuery.isEmpty) return _groups;
     return _groups
         .where(
@@ -2311,6 +2240,53 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
               group['name'].toLowerCase().contains(_searchQuery.toLowerCase()),
         )
         .toList();
+  }
+
+  Future<void> _loadTeachers() async {
+    setState(() => _loadingTeachers = true);
+    try {
+      final data = await api.ApiService.fetchTeachers();
+      final mapped = data.map<Map<String, dynamic>>((t) {
+        final user = t['user'] as Map<String, dynamic>? ?? {};
+        final first = (user['first_name'] as String? ?? '').trim();
+        final last = (user['last_name'] as String? ?? '').trim();
+        final fullName = ('$first $last').trim();
+        final designation = t['designation'] as String? ?? '';
+        return {
+          'name': fullName.isNotEmpty ? fullName : 'Teacher',
+          'subject': designation,
+          'online': false,
+          'unread': 0,
+          'lastMessage': '',
+          'time': '',
+          'avatar': _buildInitials(fullName.isNotEmpty ? fullName : 'T'),
+        };
+      }).toList();
+      setState(() {
+        _teachers = mapped;
+        _groups = [
+          {
+            'name': 'All Teachers',
+            'members': _teachers.length,
+            'unread': 0,
+            'lastMessage': '',
+            'time': '',
+            'avatar': '👥',
+          },
+        ];
+      });
+    } catch (e) {
+      debugPrint('Failed to load teachers: $e');
+    } finally {
+      if (mounted) setState(() => _loadingTeachers = false);
+    }
+  }
+
+  String _buildInitials(String name) {
+    final parts = name.split(' ').where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '👤';
+    final initials = parts.take(2).map((p) => p[0]).join();
+    return initials;
   }
 
   @override
@@ -3222,17 +3198,25 @@ class _TeacherChatScreenState extends State<_TeacherChatScreen> {
 
   // State variable to track if text field is empty
   bool _isTextFieldEmpty = true;
+  late final RealtimeChatService _chatService;
+  StreamSubscription? _chatSubscription;
+  // Dummy room id for testing real‑time chat between
+  // John A. Smith (teacher) and John Michael Smith (student).
+  static const String _chatRoomId = 'STU-2024-001';
 
   @override
   void initState() {
     super.initState();
     _messageController.addListener(_updateTextFieldState);
+    _initializeRealtimeChat();
   }
 
   @override
   void dispose() {
     _messageController.removeListener(_updateTextFieldState);
     _messageController.dispose();
+    _chatSubscription?.cancel();
+    _chatService.disconnect();
     super.dispose();
   }
 
@@ -3246,21 +3230,50 @@ class _TeacherChatScreenState extends State<_TeacherChatScreen> {
   }
 
   void _sendMessage() {
-    if (_messageController.text.trim().isNotEmpty) {
-      setState(() {
-        _messages.add({
-          'text': _messageController.text,
-          'isTeacher': false,
-          'time': 'Just now',
-        });
-        _messageController.clear();
-      });
+    final trimmed = _messageController.text.trim();
+    if (trimmed.isEmpty) return;
+    try {
+      _chatService.sendMessage(sender: 'parent', message: trimmed);
+    } catch (error) {
+      debugPrint('Realtime chat send error: $error');
     }
+    setState(() {
+      _messages.add({
+        'text': trimmed,
+        'isTeacher': false,
+        'time': 'Just now',
+      });
+      _messageController.clear();
+    });
   }
 
   void _sendVoiceMessage() {
     _showSnackBar("Recording voice message...");
     // Implement actual recording logic here (start/stop)
+  }
+
+  void _initializeRealtimeChat() {
+    _chatService =
+        RealtimeChatService(baseWsUrl: 'ws://10.0.2.2:8000'); // Android emulator
+    _chatService.connect(roomId: _chatRoomId);
+    _chatSubscription = _chatService.stream?.listen((event) {
+      try {
+        final payload = event is String ? event : event.toString();
+        final decoded = jsonDecode(payload) as Map<String, dynamic>;
+        final messageText = decoded['message']?.toString() ?? '';
+        if (messageText.isEmpty) return;
+        final isTeacher = decoded['sender']?.toString() == 'teacher';
+        setState(() {
+          _messages.add({
+            'text': messageText,
+            'isTeacher': isTeacher,
+            'time': intl.DateFormat('hh:mm a').format(DateTime.now()),
+          });
+        });
+      } catch (error) {
+        debugPrint('Realtime chat parse error: $error');
+      }
+    });
   }
 
   @override
@@ -3741,4 +3754,3 @@ class _GroupChatScreenState extends State<_GroupChatScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
-

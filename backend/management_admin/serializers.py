@@ -27,14 +27,50 @@ class TeacherSerializer(serializers.ModelSerializer):
     school_name = serializers.CharField(source='school.name', read_only=True)
     department_name = serializers.CharField(source='department.name', read_only=True)
     
+    # Writable fields for creating user
+    first_name = serializers.CharField(write_only=True, required=False)
+    last_name = serializers.CharField(write_only=True, required=False)
+    username = serializers.CharField(write_only=True, required=False)
+    email_user = serializers.EmailField(write_only=True, required=False, source='email_for_user')
+    
     class Meta:
         model = Teacher
         fields = [
             'id', 'user', 'school', 'school_name', 'department',
             'department_name', 'employee_id', 'designation',
-            'hire_date', 'created_at', 'updated_at'
+            'hire_date', 'phone', 'email', 'address', 'experience',
+            'qualifications', 'specializations', 'class_teacher', 'photo',
+            'created_at', 'updated_at',
+            'first_name', 'last_name', 'username', 'email_user'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'user']
+    
+    def create(self, validated_data):
+        """Override create to handle user creation"""
+        from main_login.models import User
+        
+        # Extract user data
+        first_name = validated_data.pop('first_name', '')
+        last_name = validated_data.pop('last_name', '')
+        username = validated_data.pop('username', '')
+        email_for_user = validated_data.pop('email_for_user', '')
+        
+        # Create or get user
+        if username and email_for_user:
+            user, created = User.objects.get_or_create(
+                username=username,
+                defaults={
+                    'email': email_for_user,
+                    'first_name': first_name,
+                    'last_name': last_name,
+                }
+            )
+        else:
+            raise serializers.ValidationError("Username and email_user are required for creating a teacher")
+        
+        # Create teacher with the user
+        teacher = Teacher.objects.create(user=user, **validated_data)
+        return teacher
 
 
 class StudentSerializer(serializers.ModelSerializer):
@@ -42,14 +78,50 @@ class StudentSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     school_name = serializers.CharField(source='school.name', read_only=True)
     
+    # Writable fields for creating user
+    first_name = serializers.CharField(write_only=True, required=False)
+    last_name = serializers.CharField(write_only=True, required=False)
+    username = serializers.CharField(write_only=True, required=False)
+    email_user = serializers.EmailField(write_only=True, required=False, source='email_for_user')
+    
     class Meta:
         model = Student
         fields = [
             'id', 'user', 'school', 'school_name', 'student_id',
             'class_name', 'section', 'admission_date',
-            'parent_name', 'parent_phone', 'created_at', 'updated_at'
+            'date_of_birth', 'gender', 'blood_group', 'address',
+            'emergency_contact', 'medical_info', 'parent_name', 'parent_phone',
+            'photo', 'created_at', 'updated_at',
+            'first_name', 'last_name', 'username', 'email_user'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'user']
+    
+    def create(self, validated_data):
+        """Override create to handle user creation"""
+        from main_login.models import User
+        
+        # Extract user data
+        first_name = validated_data.pop('first_name', '')
+        last_name = validated_data.pop('last_name', '')
+        username = validated_data.pop('username', '')
+        email_for_user = validated_data.pop('email_for_user', '')
+        
+        # Create or get user
+        if username and email_for_user:
+            user, created = User.objects.get_or_create(
+                username=username,
+                defaults={
+                    'email': email_for_user,
+                    'first_name': first_name,
+                    'last_name': last_name,
+                }
+            )
+        else:
+            raise serializers.ValidationError("Username and email_user are required for creating a student")
+        
+        # Create student with the user
+        student = Student.objects.create(user=user, **validated_data)
+        return student
 
 
 class NewAdmissionSerializer(serializers.ModelSerializer):

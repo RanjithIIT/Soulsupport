@@ -1,3 +1,4 @@
+import 'services/api_service.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -40,57 +41,51 @@ class _EditStudentPageState extends State<EditStudentPage> {
   bool _showError = false;
   String _errorMessage = '';
 
-  // Mock student data - in real app, fetch from API based on studentId
-  final Map<String, dynamic> _mockStudent = {
-    'id': 1,
-    'name': 'Alice Brown',
-    'class': 'Grade 10',
-    'section': 'A',
-    'bloodGroup': 'A+',
-    'dateOfBirth': '2008-05-15',
-    'gender': 'Female',
-    'admissionNumber': 'ADM2024001',
-    'rollNumber': '10A001',
-    'parentName': 'Mr. John Brown',
-    'parentPhone': '+1-555-0201',
-    'parentEmail': 'john.brown@email.com',
-    'emergencyContact': '+1-555-0202',
-    'address': '456 Student Avenue, Education City',
-    'busRoute': 'Route 1',
-    'medicalConditions': 'No known medical conditions',
-    'notes': 'Excellent academic performance, participates in sports',
-  };
-
   @override
   void initState() {
     super.initState();
     _loadStudentData();
   }
 
-  void _loadStudentData() {
-    // In real app, fetch student data based on widget.studentId
-    if (widget.studentId != null) {
-      _nameController.text = _mockStudent['name'] ?? '';
-      _studentClass = _mockStudent['class'];
-      _section = _mockStudent['section'];
-      _bloodGroup = _mockStudent['bloodGroup'];
-      if (_mockStudent['dateOfBirth'] != null) {
-        _dateOfBirth = DateTime.parse(_mockStudent['dateOfBirth']);
+  Future<void> _loadStudentData() async {
+    if (widget.studentId == null) return;
+
+    try {
+      final data = await ApiService.fetchStudentById(widget.studentId!);
+
+      final user = data['user'] as Map<String, dynamic>? ?? {};
+      final firstName = user['first_name'] as String? ?? '';
+      final lastName = user['last_name'] as String? ?? '';
+      final fullName = '$firstName $lastName'.trim();
+
+      _nameController.text = fullName.isNotEmpty ? fullName : (data['name'] as String? ?? '');
+      _studentClass = data['class_name'] as String?;
+      _section = data['section'] as String?;
+      _bloodGroup = data['blood_group'] as String?;
+
+      final dob = data['date_of_birth'] as String?;
+      if (dob != null && dob.isNotEmpty) {
+        _dateOfBirth = DateTime.tryParse(dob);
       }
-      _gender = _mockStudent['gender'];
-      _admissionNumberController.text =
-          _mockStudent['admissionNumber'] ?? '';
-      _rollNumberController.text = _mockStudent['rollNumber'] ?? '';
-      _parentNameController.text = _mockStudent['parentName'] ?? '';
-      _parentPhoneController.text = _mockStudent['parentPhone'] ?? '';
-      _parentEmailController.text = _mockStudent['parentEmail'] ?? '';
+
+      _gender = data['gender'] as String?;
+      _admissionNumberController.text = data['student_id'] as String? ?? '';
+      _rollNumberController.text = data['student_id'] as String? ?? '';
+      _parentNameController.text = data['parent_name'] as String? ?? '';
+      _parentPhoneController.text = data['parent_phone'] as String? ?? '';
+      _parentEmailController.text = user['email'] as String? ?? '';
       _emergencyContactController.text =
-          _mockStudent['emergencyContact'] ?? '';
-      _addressController.text = _mockStudent['address'] ?? '';
-      _busRoute = _mockStudent['busRoute'];
+          data['emergency_contact'] as String? ?? '';
+      _addressController.text = data['address'] as String? ?? '';
+      _busRoute = data['bus_route'] as String?;
       _medicalConditionsController.text =
-          _mockStudent['medicalConditions'] ?? '';
-      _notesController.text = _mockStudent['notes'] ?? '';
+          data['medical_info'] as String? ?? '';
+      _notesController.text = data['notes'] as String? ?? '';
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load student: $e')),
+      );
     }
   }
 
@@ -156,23 +151,40 @@ class _EditStudentPageState extends State<EditStudentPage> {
     });
 
     try {
-      // Simulate API call
-      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      final payload = {
+        'student_id': _admissionNumberController.text.trim().isNotEmpty
+            ? _admissionNumberController.text.trim()
+            : _rollNumberController.text.trim(),
+        'class_name': _studentClass,
+        'section': _section,
+        'date_of_birth': DateFormat('yyyy-MM-dd').format(_dateOfBirth!),
+        'gender': _gender,
+        'blood_group': _bloodGroup,
+        'address': _addressController.text.trim(),
+        'emergency_contact': _emergencyContactController.text.trim(),
+        'medical_info': _medicalConditionsController.text.trim(),
+        'parent_name': _parentNameController.text.trim(),
+        'parent_phone': _parentPhoneController.text.trim(),
+        'bus_route': _busRoute,
+      };
+
+      if (widget.studentId != null) {
+        await ApiService.updateStudent(widget.studentId!, payload);
+      }
+
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
         _showSuccess = true;
         _showError = false;
       });
-      await Future<void>.delayed(const Duration(seconds: 2));
-      if (!mounted) return;
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
         _showSuccess = false;
         _showError = true;
-        _errorMessage = 'Error updating student information. Please try again.';
+        _errorMessage = 'Error updating student: $e';
       });
     }
   }

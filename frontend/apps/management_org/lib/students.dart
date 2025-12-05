@@ -1,7 +1,9 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'main.dart' as app;
 import 'dashboard.dart';
+import 'services/api_service.dart';
 
 class StudentAcademics {
   final String overallScore;
@@ -67,7 +69,7 @@ class Student {
   final StudentExtracurricular extracurricular;
   final StudentFees fees;
 
-  const Student({
+  Student({
     required this.id,
     required this.name,
     required this.studentClass,
@@ -89,6 +91,52 @@ class Student {
     required this.extracurricular,
     required this.fees,
   });
+
+  // Factory constructor to parse from JSON (database response)
+  factory Student.fromJson(Map<String, dynamic> json) {
+    final firstName = json['user']?['first_name'] as String? ?? '';
+    final lastName = json['user']?['last_name'] as String? ?? '';
+    final fullName = '$firstName $lastName'.trim();
+
+    return Student(
+      id: json['id'] as int? ?? 0,
+      name: fullName.isNotEmpty ? fullName : 'Unknown Student',
+      studentClass: json['class_name'] as String? ?? '',
+      section: json['section'] as String? ?? '',
+      bloodGroup: json['blood_group'] as String? ?? '',
+      initials: _getInitials(firstName, lastName),
+      parentsName: json['parent_name'] as String? ?? '',
+      contact: json['parent_phone'] as String? ?? '',
+      email:
+          json['email'] as String? ?? json['user']?['email'] as String? ?? '',
+      address: json['address'] as String? ?? '',
+      admissionDate: json['admission_date'] as String? ?? '',
+      rollNumber: json['student_id'] as String? ?? '',
+      attendance: 0.0,
+      busRoute: '',
+      emergencyContact: json['emergency_contact'] as String? ?? '',
+      medicalInfo: json['medical_info'] as String? ?? '',
+      status: 'Active',
+      academics: const StudentAcademics(
+        overallScore: '0%',
+        subjects: '',
+        performance: '',
+        lastExam: '',
+      ),
+      extracurricular: const StudentExtracurricular(
+        activities: '',
+        leadership: '',
+        achievements: '',
+        participation: '',
+      ),
+      fees: const StudentFees(total: '₹0', paid: '₹0', due: '₹0', status: ''),
+    );
+  }
+
+  static String _getInitials(String firstName, String lastName) {
+    return (firstName.isNotEmpty ? firstName[0] : '') +
+        (lastName.isNotEmpty ? lastName[0] : '');
+  }
 }
 
 class StudentsManagementPage extends StatefulWidget {
@@ -99,202 +147,36 @@ class StudentsManagementPage extends StatefulWidget {
 }
 
 class _StudentsManagementPageState extends State<StudentsManagementPage> {
-  final List<Student> _students = [
-    Student(
-      id: 1,
-      name: 'Alice Brown',
-      studentClass: '10th',
-      section: 'A',
-      bloodGroup: 'O+',
-      initials: 'AB',
-      parentsName: 'John & Mary Brown',
-      contact: '+1-555-0201',
-      email: 'alice.brown@student.school.com',
-      address: '123 Student Street, Education City',
-      admissionDate: '2022-06-15',
-      rollNumber: 'STU001',
-      attendance: 95,
-      busRoute: 'Route A',
-      emergencyContact: '+1-555-0202',
-      medicalInfo: 'No known allergies',
-      status: 'Active',
-      academics: const StudentAcademics(
-        overallScore: '92.5%',
-        subjects: 'Math, Science, English, History, Geography',
-        performance: 'Excellent',
-        lastExam: 'Mid-Term',
-      ),
-      extracurricular: const StudentExtracurricular(
-        activities: 'NCC, Sports, Music, Debate',
-        leadership: 'Class Monitor',
-        achievements: 'Sports Champion, Music Competition Winner',
-        participation: 'Very Active',
-      ),
-      fees: const StudentFees(
-        total: '₹45,000',
-        paid: '₹45,000',
-        due: '₹0',
-        status: 'Fully Paid',
-      ),
-    ),
-    Student(
-      id: 2,
-      name: 'Charlie Wilson',
-      studentClass: '11th',
-      section: 'B',
-      bloodGroup: 'A+',
-      initials: 'CW',
-      parentsName: 'Robert & Sarah Wilson',
-      contact: '+1-555-0203',
-      email: 'charlie.wilson@student.school.com',
-      address: '456 Learning Avenue, Knowledge District',
-      admissionDate: '2021-08-20',
-      rollNumber: 'STU002',
-      attendance: 92,
-      busRoute: 'Route B',
-      emergencyContact: '+1-555-0204',
-      medicalInfo: 'Asthma - carries inhaler',
-      status: 'Active',
-      academics: const StudentAcademics(
-        overallScore: '88.3%',
-        subjects: 'Physics, Chemistry, Biology, English, Math',
-        performance: 'Good',
-        lastExam: 'Unit Test',
-      ),
-      extracurricular: const StudentExtracurricular(
-        activities: 'NSS, Science Club, Photography',
-        leadership: 'Science Club Secretary',
-        achievements: 'Science Fair Winner, Photography Award',
-        participation: 'Active',
-      ),
-      fees: const StudentFees(
-        total: '₹48,000',
-        paid: '₹42,000',
-        due: '₹6,000',
-        status: 'Partially Paid',
-      ),
-    ),
-    Student(
-      id: 3,
-      name: 'Diana Davis',
-      studentClass: '12th',
-      section: 'C',
-      bloodGroup: 'B+',
-      initials: 'DD',
-      parentsName: 'Michael & Lisa Davis',
-      contact: '+1-555-0205',
-      email: 'diana.davis@student.school.com',
-      address: '789 Education Road, Wisdom Town',
-      admissionDate: '2020-09-01',
-      rollNumber: 'STU003',
-      attendance: 98,
-      busRoute: 'Route C',
-      emergencyContact: '+1-555-0206',
-      medicalInfo: 'No medical conditions',
-      status: 'Active',
-      academics: const StudentAcademics(
-        overallScore: '95.2%',
-        subjects: 'Math, Physics, Chemistry, English, Computer Science',
-        performance: 'Outstanding',
-        lastExam: 'Final Term',
-      ),
-      extracurricular: const StudentExtracurricular(
-        activities: 'NCC, Coding Club, Dance, Debate',
-        leadership: 'School Captain',
-        achievements: 'National Coding Champion, Dance Competition Winner',
-        participation: 'Very Active',
-      ),
-      fees: const StudentFees(
-        total: '₹50,000',
-        paid: '₹50,000',
-        due: '₹0',
-        status: 'Fully Paid',
-      ),
-    ),
-    Student(
-      id: 4,
-      name: 'Ethan Miller',
-      studentClass: '9th',
-      section: 'A',
-      bloodGroup: 'AB+',
-      initials: 'EM',
-      parentsName: 'James & Anna Miller',
-      contact: '+1-555-0207',
-      email: 'ethan.miller@student.school.com',
-      address: '321 Knowledge Boulevard, Learning City',
-      admissionDate: '2023-06-10',
-      rollNumber: 'STU004',
-      attendance: 89,
-      busRoute: 'Route A',
-      emergencyContact: '+1-555-0208',
-      medicalInfo: 'Diabetes - requires monitoring',
-      status: 'Active',
-      academics: const StudentAcademics(
-        overallScore: '82.1%',
-        subjects: 'Math, Science, English, Social Studies, Hindi',
-        performance: 'Average',
-        lastExam: 'Quarterly',
-      ),
-      extracurricular: const StudentExtracurricular(
-        activities: 'Sports, Art Club, Music',
-        leadership: 'Sports Team Member',
-        achievements: 'Art Competition Participant',
-        participation: 'Moderate',
-      ),
-      fees: const StudentFees(
-        total: '₹42,000',
-        paid: '₹38,000',
-        due: '₹4,000',
-        status: 'Partially Paid',
-      ),
-    ),
-    Student(
-      id: 5,
-      name: 'Fiona Taylor',
-      studentClass: '10th',
-      section: 'B',
-      bloodGroup: 'O-',
-      initials: 'FT',
-      parentsName: 'William & Emma Taylor',
-      contact: '+1-555-0209',
-      email: 'fiona.taylor@student.school.com',
-      address: '654 Student Way, Education District',
-      admissionDate: '2022-08-25',
-      rollNumber: 'STU005',
-      attendance: 96,
-      busRoute: 'Route B',
-      emergencyContact: '+1-555-0210',
-      medicalInfo: 'No known conditions',
-      status: 'Active',
-      academics: const StudentAcademics(
-        overallScore: '90.7%',
-        subjects: 'Math, Science, English, History, Geography',
-        performance: 'Very Good',
-        lastExam: 'Mid-Term',
-      ),
-      extracurricular: const StudentExtracurricular(
-        activities: 'NSS, Literature Club, Drama',
-        leadership: 'Literature Club President',
-        achievements: 'Drama Competition Winner, Essay Writing Award',
-        participation: 'Active',
-      ),
-      fees: const StudentFees(
-        total: '₹45,000',
-        paid: '₹40,000',
-        due: '₹5,000',
-        status: 'Partially Paid',
-      ),
-    ),
-  ];
+  late List<Student> _students;
+  late List<Student> _visibleStudents;
 
   final TextEditingController _searchController = TextEditingController();
   String? _selectedClass;
-  late List<Student> _visibleStudents;
-
   @override
   void initState() {
     super.initState();
-    _visibleStudents = List<Student>.from(_students);
+    _students = [];
+    _visibleStudents = [];
+    _fetchStudents();
+  }
+
+  Future<void> _fetchStudents() async {
+    try {
+      final data = await ApiService.fetchStudents();
+      final students = data
+          .map((item) => Student.fromJson(item as Map<String, dynamic>))
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _students = students;
+        _visibleStudents = List<Student>.from(_students);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error fetching students: $e')));
+    }
   }
 
   @override
@@ -308,8 +190,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
       _students.where((s) => s.status == 'Active').length;
   double get _avgAttendance =>
       _students.fold(0.0, (sum, s) => sum + s.attendance) / _students.length;
-  int get _totalClasses =>
-      _students.map((s) => s.studentClass).toSet().length;
+  int get _totalClasses => _students.map((s) => s.studentClass).toSet().length;
   double get _academicsScore {
     final scores = _students.map((s) {
       final scoreStr = s.academics.overallScore.replaceAll('%', '');
@@ -330,10 +211,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
       final paidStr = s.fees.paid.replaceAll('₹', '').replaceAll(',', '');
       return sum + (int.tryParse(paidStr) ?? 42000);
     });
-    return '₹${total.toString().replaceAllMapped(
-          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-          (Match m) => '${m[1]},',
-        )}';
+    return '₹${total.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}';
   }
 
   void _filterStudents() {
@@ -342,11 +220,13 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
       final selectedClass = _selectedClass;
 
       _visibleStudents = _students.where((student) {
-        final matchesSearch = query.isEmpty ||
+        final matchesSearch =
+            query.isEmpty ||
             student.name.toLowerCase().contains(query) ||
             student.studentClass.toLowerCase().contains(query) ||
             student.rollNumber.toLowerCase().contains(query);
-        final matchesClass = selectedClass == null ||
+        final matchesClass =
+            selectedClass == null ||
             selectedClass.isEmpty ||
             student.studentClass.contains(selectedClass);
         return matchesSearch && matchesClass;
@@ -557,10 +437,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
             'Attendance: ${student.attendance}%',
           ],
         ),
-        _DetailCard(
-          title: 'Medical Information',
-          items: [student.medicalInfo],
-        ),
+        _DetailCard(title: 'Medical Information', items: [student.medicalInfo]),
         _DetailCard(
           title: 'Academics',
           items: [
@@ -609,19 +486,59 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
-                setState(() {
-                  _students.removeWhere((s) => s.id == student.id);
-                });
-                _filterStudents();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Student deleted successfully!')),
+              onPressed: () async {
+                // Close the confirmation dialog first
+                Navigator.of(context).pop();
+
+                // Use root navigator so the loading dialog is guaranteed to close
+                final rootContext = app.SchoolManagementApp.navigatorKey.currentContext ?? context;
+
+                showDialog(
+                  context: rootContext,
+                  barrierDismissible: false,
+                  builder: (_) => const Center(
+                    child: CircularProgressIndicator(),
+                  ),
                 );
+
+                Future<void> closeLoading() async {
+                  if (Navigator.of(rootContext, rootNavigator: true).canPop()) {
+                    Navigator.of(rootContext, rootNavigator: true).pop();
+                  }
+                }
+
+                try {
+                  await ApiService.deleteStudent(student.id);
+                  await closeLoading();
+
+                  if (!mounted) return;
+                  setState(() {
+                    _students.removeWhere((s) => s.id == student.id);
+                    _visibleStudents.removeWhere((s) => s.id == student.id);
+                  });
+
+                  // Attempt to close any profile dialog underneath
+                  if (Navigator.of(rootContext, rootNavigator: true).canPop()) {
+                    Navigator.of(rootContext, rootNavigator: true).maybePop();
+                  }
+
+                  final messengerContext = app.SchoolManagementApp.navigatorKey.currentContext;
+                  if (messengerContext != null) {
+                    ScaffoldMessenger.of(messengerContext).showSnackBar(
+                      const SnackBar(content: Text('Student deleted successfully!')),
+                    );
+                  }
+                } catch (e) {
+                  await closeLoading();
+                  final messengerContext = app.SchoolManagementApp.navigatorKey.currentContext;
+                  if (messengerContext != null) {
+                    ScaffoldMessenger.of(messengerContext).showSnackBar(
+                      SnackBar(content: Text('Error deleting student: $e')),
+                    );
+                  }
+                }
               },
-              child: const Text(
-                'Delete',
-                style: TextStyle(color: Colors.red),
-              ),
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
             ),
           ],
         );
@@ -650,9 +567,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
 
             if (isCompact) {
               return Column(
-                children: [
-                  Expanded(child: _buildMainContent(isMobile: true)),
-                ],
+                children: [Expanded(child: _buildMainContent(isMobile: true))],
               );
             }
 
@@ -832,10 +747,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                       label: 'Average Attendance',
                       value: '${_avgAttendance.toStringAsFixed(1)}%',
                     ),
-                    _StatCard(
-                      label: 'Total Classes',
-                      value: '$_totalClasses',
-                    ),
+                    _StatCard(label: 'Total Classes', value: '$_totalClasses'),
                     _StatCard(
                       label: 'Academics',
                       value: '${_academicsScore.toStringAsFixed(1)}%',
@@ -844,17 +756,17 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                       label: 'Extracurricular Activities',
                       value: '$_extracurricularCount',
                     ),
-                    _StatCard(
-                      label: 'Fees Collection',
-                      value: _feesPaid,
-                    ),
+                    _StatCard(label: 'Fees Collection', value: _feesPaid),
                   ],
                 );
               }
               final cardWidth = 200.0;
               final spacing = 20.0;
               final availableWidth = constraints.maxWidth;
-              final crossAxisCount = ((availableWidth + spacing) / (cardWidth + spacing)).floor().clamp(1, 7);
+              final crossAxisCount =
+                  ((availableWidth + spacing) / (cardWidth + spacing))
+                      .floor()
+                      .clamp(1, 7);
               final childAspectRatio = 1.35;
               return GridView.count(
                 crossAxisCount: crossAxisCount,
@@ -864,10 +776,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                 crossAxisSpacing: 20,
                 mainAxisSpacing: 20,
                 children: [
-                  _StatCard(
-                    label: 'Total Students',
-                    value: '$_totalStudents',
-                  ),
+                  _StatCard(label: 'Total Students', value: '$_totalStudents'),
                   _StatCard(
                     label: 'Active Students',
                     value: '$_activeStudents',
@@ -876,10 +785,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                     label: 'Average Attendance',
                     value: '${_avgAttendance.toStringAsFixed(1)}%',
                   ),
-                  _StatCard(
-                    label: 'Total Classes',
-                    value: '$_totalClasses',
-                  ),
+                  _StatCard(label: 'Total Classes', value: '$_totalClasses'),
                   _StatCard(
                     label: 'Academics',
                     value: '${_academicsScore.toStringAsFixed(1)}%',
@@ -888,10 +794,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                     label: 'Extracurricular Activities',
                     value: '$_extracurricularCount',
                   ),
-                  _StatCard(
-                    label: 'Fees Collection',
-                    value: _feesPaid,
-                  ),
+                  _StatCard(label: 'Fees Collection', value: _feesPaid),
                 ],
               );
             },
@@ -949,11 +852,26 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                           isExpanded: false,
                           underline: const SizedBox(),
                           items: const [
-                            DropdownMenuItem(value: null, child: Text('All Classes')),
-                            DropdownMenuItem(value: '9', child: Text('Grade 9')),
-                            DropdownMenuItem(value: '10', child: Text('Grade 10')),
-                            DropdownMenuItem(value: '11', child: Text('Grade 11')),
-                            DropdownMenuItem(value: '12', child: Text('Grade 12')),
+                            DropdownMenuItem(
+                              value: null,
+                              child: Text('All Classes'),
+                            ),
+                            DropdownMenuItem(
+                              value: '9',
+                              child: Text('Grade 9'),
+                            ),
+                            DropdownMenuItem(
+                              value: '10',
+                              child: Text('Grade 10'),
+                            ),
+                            DropdownMenuItem(
+                              value: '11',
+                              child: Text('Grade 11'),
+                            ),
+                            DropdownMenuItem(
+                              value: '12',
+                              child: Text('Grade 12'),
+                            ),
                           ],
                           onChanged: (value) {
                             setState(() {
@@ -966,10 +884,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                     ],
                   ),
                 ),
-                SizedBox(
-                  width: isMobile ? 0 : 20,
-                  height: isMobile ? 15 : 0,
-                ),
+                SizedBox(width: isMobile ? 0 : 20, height: isMobile ? 15 : 0),
                 InkWell(
                   onTap: _addStudent,
                   borderRadius: BorderRadius.circular(10),
@@ -986,7 +901,9 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF51CF66).withValues(alpha: 0.25),
+                          color: const Color(
+                            0xFF51CF66,
+                          ).withValues(alpha: 0.25),
                           blurRadius: 15,
                           offset: const Offset(0, 8),
                         ),
@@ -1017,13 +934,18 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
               final cardWidth = 350.0;
               final spacing = 20.0;
               final availableWidth = constraints.maxWidth;
-              final crossAxisCount = ((availableWidth + spacing) / (cardWidth + spacing)).floor().clamp(1, 4);
+              final crossAxisCount =
+                  ((availableWidth + spacing) / (cardWidth + spacing))
+                      .floor()
+                      .clamp(1, 4);
               return Wrap(
                 spacing: spacing,
                 runSpacing: spacing,
                 children: _visibleStudents.map((student) {
                   return SizedBox(
-                    width: (availableWidth - (spacing * (crossAxisCount - 1))) / crossAxisCount,
+                    width:
+                        (availableWidth - (spacing * (crossAxisCount - 1))) /
+                        crossAxisCount,
                     child: _buildStudentCard(student),
                   );
                 }).toList(),
@@ -1081,10 +1003,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: const [
-        Text(
-          'Management User',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        Text('Management User', style: TextStyle(fontWeight: FontWeight.bold)),
         Text(
           'School Manager',
           style: TextStyle(fontSize: 12, color: Colors.grey),
@@ -1095,7 +1014,10 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
 
   Widget _buildBackButton() {
     return InkWell(
-      onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardPage())),
+      onTap: () => Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => DashboardPage()),
+      ),
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -1156,8 +1078,7 @@ class _StudentCardWithHoverState extends State<_StudentCardWithHover> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
-        transform: Matrix4.identity()
-          ..translate(0.0, _isHovered ? -8.0 : 0.0),
+        transform: Matrix4.identity()..translate(0.0, _isHovered ? -8.0 : 0.0),
         child: GlassContainer(
           padding: const EdgeInsets.all(25),
           child: Column(
@@ -1400,26 +1321,20 @@ class _NavTile extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
-  final Color? accentColor;
+  final Color accentColor;
 
   const _StatCard({
     required this.label,
     required this.value,
-    this.accentColor,
-  });
+  }) : accentColor = const Color(0xFF667EEA);
 
   @override
   Widget build(BuildContext context) {
     return GlassContainer(
       padding: const EdgeInsets.all(20),
       child: Container(
-        decoration: accentColor != null
-            ? BoxDecoration(
-                border: Border(
-                  left: BorderSide(color: accentColor!, width: 5),
-                ),
-              )
-            : null,
+        // Removed accent border for cleaner stat cards
+        decoration: const BoxDecoration(),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -1534,10 +1449,7 @@ class _DetailCard extends StatelessWidget {
   final String title;
   final List<String> items;
 
-  const _DetailCard({
-    required this.title,
-    required this.items,
-  });
+  const _DetailCard({required this.title, required this.items});
 
   @override
   Widget build(BuildContext context) {

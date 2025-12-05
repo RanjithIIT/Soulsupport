@@ -45,6 +45,19 @@ class Teacher(models.Model):
     employee_id = models.CharField(max_length=50, unique=True)
     designation = models.CharField(max_length=100)
     hire_date = models.DateField(null=True, blank=True)
+    # Additional profile fields requested by frontend forms
+    phone = models.CharField(max_length=20, null=True, blank=True)
+    email = models.EmailField(null=True, blank=True)
+    address = models.TextField(null=True, blank=True)
+    experience = models.CharField(
+        max_length=50, null=True, blank=True,
+        help_text='Years of experience or freeform description'
+    )
+    qualifications = models.TextField(null=True, blank=True)
+    specializations = models.TextField(null=True, blank=True)
+    class_teacher = models.CharField(max_length=50, null=True, blank=True)
+    # Store uploaded photo as raw bytes (nullable) to avoid requiring Pillow for now
+    photo = models.BinaryField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -65,8 +78,17 @@ class Student(models.Model):
     class_name = models.CharField(max_length=50)
     section = models.CharField(max_length=10)
     admission_date = models.DateField(null=True, blank=True)
+    # Additional student profile fields requested by frontend forms
+    date_of_birth = models.DateField(null=True, blank=True)
+    gender = models.CharField(max_length=10, null=True, blank=True)
+    blood_group = models.CharField(max_length=5, null=True, blank=True)
+    address = models.TextField(null=True, blank=True)
+    emergency_contact = models.CharField(max_length=20, null=True, blank=True)
+    medical_info = models.TextField(null=True, blank=True)
     parent_name = models.CharField(max_length=255, blank=True)
     parent_phone = models.CharField(max_length=20, blank=True)
+    # Store uploaded photo as raw bytes (nullable) to avoid requiring Pillow for now
+    photo = models.BinaryField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

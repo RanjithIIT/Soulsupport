@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:intl/intl.dart';
 import 'dart:ui' as ui;
 import 'dart:async';
+import 'dart:convert';
 import 'package:main_login/main.dart' as main_login;
 // Navigation imports
 import 'teacher-assignment.dart';
@@ -16,6 +17,8 @@ import 'Teacher_classes.dart';
 import 'Teacher_class_students.dart';
 import 'Teacher_Communication.dart';
 import 'Teacher_Results.dart';
+import 'services/realtime_chat_service.dart';
+import 'services/api_service.dart' as api;
 // Removed: import 'screens/stat_detail.dart';
 // Definition for StatDetailScreen added below main file.
 
@@ -228,150 +231,120 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final TextEditingController _messageController = TextEditingController();
   bool _isEmojiPickerVisible = false;
 
-  late List<Teacher> _teachers;
-  late List<GroupChat> _groups;
-  late Map<String, List<ChatMessage>> _chatMessages;
+  List<Teacher> _teachers = [];
+  List<GroupChat> _groups = [];
+  Map<String, List<ChatMessage>> _chatMessages = {};
+  bool _chatLoading = false;
+  late final RealtimeChatService _chatService;
+  StreamSubscription? _chatSubscription;
+
+  // Dummy room id for testing real‑time chat between
+  // John A. Smith (teacher) and John Michael Smith (student).
+  static const String _defaultChatRoomId = 'STU-2024-001';
 
   @override
   void initState() {
     super.initState();
     _dashboardData = fetchDashboardData();
     _initializeChatData();
+    _initializeRealtimeChat();
   }
 
-  void _initializeChatData() {
-    _teachers = [
-      Teacher(
-        id: 't1',
-        name: 'Mrs. Sarah Johnson',
-        subject: 'Mathematics',
-        avatar: '👩‍🏫',
-        isOnline: true,
-      ),
-      Teacher(
-        id: 't2',
-        name: 'Mr. David Chen',
-        subject: 'Physics',
-        avatar: '👨‍🏫',
-        isOnline: true,
-      ),
-      Teacher(
-        id: 't3',
-        name: 'Ms. Emily Watson',
-        subject: 'English',
-        avatar: '👩‍🏫',
-        isOnline: false,
-      ),
-      Teacher(
-        id: 't4',
-        name: 'Mr. James Miller',
-        subject: 'Chemistry',
-        avatar: '👨‍🏫',
-        isOnline: true,
-      ),
-      Teacher(
-        id: 't5',
-        name: 'Ms. Lisa Anderson',
-        subject: 'History',
-        avatar: '👩‍🏫',
-        isOnline: true,
-      ),
-    ];
+  @override
+  void dispose() {
+    _chatSubscription?.cancel();
+    _chatService.disconnect();
+    _chatSearchController.dispose();
+    _messageController.dispose();
+    super.dispose();
+  }
 
-    _groups = [
-      GroupChat(
-        id: 'g1',
-        name: 'Class 10A - All Teachers',
-        description: '5 members',
-        members: _teachers.sublist(0, 3),
-        avatar: '👥',
-        unreadCount: 2,
-      ),
-      GroupChat(
-        id: 'g2',
-        name: 'Science Department',
-        description: '3 members',
-        members: _teachers.sublist(1, 4),
-        avatar: '🔬',
-        unreadCount: 0,
-      ),
-      GroupChat(
-        id: 'g3',
-        name: 'Parent-Teacher Forum',
-        description: '8 members',
-        members: _teachers,
-        avatar: '💬',
-        unreadCount: 5,
-      ),
-    ];
+  Future<void> _initializeChatData() async {
+    setState(() => _chatLoading = true);
+    try {
+      final students = await api.ApiService.fetchStudents();
+      _teachers = students.map((s) {
+        final user = s['user'] as Map<String, dynamic>? ?? {};
+        final first = (user['first_name'] as String? ?? '').trim();
+        final last = (user['last_name'] as String? ?? '').trim();
+        final fullName = ('$first $last').trim();
+        final className = s['class_name'] as String? ?? '';
+        final section = s['section'] as String? ?? '';
+        final displayName = fullName.isNotEmpty ? fullName : (s['student_id'] as String? ?? 'Student');
+        final subject = [className, section].where((e) => e.isNotEmpty).join(' • ');
+        return Teacher(
+          id: (s['id'] ?? '').toString(),
+          name: displayName,
+          subject: subject,
+          avatar: _buildInitials(displayName),
+          isOnline: false,
+        );
+      }).toList();
 
-    _chatMessages = {
-      't1': [
-        ChatMessage(
-          text: "Hi! Your child did great on the mathematics test!",
-          sender: 'teacher',
-          time: DateFormat(
-            'hh:mm a',
-          ).format(DateTime.now().subtract(const Duration(hours: 2))),
-          senderName: 'Mrs. Sarah Johnson',
-          avatarEmoji: '👩‍🏫',
+      _groups = [
+        GroupChat(
+          id: 'all-students',
+          name: 'All Students',
+          description: 'Broadcast to all students',
+          members: _teachers,
+          avatar: '👥',
+          unreadCount: 0,
         ),
-        ChatMessage(
-          text: "Thank you! He/she prepared really well.",
-          sender: 'user',
-          time: DateFormat('hh:mm a').format(
-            DateTime.now().subtract(const Duration(hours: 1, minutes: 30)),
-          ),
-          avatarEmoji: '👤',
-        ),
-      ],
-      't2': [
-        ChatMessage(
-          text: "Good morning! Can we discuss the upcoming physics project?",
-          sender: 'teacher',
-          time: DateFormat(
-            'hh:mm a',
-          ).format(DateTime.now().subtract(const Duration(minutes: 45))),
-          senderName: 'Mr. David Chen',
-          avatarEmoji: '👨‍🏫',
-        ),
-      ],
-      't3': [
-        ChatMessage(
-          text: "Please review the essay I shared yesterday.",
-          sender: 'user',
-          time: DateFormat(
-            'hh:mm a',
-          ).format(DateTime.now().subtract(const Duration(days: 1))),
-          avatarEmoji: '👤',
-        ),
-      ],
-      't4': [],
-      't5': [],
-      'g1': [
-        ChatMessage(
-          text: "Reminder: Parent-Teacher meeting on Friday at 4 PM",
-          sender: 'teacher',
-          time: DateFormat(
-            'hh:mm a',
-          ).format(DateTime.now().subtract(const Duration(hours: 3))),
-          senderName: 'Mrs. Sarah Johnson',
-          avatarEmoji: '👩‍🏫',
-        ),
-      ],
-      'g2': [],
-      'g3': [
-        ChatMessage(
-          text: "Don't forget to submit assignments by tomorrow!",
-          sender: 'teacher',
-          time: DateFormat(
-            'hh:mm a',
-          ).format(DateTime.now().subtract(const Duration(hours: 1))),
-          senderName: 'Mr. David Chen',
-          avatarEmoji: '👨‍🏫',
-        ),
-      ],
-    };
+      ];
+
+      _chatMessages = {};
+    } catch (e) {
+      debugPrint('Failed to load chat data: $e');
+    } finally {
+      if (mounted) setState(() => _chatLoading = false);
+    }
+  }
+
+  String _buildInitials(String name) {
+    final parts = name.split(' ').where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '👤';
+    final initials = parts.take(2).map((p) => p[0]).join();
+    return initials;
+  }
+
+  void _initializeRealtimeChat() {
+    _chatService =
+        RealtimeChatService(baseWsUrl: 'ws://10.0.2.2:8000'); // Android emulator
+    _chatService.connect(roomId: _defaultChatRoomId);
+    _chatSubscription = _chatService.stream?.listen((event) {
+      try {
+        final payload = event is String ? event : event.toString();
+        final decoded = jsonDecode(payload) as Map<String, dynamic>;
+        final sender = decoded['sender']?.toString() ?? 'system';
+        final messageText = decoded['message']?.toString() ?? '';
+        if (messageText.isEmpty) return;
+
+        final chatId = _selectedChatId ?? _defaultChatRoomId;
+        final displayTime = DateFormat('hh:mm a').format(DateTime.now());
+
+        // For testing, map sender ids into friendly names and avatars.
+        final isTeacherSender = sender == 'teacher';
+        final chatSenderKey = isTeacherSender ? 'teacher' : 'user';
+        final displaySenderName =
+            isTeacherSender ? 'John A. Smith' : 'John Michael Smith';
+        final displayAvatar = isTeacherSender ? '👩‍🏫' : '👦';
+
+        setState(() {
+          _chatMessages.putIfAbsent(chatId, () => []);
+          _chatMessages[chatId]!.add(
+            ChatMessage(
+              text: messageText,
+              sender: chatSenderKey,
+              time: displayTime,
+              senderName: displaySenderName,
+              avatarEmoji: displayAvatar,
+            ),
+          );
+        });
+      } catch (error) {
+        debugPrint('Realtime chat parse error: $error');
+      }
+    });
   }
 
   // --- Core Functions ---
@@ -475,6 +448,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   List<dynamic> _getFilteredChats() {
+    if (_chatLoading) return [];
     final query = _searchQuery.toLowerCase();
     if (_chatMode == 'individual') {
       return _teachers.where((teacher) {
@@ -2633,7 +2607,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           IconButton(
                             icon: const Icon(Icons.close, color: Colors.white),
-                            onPressed: () => Navigator.of(context).pop(),
+                            onPressed: () {
+                              setState(() {
+                                _isChatOpen = false;
+                                _selectedChatId = null;
+                              });
+                            },
                           ),
                         ],
                       ),
@@ -2711,33 +2690,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                     const Divider(height: 1),
-                    // Search Bar
-                    Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: TextField(
-                        controller: _chatSearchController,
-                        onChanged: (value) {
-                          setState(() => _searchQuery = value);
-                        },
-                        decoration: InputDecoration(
-                          hintText: _chatMode == 'individual'
-                              ? 'Search teachers...'
-                              : 'Search groups...',
-                          prefixIcon: const Icon(Icons.search, size: 20),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            borderSide: const BorderSide(
-                              color: Color(0xFFDDDDDD),
+                    // Search Bar - show only when chat list is visible
+                    if (_selectedChatId == null)
+                      Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: TextField(
+                          controller: _chatSearchController,
+                          onChanged: (value) {
+                            setState(() => _searchQuery = value);
+                          },
+                          decoration: InputDecoration(
+                            hintText: _chatMode == 'individual'
+                                ? 'Search Students...'
+                                : 'Search groups...',
+                            prefixIcon: const Icon(Icons.search, size: 20),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFDDDDDD),
+                              ),
                             ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 15,
+                              vertical: 10,
+                            ),
+                            isDense: true,
                           ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 15,
-                            vertical: 10,
-                          ),
-                          isDense: true,
                         ),
                       ),
-                    ),
                     // Main Content: Chat List or Message View
                     if (_selectedChatId == null)
                       Expanded(child: _buildChatList())
@@ -2759,7 +2739,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 children: [
                                   IconButton(
                                     icon: const Icon(Icons.arrow_back),
-                                    onPressed: () => Navigator.of(context).pop(),
+                                    onPressed: () {
+                                      setState(() {
+                                        _selectedChatId = null;
+                                      });
+                                    },
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
@@ -2976,6 +2960,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _sendChatMessage(String message) {
     if (message.isEmpty || _selectedChatId == null) return;
+    try {
+      _chatService.sendMessage(sender: 'teacher', message: message);
+    } catch (error) {
+      debugPrint('Realtime chat send error: $error');
+    }
     setState(() {
       final now = DateTime.now();
       final timeString = DateFormat('hh:mm a').format(now);

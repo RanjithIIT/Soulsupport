@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'dashboard.dart';
+import 'services/api_service.dart';
 
 class AddStudentPage extends StatefulWidget {
   const AddStudentPage({super.key});
@@ -27,7 +28,7 @@ class _AddStudentPageState extends State<AddStudentPage> {
 
   DateTime? _dateOfBirth;
   String? _gender;
-  String? _grade;
+  String? _class;
   String? _section;
   String? _bloodGroup;
   Uint8List? _photoBytes;
@@ -73,14 +74,46 @@ class _AddStudentPageState extends State<AddStudentPage> {
     });
 
     try {
-      // Simulate API call
-      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      // Get the default school ID (assuming school_id = 1 for now)
+      const schoolId = 1;
+      
+      // Format date of birth
+      final dob = _dateOfBirth?.toIso8601String().split('T').first ?? '';
+      final baseUsername = _emailController.text.split('@').first.replaceAll('.', '_');
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final username = '${baseUsername}_$timestamp';
+      
+      // Prepare student data for API
+      final studentData = {
+        'school': schoolId,
+        'student_id': 'STU-${DateTime.now().millisecondsSinceEpoch}',
+        'first_name': _firstNameController.text,
+        'last_name': _lastNameController.text,
+        'username': username,
+        'email_user': _emailController.text,
+        'class_name': _class ?? '',
+        'section': _section ?? '',
+        'gender': _gender ?? '',
+        'blood_group': _bloodGroup ?? '',
+        'address': _addressController.text,
+        'date_of_birth': dob,
+        'parent_name': _parentNameController.text,
+        'parent_phone': _parentPhoneController.text,
+        'emergency_contact': _emergencyContactController.text,
+        'medical_info': _medicalInfoController.text,
+        'admission_date': DateTime.now().toIso8601String().split('T').first,
+      };
+
+      // Call API to create student
+      await ApiService.createStudent(studentData);
+      
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
         _showSuccess = true;
         _showError = false;
       });
+      
       await Future<void>.delayed(const Duration(seconds: 2));
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/students');
@@ -90,7 +123,7 @@ class _AddStudentPageState extends State<AddStudentPage> {
         _isSubmitting = false;
         _showSuccess = false;
         _showError = true;
-        _errorMessage = 'Failed to add student. Please try again.';
+        _errorMessage = 'Failed to add student: ${e.toString()}';
       });
     }
   }
@@ -436,13 +469,13 @@ class _AddStudentPageState extends State<AddStudentPage> {
                                   ),
                                 ),
                               const SizedBox(height: 20),
-                              // Grade and Section
+                              // Class and Section
                               Row(
                                 children: [
                                   Expanded(
                                     child: DropdownButtonFormField<String>(
                                       decoration: InputDecoration(
-                                        labelText: 'Grade *',
+                                        labelText: 'Class *',
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(12),
                                         ),
@@ -450,21 +483,21 @@ class _AddStudentPageState extends State<AddStudentPage> {
                                         fillColor: Colors.white,
                                         prefixIcon: const Icon(Icons.school),
                                       ),
-                                      value: _grade,
+                                      value: _class,
                                       items: List.generate(12, (i) {
                                         return DropdownMenuItem(
                                           value: (i + 1).toString(),
-                                          child: Text('Grade ${i + 1}'),
+                                          child: Text('Class ${i + 1}'),
                                         );
                                       }),
                                       onChanged: (value) {
                                         setState(() {
-                                          _grade = value;
+                                          _class = value;
                                         });
                                       },
                                       validator: (value) {
                                         if (value == null || value.isEmpty) {
-                                          return 'Please select grade';
+                                          return 'Please select class';
                                         }
                                         return null;
                                       },

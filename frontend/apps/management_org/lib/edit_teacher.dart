@@ -1,7 +1,7 @@
+import 'services/api_service.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'main.dart' as app;
 import 'package:image_picker/image_picker.dart';
 
 class EditTeacherPage extends StatefulWidget {
@@ -33,36 +33,36 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
   bool _showError = false;
   String _errorMessage = '';
 
-  final Map<String, dynamic> _mockTeacher = {
-    'id': 1,
-    'name': 'Dr. Sarah Johnson',
-    'designation': 'Mathematics',
-    'phone': '+1-555-0101',
-    'email': 'sarah.johnson@school.com',
-    'address': '123 Teacher Street, Education City',
-    'classTeacher': 'Grade 10A',
-    'experience': 12,
-    'qualifications': 'Ph.D. in Mathematics, M.Ed. in Education',
-    'specializations': 'Advanced Algebra, Calculus, Statistics',
-  };
-
   @override
   void initState() {
     super.initState();
     _loadTeacherData();
   }
 
-  void _loadTeacherData() {
-    if (widget.teacherId != null) {
-      _nameController.text = _mockTeacher['name'] ?? '';
-      _designation = _mockTeacher['designation'];
-      _phoneController.text = _mockTeacher['phone'] ?? '';
-      _emailController.text = _mockTeacher['email'] ?? '';
-      _addressController.text = _mockTeacher['address'] ?? '';
-      _classTeacher = _mockTeacher['classTeacher'];
-      _experienceController.text = _mockTeacher['experience']?.toString() ?? '';
-      _qualificationsController.text = _mockTeacher['qualifications'] ?? '';
-      _specializationsController.text = _mockTeacher['specializations'] ?? '';
+  Future<void> _loadTeacherData() async {
+    if (widget.teacherId == null) return;
+    try {
+      final data = await ApiService.fetchTeacherById(widget.teacherId!);
+      final user = data['user'] as Map<String, dynamic>? ?? {};
+      final firstName = user['first_name'] as String? ?? '';
+      final lastName = user['last_name'] as String? ?? '';
+      final fullName = '$firstName $lastName'.trim();
+
+      _nameController.text = fullName.isNotEmpty ? fullName : (data['name'] as String? ?? '');
+      _designation = data['designation'] as String?;
+      _phoneController.text = data['phone'] as String? ?? '';
+      _emailController.text = data['email'] as String? ?? user['email'] as String? ?? '';
+      _addressController.text = data['address'] as String? ?? '';
+      _classTeacher = data['class_teacher'] as String?;
+      _experienceController.text = (data['experience'] ?? '').toString();
+      _qualificationsController.text = data['qualifications'] as String? ?? '';
+      _specializationsController.text = data['specializations'] as String? ?? '';
+      setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load teacher: $e')),
+      );
     }
   }
 
@@ -100,15 +100,27 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
     });
 
     try {
-      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      final payload = {
+        'designation': _designation,
+        'phone': _phoneController.text.trim(),
+        'email': _emailController.text.trim(),
+        'address': _addressController.text.trim(),
+        'experience': _experienceController.text.trim(),
+        'qualifications': _qualificationsController.text.trim(),
+        'specializations': _specializationsController.text.trim(),
+        'class_teacher': _classTeacher,
+      };
+
+      if (widget.teacherId != null) {
+        await ApiService.updateTeacher(widget.teacherId!, payload);
+      }
+
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
         _showSuccess = true;
         _showError = false;
       });
-      await Future<void>.delayed(const Duration(seconds: 2));
-      if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/teachers');
     } catch (e) {
       if (!mounted) return;
@@ -116,7 +128,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
         _isSubmitting = false;
         _showSuccess = false;
         _showError = true;
-        _errorMessage = 'Error updating teacher information. Please try again.';
+        _errorMessage = 'Error updating teacher: $e';
       });
     }
   }

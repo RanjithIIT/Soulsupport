@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'main.dart' as app;
 import 'dashboard.dart';
+import 'services/api_service.dart';
 
 class Teacher {
   final int id;
@@ -13,7 +14,7 @@ class Teacher {
   final String address;
   final String initials;
   final String? classTeacher;
-  final double experience;
+  final dynamic experience;
   final String qualifications;
   final String specializations;
   final List<String> subjects;
@@ -21,7 +22,7 @@ class Teacher {
   final String salary;
   final String status;
 
-  const Teacher({
+  Teacher({
     required this.id,
     required this.name,
     required this.designation,
@@ -38,6 +39,36 @@ class Teacher {
     required this.salary,
     required this.status,
   });
+
+  // Factory constructor to parse from JSON (database response)
+  factory Teacher.fromJson(Map<String, dynamic> json) {
+    final firstName = json['user']?['first_name'] as String? ?? '';
+    final lastName = json['user']?['last_name'] as String? ?? '';
+    final fullName = '$firstName $lastName'.trim();
+    
+    return Teacher(
+      id: json['id'] as int? ?? 0,
+      name: fullName.isNotEmpty ? fullName : 'Unknown Teacher',
+      designation: json['designation'] as String? ?? '',
+      phone: json['phone'] as String? ?? '',
+      email: json['email'] as String? ?? json['user']?['email'] as String? ?? '',
+      address: json['address'] as String? ?? '',
+      initials: _getInitials(firstName, lastName),
+      classTeacher: json['class_teacher'] as String?,
+      experience: (json['experience'] as String?) ?? '0',
+      qualifications: json['qualifications'] as String? ?? '',
+      specializations: json['specializations'] as String? ?? '',
+      subjects: [],
+      joiningDate: json['hire_date'] as String? ?? '',
+      salary: '',
+      status: 'Active',
+    );
+  }
+
+  static String _getInitials(String firstName, String lastName) {
+    return (firstName.isNotEmpty ? firstName[0] : '') +
+        (lastName.isNotEmpty ? lastName[0] : '');
+  }
 }
 
 class TeachersManagementPage extends StatefulWidget {
@@ -48,102 +79,37 @@ class TeachersManagementPage extends StatefulWidget {
 }
 
 class _TeachersManagementPageState extends State<TeachersManagementPage> {
-  final List<Teacher> _teachers = [
-    const Teacher(
-      id: 1,
-      name: 'Dr. Sarah Johnson',
-      designation: 'Mathematics',
-      phone: '+1-555-0101',
-      email: 'sarah.johnson@school.com',
-      address: '123 Teacher Street, Education City',
-      initials: 'SJ',
-      classTeacher: 'Grade 10A',
-      experience: 12,
-      qualifications: 'Ph.D. in Mathematics, M.Ed. in Education',
-      specializations: 'Advanced Algebra, Calculus, Statistics',
-      subjects: ['Mathematics', 'Advanced Mathematics'],
-      joiningDate: '2012-08-15',
-      salary: '\$65,000',
-      status: 'Active',
-    ),
-    const Teacher(
-      id: 2,
-      name: 'Prof. Michael Chen',
-      designation: 'Physics',
-      phone: '+1-555-0102',
-      email: 'michael.chen@school.com',
-      address: '456 Educator Avenue, Learning District',
-      initials: 'MC',
-      classTeacher: 'Grade 11B',
-      experience: 15,
-      qualifications: 'Ph.D. in Physics, B.Ed. in Science Education',
-      specializations: 'Quantum Mechanics, Thermodynamics, Electromagnetism',
-      subjects: ['Physics', 'Advanced Physics'],
-      joiningDate: '2009-03-20',
-      salary: '\$70,000',
-      status: 'Active',
-    ),
-    const Teacher(
-      id: 3,
-      name: 'Ms. Emily White',
-      designation: 'English',
-      phone: '+1-555-0103',
-      email: 'emily.white@school.com',
-      address: '789 Learning Road, Knowledge Town',
-      initials: 'EW',
-      classTeacher: 'Grade 9C',
-      experience: 8,
-      qualifications: 'M.A. in English Literature, PGCE',
-      specializations: 'British Literature, Creative Writing, Grammar',
-      subjects: ['English', 'Literature'],
-      joiningDate: '2016-09-01',
-      salary: '\$55,000',
-      status: 'Active',
-    ),
-    const Teacher(
-      id: 4,
-      name: 'Mr. David Brown',
-      designation: 'History',
-      phone: '+1-555-0104',
-      email: 'david.brown@school.com',
-      address: '321 Knowledge Boulevard, Wisdom City',
-      initials: 'DB',
-      classTeacher: 'Grade 12A',
-      experience: 10,
-      qualifications: 'M.A. in History, B.Ed. in Social Studies',
-      specializations: 'World History, American History, Political Science',
-      subjects: ['History', 'Social Studies'],
-      joiningDate: '2014-01-15',
-      salary: '\$58,000',
-      status: 'Active',
-    ),
-    const Teacher(
-      id: 5,
-      name: 'Mrs. Lisa Garcia',
-      designation: 'Biology',
-      phone: '+1-555-0105',
-      email: 'lisa.garcia@school.com',
-      address: '654 Science Way, Discovery District',
-      initials: 'LG',
-      classTeacher: 'Grade 10B',
-      experience: 9,
-      qualifications: 'M.S. in Biology, B.Ed. in Science',
-      specializations: 'Molecular Biology, Ecology, Human Anatomy',
-      subjects: ['Biology', 'Environmental Science'],
-      joiningDate: '2015-08-20',
-      salary: '\$60,000',
-      status: 'Active',
-    ),
-  ];
-
-  final TextEditingController _searchController = TextEditingController();
+  late List<Teacher> _teachers;
   late List<Teacher> _visibleTeachers;
+  
+  final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _visibleTeachers = List<Teacher>.from(_teachers);
+    _teachers = [];
+    _visibleTeachers = [];
+    _fetchTeachers();
+  }
+
+  Future<void> _fetchTeachers() async {
+    try {
+      final data = await ApiService.fetchTeachers();
+      final teachers = data
+          .map((item) => Teacher.fromJson(item as Map<String, dynamic>))
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _teachers = teachers;
+        _visibleTeachers = List<Teacher>.from(_teachers);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching teachers: $e')),
+      );
+    }
   }
 
   @override
@@ -157,9 +123,15 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
       _teachers.where((teacher) => teacher.status == 'Active').length;
   int get _classTeachers =>
       _teachers.where((teacher) => (teacher.classTeacher ?? '').isNotEmpty).length;
-  double get _avgExperience =>
-      _teachers.fold<double>(0, (sum, teacher) => sum + teacher.experience) /
-      _teachers.length;
+  double get _avgExperience {
+    if (_teachers.isEmpty) return 0.0;
+    double total = 0;
+    for (var teacher in _teachers) {
+      final exp = double.tryParse(teacher.experience.toString()) ?? 0.0;
+      total += exp;
+    }
+    return total / _teachers.length;
+  }
 
   void _filterTeachers(String query) {
     setState(() {
@@ -197,14 +169,31 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
-              setState(() {
-                _teachers.removeWhere((t) => t.id == teacher.id);
-                _filterTeachers(_searchQuery);
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Teacher deleted successfully!')),
-              );
+            onPressed: () async {
+              try {
+                await ApiService.deleteTeacher(teacher.id);
+                if (!mounted) return;
+                Navigator.of(context).pop();
+                setState(() {
+                  _teachers.removeWhere((t) => t.id == teacher.id);
+                  _filterTeachers(_searchQuery);
+                });
+                final rootContext = app.SchoolManagementApp.navigatorKey.currentContext;
+                if (rootContext != null) {
+                  ScaffoldMessenger.of(rootContext).showSnackBar(
+                    const SnackBar(content: Text('Teacher deleted successfully!')),
+                  );
+                }
+              } catch (e) {
+                if (!mounted) return;
+                Navigator.of(context).pop();
+                final rootContext = app.SchoolManagementApp.navigatorKey.currentContext;
+                if (rootContext != null) {
+                  ScaffoldMessenger.of(rootContext).showSnackBar(
+                    SnackBar(content: Text('Error deleting teacher: $e')),
+                  );
+                }
+              }
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
@@ -342,7 +331,7 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
                                                 _DetailCard(
                                                   title: 'Professional Details',
                                                   lines: [
-                                                    'Experience: ${teacher.experience.toStringAsFixed(0)} years',
+                                                    'Experience: ${(double.tryParse(teacher.experience.toString()) ?? 0).toStringAsFixed(0)} years',
                                                     'Joining Date: ${teacher.joiningDate}',
                                                     'Salary: ${teacher.salary}',
                                                   ],
@@ -864,7 +853,7 @@ class _TeacherCardWithHoverState extends State<_TeacherCardWithHover> {
                         width: itemWidth,
                         child: _DetailItem(
                           title: 'Experience',
-                          value: '${widget.teacher.experience.toStringAsFixed(0)} years',
+                          value: '${(double.tryParse(widget.teacher.experience.toString()) ?? 0).toStringAsFixed(0)} years',
                         ),
                       ),
                       SizedBox(
