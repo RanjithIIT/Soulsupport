@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:core/api/auth_service.dart';
 import 'package:parent_app/main.dart' as parent;
+import 'create_password.dart';
 
 void main() {
   runApp(const ParentLoginPage());
@@ -199,13 +200,41 @@ class _ParentLoginPageState extends State<ParentLoginPage> {
                                       );
 
                                       if (result['success']) {
-                                        // Navigate to Parent/Student dashboard
-                                        Navigator.pushReplacement(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => const parent.SchoolManagementSystemApp(),
-                                          ),
-                                        );
+                                        // Check if user needs to create password
+                                        final needsPasswordCreation = result['needs_password_creation'] as bool? ?? false;
+                                        
+                                        if (needsPasswordCreation) {
+                                          // Navigate to create password page
+                                          final passwordCreated = await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => CreatePasswordPage(
+                                                role: 'parent',
+                                                userData: result['user'],
+                                                tokens: result['tokens'],
+                                                routes: result['routes'],
+                                              ),
+                                            ),
+                                          );
+                                          
+                                          // If password was created successfully, navigate to dashboard
+                                          if (passwordCreated == true && mounted) {
+                                            Navigator.pushReplacement(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => const parent.SchoolManagementSystemApp(),
+                                              ),
+                                            );
+                                          }
+                                        } else {
+                                          // Navigate to Parent/Student dashboard
+                                          Navigator.pushReplacement(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => const parent.SchoolManagementSystemApp(),
+                                            ),
+                                          );
+                                        }
                                       }
                                     }
                                   },

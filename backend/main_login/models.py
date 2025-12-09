@@ -1,12 +1,20 @@
 """
 Models for main_login app - User, Role, and Authentication
 """
-from django.contrib.auth.models import AbstractUser
+
+import uuid
+import random
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.db import models
 
 
+# -------------------------
+# ROLE MODEL
+# -------------------------
+
 class Role(models.Model):
     """User roles in the system"""
+    
     ROLE_CHOICES = [
         ('super_admin', 'Super Admin'),
         ('management_admin', 'Management Admin'),
@@ -16,6 +24,7 @@ class Role(models.Model):
     
     name = models.CharField(max_length=50, choices=ROLE_CHOICES, unique=True)
     description = models.TextField(blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -28,52 +37,130 @@ class Role(models.Model):
         verbose_name_plural = 'Roles'
 
 
-class User(AbstractUser):
-    """Custom User model with role support"""
+
+# -------------------------
+# USER MANAGER
+# -------------------------
+
+class UserManager(BaseUserManager):
+    """Custom manager to handle user creation"""
+
+    def generate_6_digit_password(self):
+        """Generate temporary login PIN"""
+        return str(random.randint(100000, 999999))
+
+    def create_user(self, email, username, password=None, **extra_fields):
+        """Create normal user with OTP login first"""
+
+        if not email:
+            raise ValueError("Email is required")
+
+        email = self.normalize_email(email)
+        user = self.model(email=email, username=username, **extra_fields)
+
+        # If no password provided → generate temporary 6-digit PIN
+        if password:
+            if len(password) == 6 and password.isdigit():
+                user.password_hash = password
+            else:
+                raise ValueError("You must provide a 6-digit temporary password only.")
+        else:
+            user.password_hash = self.generate_6_digit_password()
+
+        # Store hashed version for authentication
+        user.set_password(user.password_hash)
+
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, username, password, **extra_fields):
+        """Create superuser (must set permanent password directly)"""
+
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+
+        if len(password) < 6:
+            raise ValueError("Superuser must have a secure password (not temporary PIN).")
+
+        user = self.model(email=self.normalize_email(email), username=username, **extra_fields)
+        user.set_password(password)
+        user.has_custom_password = True  # permanent password
+        user.save(using=self._db)
+
+        return user
+
+
+
+# -------------------------
+# USER MODEL
+# -------------------------
+
+class User(AbstractBaseUser, PermissionsMixin):
+    """Custom User model with temporary password system"""
+
+    # Database columns based on shared sheet order
+    user_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    username = models.CharField(max_length=150, unique=True)
     email = models.EmailField(unique=True)
-    phone = models.CharField(max_length=20, blank=True, null=True)
+
+    mobile = models.CharField(max_length=20, null=True, blank=True)
+
+    # 🔥 Temporary login password (exactly 6 digits)
+    password_hash = models.CharField(max_length=6, null=True, blank=True, help_text="Temporary login 6-digit password")
+
+    # 🔥 Flag to indicate whether user has set a real password
+    has_custom_password = models.BooleanField(default=False, help_text="True once user sets their permanent password")
+
+    first_name = models.CharField(max_length=150, null=True, blank=True)
+    last_name = models.CharField(max_length=150, null=True, blank=True)
+
+    profile_photo_id = models.UUIDField(null=True, blank=True)
+
     role = models.ForeignKey(
         Role,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
+        db_column='role_id',
         related_name='users'
     )
+
     is_active = models.BooleanField(default=True)
-    is_verified = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
+    # Authentication settings
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
-    
+
+    objects = UserManager()
+
+    # ---------------------
+    # AUTH LOGIC
+    # ---------------------
+
+    def set_new_password(self, raw_password):
+        """
+        Called when user creates permanent password after first login.
+        """
+        self.set_password(raw_password)
+        self.has_custom_password = True
+        self.password_hash = None  # Remove temporary PIN
+        self.save()
+
+    def needs_password_creation(self):
+        """Returns True if user must set new password after first login"""
+        return not self.has_custom_password
+
     def __str__(self):
         return f"{self.username} ({self.email})"
-    
+
     @property
     def role_name(self):
-        """Get role name as string"""
         return self.role.name if self.role else None
-    
+
     class Meta:
         db_table = 'users'
         verbose_name = 'User'
         verbose_name_plural = 'Users'
-
-
-class UserSession(models.Model):
-    """Track user sessions and tokens"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sessions')
-    token = models.TextField()
-    device_info = models.CharField(max_length=255, blank=True)
-    ip_address = models.GenericIPAddressField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    expires_at = models.DateTimeField()
-    is_active = models.BooleanField(default=True)
-    
-    class Meta:
-        db_table = 'user_sessions'
-        verbose_name = 'User Session'
-        verbose_name_plural = 'User Sessions'
-        ordering = ['-created_at']
-

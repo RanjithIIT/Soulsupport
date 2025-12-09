@@ -51,9 +51,9 @@ class StudentViewSet(viewsets.ModelViewSet):
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['school', 'class_name', 'section']
-    search_fields = ['user__first_name', 'user__last_name', 'student_id', 'parent_name']
-    ordering_fields = ['admission_date', 'created_at']
+    filterset_fields = ['school', 'applying_class', 'category', 'gender']
+    search_fields = ['student_name', 'parent_name', 'admission_number', 'email']
+    ordering_fields = ['created_at', 'student_name']
     ordering = ['-created_at']
 
     def get_permissions(self):
@@ -70,9 +70,9 @@ class NewAdmissionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsManagementAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['school', 'status', 'applying_class', 'category', 'gender']
-    search_fields = ['student_name', 'parent_name', 'contact_number', 'email', 'admission_number']
-    ordering_fields = ['application_date', 'created_at', 'status']
-    ordering = ['-application_date', '-created_at']
+    search_fields = ['student_name', 'parent_name', 'parent_phone', 'email', 'admission_number']
+    ordering_fields = ['created_at', 'status', 'student_name']
+    ordering = ['-created_at']
     
     def create(self, request, *args, **kwargs):
         """Override create to provide better error messages"""
@@ -91,11 +91,25 @@ class NewAdmissionViewSet(viewsets.ModelViewSet):
         try:
             self.perform_create(serializer)
             headers = self.get_success_headers(serializer.data)
+            
+            # Get generated password from context
+            generated_password = serializer.context.get('generated_password', None)
+            
+            # Prepare response data
+            response_data = serializer.data.copy()
+            if generated_password:
+                response_data['generated_password'] = generated_password
+                response_data['login_credentials'] = {
+                    'email': serializer.data.get('email'),
+                    'password': generated_password,
+                    'message': 'Please save these credentials. You can use them to login once admission is approved.'
+                }
+            
             return Response(
                 {
                     'success': True,
-                    'message': 'Admission created successfully',
-                    'data': serializer.data,
+                    'message': 'Admission created successfully. User account created with generated password.',
+                    'data': response_data,
                 },
                 status=status.HTTP_201_CREATED,
                 headers=headers
@@ -111,8 +125,10 @@ class NewAdmissionViewSet(viewsets.ModelViewSet):
             )
     
     def perform_create(self, serializer):
-        """Override to handle school validation"""
+        """Override to handle school validation and create user account"""
         from super_admin.models import School
+        from main_login.models import User, Role
+        import random
         
         # Get school from validated_data (could be School object or ID)
         school = serializer.validated_data.get('school')
@@ -141,12 +157,65 @@ class NewAdmissionViewSet(viewsets.ModelViewSet):
                     status='active'
                 )
         
-        serializer.save(school=school)
+        # Get email and student_name from validated data
+        email = serializer.validated_data.get('email')
+        student_name = serializer.validated_data.get('student_name', '')
+        
+        # Split student_name into first_name and last_name
+        name_parts = student_name.strip().split(maxsplit=1)
+        first_name = name_parts[0] if name_parts else student_name
+        last_name = name_parts[1] if len(name_parts) > 1 else ''
+        
+        # Generate 6-digit random password
+        generated_password = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+        
+        # Get or create student_parent role
+        role, _ = Role.objects.get_or_create(
+            name='student_parent',
+            defaults={'description': 'Student/Parent role'}
+        )
+        
+        # Create username from email (part before @)
+        username = email.split('@')[0] if email else f'student_{random.randint(1000, 9999)}'
+        # Ensure username is unique
+        base_username = username
+        counter = 1
+        while User.objects.filter(username=username).exists():
+            username = f'{base_username}{counter}'
+            counter += 1
+        
+        # Create User account
+        user, user_created = User.objects.get_or_create(
+            email=email,
+            defaults={
+                'username': username,
+                'first_name': first_name,
+                'last_name': last_name,
+                'role': role,
+                'is_active': True,
+                'has_custom_password': False,  # User needs to create their own password
+            }
+        )
+        
+        # Set password (this will hash it properly using Django's password hashing)
+        # This is the generated password that user will use for first login
+        user.set_password(generated_password)
+        user.has_custom_password = False  # Ensure flag is set
+        user.save()
+        
+        # Store generated password in serializer context to return in response
+        serializer.context['generated_password'] = generated_password
+        
+        # Save the admission with user link
+        admission = serializer.save(school=school, user=user)
+        
+        return admission
     
     def update(self, request, *args, **kwargs):
         """Override update to provide better error messages and handle partial updates"""
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
+        old_status = instance.status
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         
         if not serializer.is_valid():
@@ -160,16 +229,48 @@ class NewAdmissionViewSet(viewsets.ModelViewSet):
             )
         
         try:
+            # Get the new status from validated data
+            new_status = serializer.validated_data.get('status', old_status)
+            
+            # Perform the update
             self.perform_update(serializer)
+            
+            # Refresh instance to get updated data
+            instance.refresh_from_db()
+            
+            # If status changed to 'Approved', create Student record
+            created_student = None
+            if old_status != 'Approved' and new_status == 'Approved':
+                try:
+                    created_student = instance.create_student_from_admission()
+                except Exception as e:
+                    return Response(
+                        {
+                            'success': False,
+                            'message': f'Admission approved but failed to create student record: {str(e)}',
+                            'error': 'Failed to create student',
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
             
             if getattr(instance, '_prefetched_objects_cache', None):
                 instance._prefetched_objects_cache = {}
             
+            # Prepare response data
+            response_data = serializer.data.copy()
+            if created_student:
+                # Include student information in response
+                student_serializer = StudentSerializer(created_student)
+                response_data['created_student'] = student_serializer.data
+                message = 'Admission approved and student record created successfully'
+            else:
+                message = 'Admission updated successfully'
+            
             return Response(
                 {
                     'success': True,
-                    'message': 'Admission updated successfully',
-                    'data': serializer.data,
+                    'message': message,
+                    'data': response_data,
                 },
                 status=status.HTTP_200_OK
             )
@@ -182,6 +283,76 @@ class NewAdmissionViewSet(viewsets.ModelViewSet):
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
+    
+    @action(detail=True, methods=['post'], url_path='approve')
+    def approve(self, request, pk=None):
+        """
+        Custom action to approve an admission and create Student record.
+        POST /api/management-admin/admissions/{id}/approve/
+        """
+        admission = self.get_object()
+        
+        if admission.status == 'Approved':
+            return Response(
+                {
+                    'success': False,
+                    'message': 'Admission is already approved',
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Update status to Approved
+        old_status = admission.status
+        admission.status = 'Approved'
+        
+        # Generate admission number if not provided
+        if not admission.admission_number:
+            import datetime
+            timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+            admission_number = f'ADM-{datetime.datetime.now().year}-{timestamp[-6:]}'
+            # Ensure uniqueness
+            while Student.objects.filter(admission_number=admission_number).exists() or \
+                  NewAdmission.objects.filter(admission_number=admission_number).exists():
+                timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')
+                admission_number = f'ADM-{datetime.datetime.now().year}-{timestamp[-6:]}'
+            admission.admission_number = admission_number
+        
+        admission.save()
+        
+        # Create Student record
+        created_student = None
+        try:
+            created_student = admission.create_student_from_admission()
+        except Exception as e:
+            # Rollback status if student creation fails
+            admission.status = old_status
+            admission.save()
+            return Response(
+                {
+                    'success': False,
+                    'message': f'Failed to create student record: {str(e)}',
+                    'error': 'Student creation failed',
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Serialize response
+        serializer = self.get_serializer(admission)
+        response_data = serializer.data.copy()
+        
+        if created_student:
+            student_serializer = StudentSerializer(created_student)
+            response_data['created_student'] = student_serializer.data
+        
+        return Response(
+            {
+                'success': True,
+                'message': 'Admission approved and student record created successfully',
+                'data': response_data,
+            },
+            status=status.HTTP_200_OK
+        )
+    
 
 
 class DashboardViewSet(viewsets.ViewSet):

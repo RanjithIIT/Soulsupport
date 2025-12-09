@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:main_login/main.dart' as main_login;
 import 'main.dart' as app;
 import 'activities.dart';
-import 'add_student.dart';
 import 'add_teacher.dart';
 import 'admissions.dart';
 import 'awards.dart';

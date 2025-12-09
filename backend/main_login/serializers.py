@@ -26,7 +26,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'password2', 'phone', 'role', 'first_name', 'last_name']
+        fields = ['username', 'email', 'password', 'password2', 'mobile', 'role', 'first_name', 'last_name']
         extra_kwargs = {
             'email': {'required': True},
             'username': {'required': True},
@@ -89,21 +89,24 @@ class UserLoginSerializer(serializers.Serializer):
 
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for User model"""
-    role = RoleSerializer(read_only=True)
+    role = RoleSerializer(read_only=True, allow_null=True)
     role_name = serializers.SerializerMethodField()
     
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'email', 'first_name', 'last_name',
-            'phone', 'role', 'role_name', 'is_active', 'is_verified',
-            'date_joined', 'created_at'
+            'user_id', 'username', 'email', 'first_name', 'last_name',
+            'mobile', 'role', 'role_name', 'is_active',
+            'created_at', 'updated_at', 'profile_photo_id'
         ]
-        read_only_fields = ['id', 'date_joined', 'created_at']
+        read_only_fields = ['user_id', 'created_at', 'updated_at']
     
     def get_role_name(self, obj):
         """Get role name from the User model property"""
-        return obj.role_name
+        try:
+            return obj.role_name
+        except Exception:
+            return None
 
 
 class ChangePasswordSerializer(serializers.Serializer):
@@ -118,5 +121,25 @@ class ChangePasswordSerializer(serializers.Serializer):
     def validate(self, attrs):
         if attrs['new_password'] != attrs['new_password2']:
             raise serializers.ValidationError({"new_password": "Password fields didn't match."})
+        return attrs
+
+
+class CreatePasswordSerializer(serializers.Serializer):
+    """Serializer for creating user password (first time)"""
+    password = serializers.CharField(
+        required=True,
+        write_only=True,
+        validators=[validate_password],
+        help_text='New password'
+    )
+    password2 = serializers.CharField(
+        required=True,
+        write_only=True,
+        help_text='Confirm new password'
+    )
+    
+    def validate(self, attrs):
+        if attrs['password'] != attrs['password2']:
+            raise serializers.ValidationError({"password": "Password fields didn't match."})
         return attrs
 

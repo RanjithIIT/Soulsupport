@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'main.dart' as app;
 import 'dashboard.dart';
+import 'admissions.dart';
 import 'services/api_service.dart';
 
 class StudentAcademics {
@@ -547,7 +548,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
   }
 
   void _addStudent() {
-    Navigator.pushNamed(context, '/add-student');
+    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdmissionsScreen()));
   }
 
   @override

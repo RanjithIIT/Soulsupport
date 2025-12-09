@@ -1,7 +1,10 @@
 """
 Models for management_admin app - API layer for App 2
 """
+import uuid
+from datetime import date
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 from main_login.models import User
 from super_admin.models import School
 
@@ -33,36 +36,60 @@ class Department(models.Model):
 
 class Teacher(models.Model):
     """Teacher model"""
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='teacher_profile')
-    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='teachers')
+    teacher_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='user_id',
+        related_name='teacher_profiles',
+        help_text='If teacher has login'
+    )
+    employee_no = models.CharField(max_length=50, unique=True, null=True, blank=True)
+    first_name = models.CharField(max_length=150, null=False, default="")
+    last_name = models.CharField(max_length=150, null=True, blank=True)
+    qualification = models.CharField(max_length=255, null=True, blank=True)
+    joining_date = models.DateField(null=True, blank=True)
+    dob = models.DateField(null=True, blank=True, help_text='Date of Birth')
+    
+    GENDER_CHOICES = [
+        ('Male', 'Male'),
+        ('Female', 'Female'),
+        ('Other', 'Other'),
+    ]
+    gender = models.CharField(max_length=20, choices=GENDER_CHOICES, null=True, blank=True)
+    designation = models.CharField(max_length=100, null=True, blank=True)
+    
+    # Foreign key to Department
     department = models.ForeignKey(
         Department,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
+        db_column='department_id',
         related_name='teachers'
     )
-    employee_id = models.CharField(max_length=50, unique=True)
-    designation = models.CharField(max_length=100)
-    hire_date = models.DateField(null=True, blank=True)
-    # Additional profile fields requested by frontend forms
-    phone = models.CharField(max_length=20, null=True, blank=True)
+    
+    # Additional fields from schema
+    blood_group = models.CharField(max_length=10, null=True, blank=True)
+    nationality = models.CharField(max_length=100, null=True, blank=True)
+    mobile_no = models.CharField(max_length=20, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
     address = models.TextField(null=True, blank=True)
-    experience = models.CharField(
-        max_length=50, null=True, blank=True,
-        help_text='Years of experience or freeform description'
-    )
-    qualifications = models.TextField(null=True, blank=True)
-    specializations = models.TextField(null=True, blank=True)
-    class_teacher = models.CharField(max_length=50, null=True, blank=True)
-    # Store uploaded photo as raw bytes (nullable) to avoid requiring Pillow for now
-    photo = models.BinaryField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    primary_room_id = models.CharField(max_length=50, null=True, blank=True, help_text='Primary room identifier')
+    class_teacher_section_id = models.CharField(max_length=50, null=True, blank=True, help_text='Class teacher section identifier')
+    subject_specialization = models.TextField(null=True, blank=True, help_text='Subject specialization details')
+    emergency_contact = models.CharField(max_length=20, null=True, blank=True)
+    
+    profile_photo_id = models.UUIDField(null=True, blank=True, help_text='Reference to files.file_id for profile photo')
+    is_active = models.BooleanField(default=True, null=False)
+    created_at = models.DateTimeField(auto_now_add=True, null=False)
+    updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
     
     def __str__(self):
-        return f"{self.user.get_full_name()} - {self.school.name}"
+        name = f"{self.first_name} {self.last_name}".strip() or self.employee_no or str(self.teacher_id)
+        return f"{name} - {self.employee_no or 'N/A'}"
     
     class Meta:
         db_table = 'teachers'
@@ -71,38 +98,90 @@ class Teacher(models.Model):
 
 
 class Student(models.Model):
-    """Student model"""
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
+    """Student (final admission) model — same fields as NewAdmission except status."""
+
+    GENDER_CHOICES = [
+        ('Male', 'Male'),
+        ('Female', 'Female'),
+        ('Other', 'Other'),
+    ]
+
+    CATEGORY_CHOICES = [
+        ('General', 'General'),
+        ('OBC', 'OBC'),
+        ('SC', 'SC'),
+        ('ST', 'ST'),
+        ('EWS', 'EWS'),
+        ('Other', 'Other'),
+    ]
+
+    student_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # Login reference (optional)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='user_id',
+        related_name='student_profiles',
+        help_text='Linked login user account (if exists)'
+    )
+
+    # School link
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='students')
-    student_id = models.CharField(max_length=50, unique=True)
-    class_name = models.CharField(max_length=50)
-    section = models.CharField(max_length=10)
-    admission_date = models.DateField(null=True, blank=True)
-    # Additional student profile fields requested by frontend forms
-    date_of_birth = models.DateField(null=True, blank=True)
-    gender = models.CharField(max_length=10, null=True, blank=True)
-    blood_group = models.CharField(max_length=5, null=True, blank=True)
-    address = models.TextField(null=True, blank=True)
+
+    # 🔥 SAME FIELDS AS NewAdmission (without status)
+    student_name = models.CharField(max_length=255, default="")
+    parent_name = models.CharField(max_length=255, default="")
+    date_of_birth = models.DateField(default=date(2000, 1, 1))
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, default="Male")
+    applying_class = models.CharField(max_length=50, default="")
+    address = models.TextField(default="Address not provided")
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default="General")
+
+    admission_number = models.CharField(
+        max_length=50, 
+        unique=True, 
+        null=True, 
+        blank=True,
+        help_text="Generated after approval"
+    )
+
+    email = models.EmailField(
+        unique=True,
+        default="",
+        help_text='Used as login credential if account created'
+    )
+
+    parent_phone = models.CharField(max_length=20, null=True, blank=True)
     emergency_contact = models.CharField(max_length=20, null=True, blank=True)
-    medical_info = models.TextField(null=True, blank=True)
-    parent_name = models.CharField(max_length=255, blank=True)
-    parent_phone = models.CharField(max_length=20, blank=True)
-    # Store uploaded photo as raw bytes (nullable) to avoid requiring Pillow for now
-    photo = models.BinaryField(null=True, blank=True)
+
+    medical_information = models.TextField(
+        null=True, 
+        blank=True,
+        help_text='Medical notes or allergies'
+    )
+
+    blood_group = models.CharField(max_length=10, null=True, blank=True)
+    previous_school = models.CharField(max_length=255, null=True, blank=True)
+    remarks = models.TextField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     def __str__(self):
-        return f"{self.user.get_full_name()} - {self.student_id}"
-    
+        return f"{self.student_name} - {self.applying_class}"
+
     class Meta:
         db_table = 'students'
         verbose_name = 'Student'
         verbose_name_plural = 'Students'
 
 
+
 class NewAdmission(models.Model):
-    """New Admission model for managing student admissions"""
+    """New Admission model for managing student admissions - same fields as Student plus status"""
     STATUS_CHOICES = [
         ('Pending', 'Pending'),
         ('Approved', 'Approved'),
@@ -127,32 +206,183 @@ class NewAdmission(models.Model):
         ('Other', 'Other'),
     ]
     
+    # Login reference (optional) - same as Student
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='user_id',
+        related_name='new_admission_profiles',
+        help_text='Linked login user account (if exists)'
+    )
+
+    # School link - same as Student
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='new_admissions')
+    
+    # Same fields as Student model
     student_name = models.CharField(max_length=255)
     parent_name = models.CharField(max_length=255)
     date_of_birth = models.DateField()
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
     applying_class = models.CharField(max_length=50)
-    contact_number = models.CharField(max_length=20)
-    address = models.TextField()
-    application_date = models.DateField()
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    address = models.TextField(default = "Address not provided")
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default = "")
+    
+    # Status field - unique to NewAdmission (not in Student)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
-    admission_number = models.CharField(max_length=50, unique=True, null=True, blank=True)
-    email = models.EmailField(null=True, blank=True)
+    
+    admission_number = models.CharField(
+        max_length=50, 
+        unique=True, 
+        null=True, 
+        blank=True,
+        help_text="Generated after approval"
+    )
+    
+    email = models.EmailField(
+        unique=True,
+        help_text='Required. Used to create login credentials.'
+    )
+    
+    parent_phone = models.CharField(max_length=20, null=True, blank=True)
+    emergency_contact = models.CharField(max_length=20, null=True, blank=True)
+    
+    medical_information = models.TextField(
+        null=True, 
+        blank=True,
+        help_text='Medical information and allergies'
+    )
+    
+    blood_group = models.CharField(max_length=10, null=True, blank=True)
     previous_school = models.CharField(max_length=255, null=True, blank=True)
     remarks = models.TextField(null=True, blank=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
         return f"{self.student_name} - {self.applying_class} ({self.status})"
     
+    @property
+    def created_student(self):
+        """
+        Get the Student record created from this admission (if approved).
+        Returns the Student instance if found, None otherwise.
+        """
+        if self.status != 'Approved':
+            return None
+        
+        # Try to find student by admission number first, then by email
+        if self.admission_number:
+            try:
+                return Student.objects.get(admission_number=self.admission_number)
+            except Student.DoesNotExist:
+                pass
+        
+        if self.email:
+            try:
+                return Student.objects.get(email=self.email)
+            except Student.DoesNotExist:
+                pass
+        
+        return None
+    
+    def create_student_from_admission(self):
+        """
+        Create a Student record from this approved NewAdmission.
+        This method should be called when status changes to 'Approved'.
+        Returns the created or updated Student instance.
+        """
+        from django.db import IntegrityError
+        import datetime
+        
+        # Check if student already exists with this admission number or email
+        existing_student = None
+        if self.admission_number:
+            existing_student = Student.objects.filter(admission_number=self.admission_number).first()
+        if not existing_student and self.email:
+            existing_student = Student.objects.filter(email=self.email).first()
+        
+        if existing_student:
+            # Student already exists, update it with latest admission data
+            for field in ['student_name', 'parent_name', 'date_of_birth', 'gender', 
+                         'applying_class', 'address', 'category',
+                         'parent_phone', 'emergency_contact', 'medical_information',
+                         'blood_group', 'previous_school', 'remarks']:
+                setattr(existing_student, field, getattr(self, field, None))
+            
+            # Update user link if not already set
+            if self.user and not existing_student.user:
+                existing_student.user = self.user
+            
+            # Update admission number if not set
+            if self.admission_number and not existing_student.admission_number:
+                existing_student.admission_number = self.admission_number
+            
+            existing_student.save()
+            return existing_student
+        
+        # Generate admission number if not provided
+        admission_number = self.admission_number
+        if not admission_number:
+            timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+            admission_number = f'ADM-{datetime.datetime.now().year}-{timestamp[-6:]}'
+            # Ensure uniqueness
+            while Student.objects.filter(admission_number=admission_number).exists():
+                timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')
+                admission_number = f'ADM-{datetime.datetime.now().year}-{timestamp[-6:]}'
+            # Update the admission record with generated number
+            self.admission_number = admission_number
+            self.save(update_fields=['admission_number'])
+        
+        # Create Student record - map all fields from NewAdmission (except status)
+        student_data = {
+            'school': self.school,
+            'student_name': self.student_name,
+            'parent_name': self.parent_name,
+            'date_of_birth': self.date_of_birth,
+            'gender': self.gender,
+            'applying_class': self.applying_class,
+            'address': self.address or "Address not provided",
+            'category': self.category or "General",
+            'admission_number': admission_number,
+            'email': self.email,
+            'parent_phone': self.parent_phone,
+            'emergency_contact': self.emergency_contact,
+            'medical_information': self.medical_information,
+            'blood_group': self.blood_group,
+            'previous_school': self.previous_school,
+            'remarks': self.remarks,
+            'user': self.user,  # Link the user account
+        }
+        
+        try:
+            # Create student
+            student = Student.objects.create(**student_data)
+            return student
+        except IntegrityError as e:
+            # Handle unique constraint violations (email or admission_number)
+            # Try to get existing student by email
+            if self.email:
+                try:
+                    student = Student.objects.get(email=self.email)
+                    # Update the existing student
+                    for key, value in student_data.items():
+                        if key != 'email':  # Don't update email if it's the same
+                            setattr(student, key, value)
+                    student.save()
+                    return student
+                except Student.DoesNotExist:
+                    pass
+            # If we can't find existing student, re-raise the error
+            raise
+    
     class Meta:
         db_table = 'new_admissions'
         verbose_name = 'New Admission'
         verbose_name_plural = 'New Admissions'
-        ordering = ['-application_date', '-created_at']
+        ordering = ['-created_at']
 
 
 class DashboardStats(models.Model):

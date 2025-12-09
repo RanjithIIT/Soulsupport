@@ -10,6 +10,7 @@ class Endpoints {
   static const String refreshToken = '/auth/refresh/';
   static const String register = '/auth/register/';
   static const String routes = '/auth/routes/';
+  static const String createPassword = '/auth/create-password/';
 
   // Admin endpoints
   static const String adminSchools = '/admin/schools';

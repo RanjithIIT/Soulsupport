@@ -44,13 +44,16 @@ class Admission {
   final DateTime dateOfBirth;
   final String gender;
   final String applyingClass;
-  final String contactNumber;
   final String address;
-  final DateTime applicationDate;
   final String category;
   final String status;
   final String? admissionNumber;
+  final String? studentId;
   final String? email;
+  final String? parentPhone;
+  final String? emergencyContact;
+  final String? medicalInformation;
+  final String? bloodGroup;
   final String? previousSchool;
   final String? remarks;
 
@@ -61,13 +64,16 @@ class Admission {
     required this.dateOfBirth,
     required this.gender,
     required this.applyingClass,
-    required this.contactNumber,
     required this.address,
-    required this.applicationDate,
     required this.category,
     required this.status,
     this.admissionNumber,
+    this.studentId,
     this.email,
+    this.parentPhone,
+    this.emergencyContact,
+    this.medicalInformation,
+    this.bloodGroup,
     this.previousSchool,
     this.remarks,
   });
@@ -79,13 +85,16 @@ class Admission {
     DateTime? dateOfBirth,
     String? gender,
     String? applyingClass,
-    String? contactNumber,
     String? address,
-    DateTime? applicationDate,
     String? category,
     String? status,
     String? admissionNumber,
+    String? studentId,
     String? email,
+    String? parentPhone,
+    String? emergencyContact,
+    String? medicalInformation,
+    String? bloodGroup,
     String? previousSchool,
     String? remarks,
   }) {
@@ -96,13 +105,16 @@ class Admission {
       dateOfBirth: dateOfBirth ?? this.dateOfBirth,
       gender: gender ?? this.gender,
       applyingClass: applyingClass ?? this.applyingClass,
-      contactNumber: contactNumber ?? this.contactNumber,
       address: address ?? this.address,
-      applicationDate: applicationDate ?? this.applicationDate,
       category: category ?? this.category,
       status: status ?? this.status,
       admissionNumber: admissionNumber ?? this.admissionNumber,
+      studentId: studentId ?? this.studentId,
       email: email ?? this.email,
+      parentPhone: parentPhone ?? this.parentPhone,
+      emergencyContact: emergencyContact ?? this.emergencyContact,
+      medicalInformation: medicalInformation ?? this.medicalInformation,
+      bloodGroup: bloodGroup ?? this.bloodGroup,
       previousSchool: previousSchool ?? this.previousSchool,
       remarks: remarks ?? this.remarks,
     );
@@ -124,12 +136,17 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
   
   // Main Form Controllers
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _studentIdController = TextEditingController();
+  final TextEditingController _admissionNoController = TextEditingController();
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _parentController = TextEditingController();
-  final TextEditingController _contactController = TextEditingController();
+  final TextEditingController _parentPhoneController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _prevSchoolController = TextEditingController();
+  final TextEditingController _emergencyContactController = TextEditingController();
+  final TextEditingController _medicalInfoController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
   
   // Search/Filter Controllers
@@ -138,8 +155,8 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
   String? _selectedGender;
   String? _selectedClass;
   String? _selectedCategory;
+  String? _selectedBloodGroup;
   DateTime? _selectedDob;
-  DateTime? _selectedAppDate;
   int? _selectedSchoolId;
 
   String _filterStatus = "";
@@ -160,12 +177,17 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
   void dispose() {
     _searchController.removeListener(_filterAdmissions);
     _searchController.dispose();
-    _nameController.dispose();
+    _studentIdController.dispose();
+    _admissionNoController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _parentController.dispose();
-    _contactController.dispose();
+    _parentPhoneController.dispose();
     _addressController.dispose();
     _emailController.dispose();
     _prevSchoolController.dispose();
+    _emergencyContactController.dispose();
+    _medicalInfoController.dispose();
     _remarksController.dispose();
     super.dispose();
   }
@@ -259,7 +281,6 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
     try {
       // Parse dates
       DateTime? dateOfBirth;
-      DateTime? applicationDate;
       
       if (json['date_of_birth'] != null) {
         if (json['date_of_birth'] is String) {
@@ -268,16 +289,8 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
           dateOfBirth = json['date_of_birth'];
         }
       }
-      
-      if (json['application_date'] != null) {
-        if (json['application_date'] is String) {
-          applicationDate = DateTime.tryParse(json['application_date']);
-        } else if (json['application_date'] is DateTime) {
-          applicationDate = json['application_date'];
-        }
-      }
 
-      if (dateOfBirth == null || applicationDate == null) {
+      if (dateOfBirth == null) {
         return null;
       }
 
@@ -288,13 +301,16 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
         dateOfBirth: dateOfBirth,
         gender: json['gender'] ?? '',
         applyingClass: json['applying_class'] ?? '',
-        contactNumber: json['contact_number'] ?? '',
         address: json['address'] ?? '',
-        applicationDate: applicationDate,
         category: json['category'] ?? '',
         status: json['status'] ?? 'Pending',
         admissionNumber: json['admission_number'],
+        studentId: json['student_id'],
         email: json['email'],
+        parentPhone: json['parent_phone'],
+        emergencyContact: json['emergency_contact'],
+        medicalInformation: json['medical_information'],
+        bloodGroup: json['blood_group'],
         previousSchool: json['previous_school'],
         remarks: json['remarks'],
       );
@@ -311,8 +327,7 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
       _filteredAdmissions = _allAdmissions.where((admission) {
         final matchesSearch = _searchController.text.isEmpty ||
             admission.studentName.toLowerCase().contains(_searchController.text.toLowerCase()) ||
-            admission.parentName.toLowerCase().contains(_searchController.text.toLowerCase()) ||
-            admission.contactNumber.contains(_searchController.text);
+            admission.parentName.toLowerCase().contains(_searchController.text.toLowerCase());
 
         final matchesStatus = _filterStatus.isEmpty || admission.status == _filterStatus;
         final matchesClass = _filterClass.isEmpty || admission.applyingClass == _filterClass;
@@ -324,8 +339,9 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
 
   Future<void> _addNewAdmissionFromPage() async {
     if (_formKey.currentState!.validate() &&
+        _admissionNoController.text.trim().isNotEmpty &&
+        _firstNameController.text.trim().isNotEmpty &&
         _selectedDob != null &&
-        _selectedAppDate != null &&
         _selectedGender != null &&
         _selectedClass != null &&
         _selectedCategory != null) {
@@ -338,18 +354,27 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
         // Prepare data for API
         final admissionData = {
           'school': _selectedSchoolId ?? 1, // Default to school ID 1 if not selected
-          'student_name': _nameController.text.trim(),
+          'student_name': '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'.trim(),
           'parent_name': _parentController.text.trim(),
           'date_of_birth': DateFormat('yyyy-MM-dd').format(_selectedDob!),
           'gender': _selectedGender!,
           'applying_class': _selectedClass!,
-          'contact_number': _contactController.text.trim(),
           'address': _addressController.text.trim(),
-          'application_date': DateFormat('yyyy-MM-dd').format(_selectedAppDate!),
           'category': _selectedCategory!,
           'status': 'Pending',
+          'admission_number': _admissionNoController.text.trim(),
+          if (_studentIdController.text.trim().isNotEmpty)
+            'student_id': _studentIdController.text.trim(),
           if (_emailController.text.trim().isNotEmpty)
             'email': _emailController.text.trim(),
+          if (_parentPhoneController.text.trim().isNotEmpty)
+            'parent_phone': _parentPhoneController.text.trim(),
+          if (_emergencyContactController.text.trim().isNotEmpty)
+            'emergency_contact': _emergencyContactController.text.trim(),
+          if (_medicalInfoController.text.trim().isNotEmpty)
+            'medical_information': _medicalInfoController.text.trim(),
+          if (_selectedBloodGroup != null)
+            'blood_group': _selectedBloodGroup!,
           if (_prevSchoolController.text.trim().isNotEmpty)
             'previous_school': _prevSchoolController.text.trim(),
           if (_remarksController.text.trim().isNotEmpty)
@@ -385,18 +410,23 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
         // Admission data will be loaded from server after successful creation
 
           // Reset Form
-          _nameController.clear();
+          _studentIdController.clear();
+          _admissionNoController.clear();
+          _firstNameController.clear();
+          _lastNameController.clear();
           _parentController.clear();
-          _contactController.clear();
+          _parentPhoneController.clear();
           _addressController.clear();
           _emailController.clear();
           _prevSchoolController.clear();
+          _emergencyContactController.clear();
+          _medicalInfoController.clear();
           _remarksController.clear();
           _selectedGender = null;
           _selectedClass = null;
           _selectedCategory = null;
+          _selectedBloodGroup = null;
           _selectedDob = null;
-          _selectedAppDate = null;
           _selectedSchoolId = null;
 
           // Reload admissions from server
@@ -464,9 +494,13 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
           });
         }
       }
-    } else if (_selectedDob == null || _selectedAppDate == null) {
+    } else if (_admissionNoController.text.trim().isEmpty || _firstNameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please fill student ID, admission number, and first name."), backgroundColor: Colors.red),
+      );
+    } else if (_selectedDob == null) {
        ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select valid dates."), backgroundColor: Colors.red),
+        const SnackBar(content: Text("Please select date of birth."), backgroundColor: Colors.red),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -556,13 +590,55 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
       );
 
       if (response.success && response.data != null) {
+        // If status is Approved, create Student record
+        if (newStatus == 'Approved') {
+          try {
+            // Get admission data to create student
+            final admissionData = response.data as Map<String, dynamic>;
+            
+            // Prepare student data from admission
+            final studentData = {
+              'admission_no': admissionNumber ?? admissionData['admission_number'] ?? 'ADM-${DateTime.now().millisecondsSinceEpoch}',
+              'first_name': admission.studentName.split(' ').first,
+              'last_name': admission.studentName.split(' ').length > 1 
+                  ? admission.studentName.split(' ').sublist(1).join(' ')
+                  : null,
+              'date_of_birth': DateFormat('yyyy-MM-dd').format(admission.dateOfBirth),
+              'gender': admission.gender,
+              'address': admission.address,
+              'email': admission.email,
+              'parent_name': admission.parentName,
+              if (admission.parentPhone != null)
+                'parent_phone': admission.parentPhone,
+              if (admission.emergencyContact != null)
+                'emergency_contact': admission.emergencyContact,
+              'is_active': true,
+              if (admissionData['blood_group'] != null)
+                'blood_group': admissionData['blood_group'],
+              if (admissionData['medical_information'] != null)
+                'medical_information': admissionData['medical_information'],
+            };
+
+            // Call backend API to create student
+            await _apiService.post(
+              Endpoints.students,
+              body: studentData,
+            );
+          } catch (e) {
+            print('Error creating student: $e');
+            // Continue even if student creation fails
+          }
+        }
+
         // Reload admissions to get updated data from server
         await _loadAdmissions();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Status updated to $newStatus successfully!'),
+              content: Text(newStatus == 'Approved' 
+                  ? 'Status updated and student created successfully!'
+                  : 'Status updated to $newStatus successfully!'),
               backgroundColor: Colors.green,
             ),
           );
@@ -612,8 +688,6 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
       setState(() {
         if (isDob) {
           _selectedDob = picked;
-        } else {
-          _selectedAppDate = picked;
         }
       });
     }
@@ -845,13 +919,14 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Student ID and Admission Number
             Row(
               children: [
                 Expanded(
                   child: TextFormField(
-                    controller: _nameController,
+                    controller: _studentIdController,
                     decoration: InputDecoration(
-                      labelText: 'Student Name',
+                      labelText: 'Student ID (Optional)',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -863,9 +938,87 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
                 const SizedBox(width: 15),
                 Expanded(
                   child: TextFormField(
+                    controller: _admissionNoController,
+                    decoration: InputDecoration(
+                      labelText: 'Admission Number *',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Required';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 15),
+            // First Name and Last Name
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _firstNameController,
+                    decoration: InputDecoration(
+                      labelText: 'First Name *',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Required';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: TextFormField(
+                    controller: _lastNameController,
+                    decoration: InputDecoration(
+                      labelText: 'Last Name (Optional)',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 15),
+            // Parent Name and Parent Phone
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
                     controller: _parentController,
                     decoration: InputDecoration(
                       labelText: 'Parent/Guardian Name',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: TextFormField(
+                    controller: _parentPhoneController,
+                    decoration: InputDecoration(
+                      labelText: 'Parent Phone (Optional)',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -960,18 +1113,58 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
                     },
                   ),
                 ),
-                const SizedBox(width: 15),
+              ],
+            ),
+            const SizedBox(height: 15),
+            // Email
+            Row(
+              children: [
                 Expanded(
                   child: TextFormField(
-                    controller: _contactController,
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
-                      labelText: 'Contact Number',
+                      labelText: 'Email (Optional)',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                       filled: true,
                       fillColor: Colors.grey[50],
                     ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 15),
+            // Blood Group
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    decoration: InputDecoration(
+                      labelText: 'Blood Group (Optional)',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                    value: _selectedBloodGroup,
+                    items: const [
+                      DropdownMenuItem(value: 'A+', child: Text('A+')),
+                      DropdownMenuItem(value: 'A-', child: Text('A-')),
+                      DropdownMenuItem(value: 'B+', child: Text('B+')),
+                      DropdownMenuItem(value: 'B-', child: Text('B-')),
+                      DropdownMenuItem(value: 'AB+', child: Text('AB+')),
+                      DropdownMenuItem(value: 'AB-', child: Text('AB-')),
+                      DropdownMenuItem(value: 'O+', child: Text('O+')),
+                      DropdownMenuItem(value: 'O-', child: Text('O-')),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedBloodGroup = value;
+                      });
+                    },
                   ),
                 ),
               ],
@@ -990,34 +1183,40 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
               ),
             ),
             const SizedBox(height: 15),
+            // Emergency Contact and Medical Info
             Row(
               children: [
                 Expanded(
-                  child: InkWell(
-                    onTap: () => _pickDate(context, false),
-                    child: InputDecorator(
-                      decoration: InputDecoration(
-                        labelText: 'Application Date',
-                        hintText: 'yyyy-mm-dd',
-                        suffixIcon: const Icon(Icons.calendar_today),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey[50],
+                  child: TextFormField(
+                    controller: _emergencyContactController,
+                    decoration: InputDecoration(
+                      labelText: 'Emergency Contact (Optional)',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text(
-                        _selectedAppDate != null
-                            ? DateFormat('yyyy-MM-dd').format(_selectedAppDate!)
-                            : 'yyyy-mm-dd',
-                        style: TextStyle(
-                          color: _selectedAppDate != null ? Colors.black : Colors.grey,
-                        ),
-                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
                     ),
                   ),
                 ),
-                const SizedBox(width: 15),
+              ],
+            ),
+            const SizedBox(height: 15),
+            TextFormField(
+              controller: _medicalInfoController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: 'Medical Information (Optional)',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                filled: true,
+                fillColor: Colors.grey[50],
+              ),
+            ),
+            const SizedBox(height: 15),
+            Row(
+              children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     decoration: InputDecoration(
@@ -1045,21 +1244,6 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 15),
-            TextFormField(
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: InputDecoration(
-                labelText: 'Email (Optional)',
-                hintText: 'Enter email address',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                filled: true,
-                fillColor: Colors.grey[50],
-              ),
-            ),
-            const SizedBox(height: 15),
             TextFormField(
               controller: _prevSchoolController,
               decoration: InputDecoration(
@@ -1540,7 +1724,6 @@ class _AdmissionCard extends StatelessWidget {
                 _DetailRow(label: "👤 Parent", value: admission.parentName),
                 _DetailRow(label: "📚 Class", value: admission.applyingClass),
                 _DetailRow(label: "📅 DOB", value: DateFormat('MMM dd, yyyy').format(admission.dateOfBirth)),
-                _DetailRow(label: "📞 Contact", value: admission.contactNumber),
                 _DetailRow(label: "🏷️ Category", value: admission.category),
               ],
             ),
@@ -1619,18 +1802,21 @@ class _AdmissionDetailDialog extends StatelessWidget {
               ),
               const Divider(),
               const SizedBox(height: 16),
+              if (admission.studentId != null) _DetailItem('Student ID', admission.studentId!),
+              if (admission.admissionNumber != null) _DetailItem('Admission Number', admission.admissionNumber!),
               _DetailItem('Student Name', admission.studentName),
               _DetailItem('Parent/Guardian', admission.parentName),
+              if (admission.parentPhone != null) _DetailItem('Parent Phone', admission.parentPhone!),
               _DetailItem('Date of Birth', DateFormat('MMM dd, yyyy').format(admission.dateOfBirth)),
               _DetailItem('Gender', admission.gender),
+              if (admission.bloodGroup != null) _DetailItem('Blood Group', admission.bloodGroup!),
               _DetailItem('Applying for Class', admission.applyingClass),
-              _DetailItem('Contact Number', admission.contactNumber),
               if (admission.email != null) _DetailItem('Email', admission.email!),
               _DetailItem('Address', admission.address),
-              _DetailItem('Application Date', DateFormat('MMM dd, yyyy').format(admission.applicationDate)),
+              if (admission.emergencyContact != null) _DetailItem('Emergency Contact', admission.emergencyContact!),
+              if (admission.medicalInformation != null) _DetailItem('Medical Information', admission.medicalInformation!),
               _DetailItem('Category', admission.category),
               _DetailItem('Status', admission.status),
-              if (admission.admissionNumber != null) _DetailItem('Admission Number', admission.admissionNumber!),
               if (admission.previousSchool != null) _DetailItem('Previous School', admission.previousSchool!),
               if (admission.remarks != null) _DetailItem('Remarks', admission.remarks!),
             ],
@@ -1674,14 +1860,12 @@ class _AdmissionFormDialogState extends State<_AdmissionFormDialog> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _studentNameController;
   late TextEditingController _parentNameController;
-  late TextEditingController _contactNumberController;
   late TextEditingController _addressController;
   late TextEditingController _emailController;
   late TextEditingController _previousSchoolController;
   late TextEditingController _remarksController;
 
   DateTime? _dateOfBirth;
-  DateTime? _applicationDate;
   String? _gender;
   String? _applyingClass;
   String? _category;
@@ -1692,13 +1876,11 @@ class _AdmissionFormDialogState extends State<_AdmissionFormDialog> {
     final admission = widget.admission;
     _studentNameController = TextEditingController(text: admission?.studentName ?? '');
     _parentNameController = TextEditingController(text: admission?.parentName ?? '');
-    _contactNumberController = TextEditingController(text: admission?.contactNumber ?? '');
     _addressController = TextEditingController(text: admission?.address ?? '');
     _emailController = TextEditingController(text: admission?.email ?? '');
     _previousSchoolController = TextEditingController(text: admission?.previousSchool ?? '');
     _remarksController = TextEditingController(text: admission?.remarks ?? '');
     _dateOfBirth = admission?.dateOfBirth;
-    _applicationDate = admission?.applicationDate ?? DateTime.now();
     _gender = admission?.gender;
     _applyingClass = admission?.applyingClass;
     _category = admission?.category;
@@ -1708,7 +1890,6 @@ class _AdmissionFormDialogState extends State<_AdmissionFormDialog> {
   void dispose() {
     _studentNameController.dispose();
     _parentNameController.dispose();
-    _contactNumberController.dispose();
     _addressController.dispose();
     _emailController.dispose();
     _previousSchoolController.dispose();
@@ -1718,7 +1899,7 @@ class _AdmissionFormDialogState extends State<_AdmissionFormDialog> {
 
   void _submitForm() {
     if (_formKey.currentState!.validate()) {
-      if (_dateOfBirth == null || _applicationDate == null || _gender == null || _applyingClass == null || _category == null) {
+      if (_dateOfBirth == null || _gender == null || _applyingClass == null || _category == null) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill all required fields')));
         return;
       }
@@ -1730,9 +1911,7 @@ class _AdmissionFormDialogState extends State<_AdmissionFormDialog> {
         dateOfBirth: _dateOfBirth!,
         gender: _gender!,
         applyingClass: _applyingClass!,
-        contactNumber: _contactNumberController.text.trim(),
         address: _addressController.text.trim(),
-        applicationDate: _applicationDate!,
         category: _category!,
         status: widget.admission?.status ?? 'Pending',
         admissionNumber: widget.admission?.admissionNumber,
@@ -1783,15 +1962,11 @@ class _AdmissionFormDialogState extends State<_AdmissionFormDialog> {
                       const SizedBox(height: 16),
                       Row(children: [
                          Expanded(child: _buildDropdown("Class *", List.generate(12, (i) => "Class ${i + 1}"), _applyingClass, (v) => setState(() => _applyingClass = v))),
-                         const SizedBox(width: 16),
-                         Expanded(child: _buildTextField("Contact Number *", _contactNumberController)),
                       ]),
                       const SizedBox(height: 16),
                       _buildTextField("Address *", _addressController, maxLines: 2),
                       const SizedBox(height: 16),
                       Row(children: [
-                        Expanded(child: _buildDateField("Application Date *", _applicationDate, (d) => setState(() => _applicationDate = d))),
-                        const SizedBox(width: 16),
                         Expanded(child: _buildDropdown("Category *", ["General", "OBC", "SC", "ST", "EWS"], _category, (v) => setState(() => _category = v))),
                       ]),
                       const SizedBox(height: 16),

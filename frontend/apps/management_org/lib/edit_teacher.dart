@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 
 class EditTeacherPage extends StatefulWidget {
   final int? teacherId;
@@ -16,16 +17,25 @@ class EditTeacherPage extends StatefulWidget {
 class _EditTeacherPageState extends State<EditTeacherPage> {
   final _formKey = GlobalKey<FormState>();
 
-  final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
+  final _teacherIdController = TextEditingController();
+  final _employeeNoController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _qualificationController = TextEditingController();
+  final _mobileNoController = TextEditingController();
   final _emailController = TextEditingController();
   final _addressController = TextEditingController();
-  final _experienceController = TextEditingController();
-  final _qualificationsController = TextEditingController();
-  final _specializationsController = TextEditingController();
+  final _bloodGroupController = TextEditingController();
+  final _nationalityController = TextEditingController();
+  final _primaryRoomIdController = TextEditingController();
+  final _classTeacherSectionIdController = TextEditingController();
+  final _subjectSpecializationController = TextEditingController();
+  final _emergencyContactController = TextEditingController();
 
   String? _designation;
-  String? _classTeacher;
+  String? _gender;
+  DateTime? _dob;
+  DateTime? _joiningDate;
   Uint8List? _photoBytes;
 
   bool _isSubmitting = false;
@@ -43,20 +53,31 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
     if (widget.teacherId == null) return;
     try {
       final data = await ApiService.fetchTeacherById(widget.teacherId!);
-      final user = data['user'] as Map<String, dynamic>? ?? {};
-      final firstName = user['first_name'] as String? ?? '';
-      final lastName = user['last_name'] as String? ?? '';
-      final fullName = '$firstName $lastName'.trim();
-
-      _nameController.text = fullName.isNotEmpty ? fullName : (data['name'] as String? ?? '');
+      
+      _teacherIdController.text = data['teacher_id']?.toString() ?? '';
+      _employeeNoController.text = data['employee_no'] as String? ?? '';
+      _firstNameController.text = data['first_name'] as String? ?? '';
+      _lastNameController.text = data['last_name'] as String? ?? '';
+      _qualificationController.text = data['qualification'] as String? ?? '';
       _designation = data['designation'] as String?;
-      _phoneController.text = data['phone'] as String? ?? '';
-      _emailController.text = data['email'] as String? ?? user['email'] as String? ?? '';
+      _gender = data['gender'] as String?;
+      _mobileNoController.text = data['mobile_no'] as String? ?? '';
+      _emailController.text = data['email'] as String? ?? '';
       _addressController.text = data['address'] as String? ?? '';
-      _classTeacher = data['class_teacher'] as String?;
-      _experienceController.text = (data['experience'] ?? '').toString();
-      _qualificationsController.text = data['qualifications'] as String? ?? '';
-      _specializationsController.text = data['specializations'] as String? ?? '';
+      _bloodGroupController.text = data['blood_group'] as String? ?? '';
+      _nationalityController.text = data['nationality'] as String? ?? '';
+      _primaryRoomIdController.text = data['primary_room_id'] as String? ?? '';
+      _classTeacherSectionIdController.text = data['class_teacher_section_id'] as String? ?? '';
+      _subjectSpecializationController.text = data['subject_specialization'] as String? ?? '';
+      _emergencyContactController.text = data['emergency_contact'] as String? ?? '';
+      
+      if (data['dob'] != null) {
+        _dob = DateTime.tryParse(data['dob']);
+      }
+      if (data['joining_date'] != null) {
+        _joiningDate = DateTime.tryParse(data['joining_date']);
+      }
+      
       setState(() {});
     } catch (e) {
       if (!mounted) return;
@@ -68,13 +89,20 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _phoneController.dispose();
+    _teacherIdController.dispose();
+    _employeeNoController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _qualificationController.dispose();
+    _mobileNoController.dispose();
     _emailController.dispose();
     _addressController.dispose();
-    _experienceController.dispose();
-    _qualificationsController.dispose();
-    _specializationsController.dispose();
+    _bloodGroupController.dispose();
+    _nationalityController.dispose();
+    _primaryRoomIdController.dispose();
+    _classTeacherSectionIdController.dispose();
+    _subjectSpecializationController.dispose();
+    _emergencyContactController.dispose();
     super.dispose();
   }
 
@@ -101,14 +129,27 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
 
     try {
       final payload = {
+        'employee_no': _employeeNoController.text.trim(),
+        'first_name': _firstNameController.text.trim(),
+        'last_name': _lastNameController.text.trim(),
+        'qualification': _qualificationController.text.trim(),
+        'joining_date': _joiningDate != null 
+            ? DateFormat('yyyy-MM-dd').format(_joiningDate!) 
+            : null,
+        'dob': _dob != null 
+            ? DateFormat('yyyy-MM-dd').format(_dob!) 
+            : null,
+        'gender': _gender,
         'designation': _designation,
-        'phone': _phoneController.text.trim(),
+        'mobile_no': _mobileNoController.text.trim(),
         'email': _emailController.text.trim(),
         'address': _addressController.text.trim(),
-        'experience': _experienceController.text.trim(),
-        'qualifications': _qualificationsController.text.trim(),
-        'specializations': _specializationsController.text.trim(),
-        'class_teacher': _classTeacher,
+        'blood_group': _bloodGroupController.text.trim(),
+        'nationality': _nationalityController.text.trim(),
+        'primary_room_id': _primaryRoomIdController.text.trim(),
+        'class_teacher_section_id': _classTeacherSectionIdController.text.trim(),
+        'subject_specialization': _subjectSpecializationController.text.trim(),
+        'emergency_contact': _emergencyContactController.text.trim(),
       };
 
       if (widget.teacherId != null) {
@@ -142,27 +183,20 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _PreviewItem('Name', _nameController.text),
+              _PreviewItem('Teacher ID', _teacherIdController.text),
+              _PreviewItem('Employee No', _employeeNoController.text),
+              _PreviewItem('Name', '${_firstNameController.text} ${_lastNameController.text}'.trim()),
               _PreviewItem('Designation', _designation ?? 'Not provided'),
-              _PreviewItem('Phone', _phoneController.text),
+              _PreviewItem('Gender', _gender ?? 'Not provided'),
+              _PreviewItem('Mobile No', _mobileNoController.text),
               _PreviewItem('Email', _emailController.text),
               _PreviewItem('Address', _addressController.text),
-              _PreviewItem('Class Teacher', _classTeacher ?? 'Not assigned'),
-              _PreviewItem(
-                  'Experience',
-                  _experienceController.text.isEmpty
-                      ? '0 years'
-                      : '${_experienceController.text} years'),
-              _PreviewItem(
-                  'Qualifications',
-                  _qualificationsController.text.isEmpty
-                      ? 'Not provided'
-                      : _qualificationsController.text),
-              _PreviewItem(
-                  'Specializations',
-                  _specializationsController.text.isEmpty
-                      ? 'Not provided'
-                      : _specializationsController.text),
+              _PreviewItem('Blood Group', _bloodGroupController.text),
+              _PreviewItem('Nationality', _nationalityController.text),
+              _PreviewItem('Qualification', _qualificationController.text),
+              _PreviewItem('Class Teacher Section ID', _classTeacherSectionIdController.text),
+              _PreviewItem('Subject Specialization', _subjectSpecializationController.text),
+              _PreviewItem('Emergency Contact', _emergencyContactController.text),
             ],
           ),
         ),
@@ -203,25 +237,44 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
                       _FormCard(
                         formKey: _formKey,
                         gradient: gradient,
-                        nameController: _nameController,
+                        teacherIdController: _teacherIdController,
+                        employeeNoController: _employeeNoController,
+                        firstNameController: _firstNameController,
+                        lastNameController: _lastNameController,
+                        qualificationController: _qualificationController,
                         designation: _designation,
                         onDesignationChanged: (value) {
                           setState(() {
                             _designation = value;
                           });
                         },
-                        phoneController: _phoneController,
-                        emailController: _emailController,
-                        addressController: _addressController,
-                        classTeacher: _classTeacher,
-                        onClassTeacherChanged: (value) {
+                        gender: _gender,
+                        onGenderChanged: (value) {
                           setState(() {
-                            _classTeacher = value;
+                            _gender = value;
                           });
                         },
-                        experienceController: _experienceController,
-                        qualificationsController: _qualificationsController,
-                        specializationsController: _specializationsController,
+                        dob: _dob,
+                        onDobChanged: (value) {
+                          setState(() {
+                            _dob = value;
+                          });
+                        },
+                        joiningDate: _joiningDate,
+                        onJoiningDateChanged: (value) {
+                          setState(() {
+                            _joiningDate = value;
+                          });
+                        },
+                        mobileNoController: _mobileNoController,
+                        emailController: _emailController,
+                        addressController: _addressController,
+                        bloodGroupController: _bloodGroupController,
+                        nationalityController: _nationalityController,
+                        primaryRoomIdController: _primaryRoomIdController,
+                        classTeacherSectionIdController: _classTeacherSectionIdController,
+                        subjectSpecializationController: _subjectSpecializationController,
+                        emergencyContactController: _emergencyContactController,
                         photoBytes: _photoBytes,
                         onPickPhoto: _pickPhoto,
                         isSubmitting: _isSubmitting,
@@ -441,17 +494,28 @@ class _Header extends StatelessWidget {
 class _FormCard extends StatelessWidget {
   final GlobalKey<FormState> formKey;
   final LinearGradient gradient;
-  final TextEditingController nameController;
+  final TextEditingController teacherIdController;
+  final TextEditingController employeeNoController;
+  final TextEditingController firstNameController;
+  final TextEditingController lastNameController;
+  final TextEditingController qualificationController;
   final String? designation;
   final ValueChanged<String?> onDesignationChanged;
-  final TextEditingController phoneController;
+  final String? gender;
+  final ValueChanged<String?> onGenderChanged;
+  final DateTime? dob;
+  final ValueChanged<DateTime?> onDobChanged;
+  final DateTime? joiningDate;
+  final ValueChanged<DateTime?> onJoiningDateChanged;
+  final TextEditingController mobileNoController;
   final TextEditingController emailController;
   final TextEditingController addressController;
-  final String? classTeacher;
-  final ValueChanged<String?> onClassTeacherChanged;
-  final TextEditingController experienceController;
-  final TextEditingController qualificationsController;
-  final TextEditingController specializationsController;
+  final TextEditingController bloodGroupController;
+  final TextEditingController nationalityController;
+  final TextEditingController primaryRoomIdController;
+  final TextEditingController classTeacherSectionIdController;
+  final TextEditingController subjectSpecializationController;
+  final TextEditingController emergencyContactController;
   final Uint8List? photoBytes;
   final Future<void> Function() onPickPhoto;
   final bool isSubmitting;
@@ -464,17 +528,28 @@ class _FormCard extends StatelessWidget {
   const _FormCard({
     required this.formKey,
     required this.gradient,
-    required this.nameController,
+    required this.teacherIdController,
+    required this.employeeNoController,
+    required this.firstNameController,
+    required this.lastNameController,
+    required this.qualificationController,
     required this.designation,
     required this.onDesignationChanged,
-    required this.phoneController,
+    required this.gender,
+    required this.onGenderChanged,
+    required this.dob,
+    required this.onDobChanged,
+    required this.joiningDate,
+    required this.onJoiningDateChanged,
+    required this.mobileNoController,
     required this.emailController,
     required this.addressController,
-    required this.classTeacher,
-    required this.onClassTeacherChanged,
-    required this.experienceController,
-    required this.qualificationsController,
-    required this.specializationsController,
+    required this.bloodGroupController,
+    required this.nationalityController,
+    required this.primaryRoomIdController,
+    required this.classTeacherSectionIdController,
+    required this.subjectSpecializationController,
+    required this.emergencyContactController,
     required this.photoBytes,
     required this.onPickPhoto,
     required this.isSubmitting,
@@ -550,14 +625,51 @@ class _FormCard extends StatelessWidget {
               onPickPhoto: onPickPhoto,
             ),
             const SizedBox(height: 20),
+            // Teacher ID (read-only)
             Row(
               children: [
                 Expanded(
                   child: TextFormField(
-                    controller: nameController,
+                    controller: teacherIdController,
+                    enabled: false,
                     decoration: InputDecoration(
-                      labelText: 'Full Name *',
-                      hintText: 'Enter teacher\'s full name',
+                      labelText: 'Teacher ID',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[100],
+                      prefixIcon: const Icon(Icons.badge),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: TextFormField(
+                    controller: employeeNoController,
+                    decoration: InputDecoration(
+                      labelText: 'Employee Number',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      prefixIcon: const Icon(Icons.work),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            // First Name and Last Name
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: firstNameController,
+                    decoration: InputDecoration(
+                      labelText: 'First Name *',
+                      hintText: 'Enter first name',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -567,7 +679,7 @@ class _FormCard extends StatelessWidget {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter full name';
+                        return 'Please enter first name';
                       }
                       return null;
                     },
@@ -575,9 +687,143 @@ class _FormCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 20),
                 Expanded(
+                  child: TextFormField(
+                    controller: lastNameController,
+                    decoration: InputDecoration(
+                      labelText: 'Last Name',
+                      hintText: 'Enter last name',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      prefixIcon: const Icon(Icons.person_outline),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            // Date of Birth and Gender
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: dob ?? DateTime.now().subtract(const Duration(days: 365 * 30)),
+                        firstDate: DateTime(1950),
+                        lastDate: DateTime.now(),
+                      );
+                      if (date != null) {
+                        onDobChanged(date);
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: 'Date of Birth',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        prefixIcon: const Icon(Icons.calendar_today),
+                      ),
+                      child: Text(
+                        dob != null
+                            ? DateFormat('yyyy-MM-dd').format(dob!)
+                            : 'Select date of birth',
+                        style: TextStyle(
+                          color: dob != null ? Colors.black : Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
                   child: DropdownButtonFormField<String>(
                     decoration: InputDecoration(
-                      labelText: 'Designation *',
+                      labelText: 'Gender',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      prefixIcon: const Icon(Icons.people),
+                    ),
+                    value: gender,
+                    items: const [
+                      DropdownMenuItem(value: 'Male', child: Text('Male')),
+                      DropdownMenuItem(value: 'Female', child: Text('Female')),
+                      DropdownMenuItem(value: 'Other', child: Text('Other')),
+                    ],
+                    onChanged: onGenderChanged,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            // Qualification and Joining Date
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: qualificationController,
+                    decoration: InputDecoration(
+                      labelText: 'Qualification',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      prefixIcon: const Icon(Icons.school),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: InkWell(
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: joiningDate ?? DateTime.now(),
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2030),
+                      );
+                      if (date != null) {
+                        onJoiningDateChanged(date);
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: 'Joining Date',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        prefixIcon: const Icon(Icons.event),
+                      ),
+                      child: Text(
+                        joiningDate != null
+                            ? DateFormat('yyyy-MM-dd').format(joiningDate!)
+                            : 'Select joining date',
+                        style: TextStyle(
+                          color: joiningDate != null ? Colors.black : Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            // Designation
+            DropdownButtonFormField<String>(
+              decoration: InputDecoration(
+                labelText: 'Designation',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -606,24 +852,16 @@ class _FormCard extends StatelessWidget {
                             DropdownMenuItem(value: value, child: Text(value)))
                         .toList(),
                     onChanged: onDesignationChanged,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please select designation';
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-              ],
             ),
             const SizedBox(height: 20),
+            // Mobile No and Email
             Row(
               children: [
                 Expanded(
                   child: TextFormField(
-                    controller: phoneController,
+                    controller: mobileNoController,
                     decoration: InputDecoration(
-                      labelText: 'Phone Number *',
+                      labelText: 'Mobile Number',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -632,15 +870,6 @@ class _FormCard extends StatelessWidget {
                       prefixIcon: const Icon(Icons.phone),
                     ),
                     keyboardType: TextInputType.phone,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter phone number';
-                      }
-                      if (value.length < 10) {
-                        return 'Please enter a valid phone number';
-                      }
-                      return null;
-                    },
                   ),
                 ),
                 const SizedBox(width: 20),
@@ -648,7 +877,7 @@ class _FormCard extends StatelessWidget {
                   child: TextFormField(
                     controller: emailController,
                     decoration: InputDecoration(
-                      labelText: 'Email Address *',
+                      labelText: 'Email Address',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -657,24 +886,16 @@ class _FormCard extends StatelessWidget {
                       prefixIcon: const Icon(Icons.email),
                     ),
                     keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter email';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Please enter a valid email';
-                      }
-                      return null;
-                    },
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 20),
+            // Address
             TextFormField(
               controller: addressController,
               decoration: InputDecoration(
-                labelText: 'Address *',
+                labelText: 'Address',
                 hintText: 'Enter complete address',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -684,20 +905,66 @@ class _FormCard extends StatelessWidget {
                 prefixIcon: const Icon(Icons.location_on),
               ),
               maxLines: 3,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter address';
-                }
-                return null;
-              },
             ),
             const SizedBox(height: 20),
+            // Blood Group and Nationality
             Row(
               children: [
                 Expanded(
-                  child: DropdownButtonFormField<String>(
+                  child: TextFormField(
+                    controller: bloodGroupController,
                     decoration: InputDecoration(
-                      labelText: 'Class Teacher (optional)',
+                      labelText: 'Blood Group',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      prefixIcon: const Icon(Icons.bloodtype),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: TextFormField(
+                    controller: nationalityController,
+                    decoration: InputDecoration(
+                      labelText: 'Nationality',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      prefixIcon: const Icon(Icons.public),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            // Primary Room ID and Class Teacher Section ID
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: primaryRoomIdController,
+              decoration: InputDecoration(
+                      labelText: 'Primary Room ID',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                      prefixIcon: const Icon(Icons.room),
+                    ),
+                  ),
+              ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: TextFormField(
+                    controller: classTeacherSectionIdController,
+                    decoration: InputDecoration(
+                      labelText: 'Class Teacher Section ID',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -705,66 +972,17 @@ class _FormCard extends StatelessWidget {
                       fillColor: Colors.white,
                       prefixIcon: const Icon(Icons.class_),
                     ),
-                    value: classTeacher,
-                    items: const [
-                      'Grade 9A',
-                      'Grade 9B',
-                      'Grade 9C',
-                      'Grade 10A',
-                      'Grade 10B',
-                      'Grade 10C',
-                      'Grade 11A',
-                      'Grade 11B',
-                      'Grade 11C',
-                      'Grade 12A',
-                      'Grade 12B',
-                      'Grade 12C',
-                    ]
-                        .map((value) =>
-                            DropdownMenuItem(value: value, child: Text(value)))
-                        .toList(),
-                    onChanged: onClassTeacherChanged,
-                  ),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: TextFormField(
-                    controller: experienceController,
-                    decoration: InputDecoration(
-                      labelText: 'Years of Experience',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      prefixIcon: const Icon(Icons.work_history),
-                    ),
-                    keyboardType: TextInputType.number,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 20),
+            // Subject Specialization
             TextFormField(
-              controller: qualificationsController,
+              controller: subjectSpecializationController,
               decoration: InputDecoration(
-                labelText: 'Qualifications',
-                hintText: 'Enter educational qualifications and certifications',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                filled: true,
-                fillColor: Colors.white,
-                prefixIcon: const Icon(Icons.school),
-              ),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 20),
-            TextFormField(
-              controller: specializationsController,
-              decoration: InputDecoration(
-                labelText: 'Specializations',
-                hintText: 'Enter areas of specialization or expertise',
+                labelText: 'Subject Specialization',
+                hintText: 'Enter subject specialization details',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -773,6 +991,21 @@ class _FormCard extends StatelessWidget {
                 prefixIcon: const Icon(Icons.star),
               ),
               maxLines: 3,
+            ),
+            const SizedBox(height: 20),
+            // Emergency Contact
+            TextFormField(
+              controller: emergencyContactController,
+              decoration: InputDecoration(
+                labelText: 'Emergency Contact',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                prefixIcon: const Icon(Icons.emergency),
+              ),
+              keyboardType: TextInputType.phone,
             ),
             const SizedBox(height: 30),
             Row(

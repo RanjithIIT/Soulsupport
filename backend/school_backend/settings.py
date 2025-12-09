@@ -83,7 +83,7 @@ WSGI_APPLICATION = 'school_backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'school_management_system_db',       # The database you created
+        'NAME': 'ss_db',       # The database you created
         'USER': 'postgres',        # PostgreSQL username
         'PASSWORD': '123456',    # PostgreSQL password
         'HOST': 'localhost',               # or your server IP
@@ -127,6 +127,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Custom User Model
 AUTH_USER_MODEL = 'main_login.User'
 
+# Custom Authentication Backend
+AUTHENTICATION_BACKENDS = [
+    'main_login.backends.PasswordHashBackend',  # Custom backend using password_hash
+    'django.contrib.auth.backends.ModelBackend',  # Fallback to default
+]
+
 # REST Framework Configuration
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -149,7 +155,7 @@ SIMPLE_JWT = {
     'SIGNING_KEY': SECRET_KEY,
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
-    'USER_ID_FIELD': 'id',
+    'USER_ID_FIELD': 'user_id',  # Updated to match User model's primary key field
     'USER_ID_CLAIM': 'user_id',
 }
 

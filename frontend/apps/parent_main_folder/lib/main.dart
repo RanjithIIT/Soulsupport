@@ -44,71 +44,35 @@ MaterialColor createMaterialColor(Color color) {
 }
 
 class DashboardData {
-  // Use const constructor since all fields are final and initialized immediately
-  const DashboardData();
+  // Dashboard data will be fetched from API, no dummy data
+  final String userName;
+  final String totalHomework;
+  final String upcomingTests;
+  final String totalResults;
+  final String academicsScore;
+  final String extracurricularCount;
+  final String feesStatus;
+  final Map<String, dynamic> busDetails;
+  final List<Map<String, String>> homework;
+  final List<Map<String, String>> tests;
+  final List<Map<String, dynamic>> results;
 
-  final String userName = 'Parent User';
-  final String totalHomework = '3';
-  final String upcomingTests = '2';
-  final String totalResults = '3';
-  final String academicsScore = '85.6%';
-  final String extracurricularCount = '5';
-  final String feesStatus = 'Paid';
-  final Map<String, dynamic> busDetails = const {
-    'busNumber': 'BUS-001',
-    'route': 'Route A',
-    'driver': 'Mr. Smith',
-    'pickupTime': '7:30 AM',
-    'dropTime': '3:30 PM',
-  };
-  final List<Map<String, String>> homework = const [
-    {
-      'title': 'Algebra Chapter 5',
-      'status': 'pending',
-      'subject': 'Mathematics',
-      'dueDate': '2025-11-10',
-    },
-    {
-      'title': 'Photosynthesis Essay',
-      'status': 'completed',
-      'subject': 'Science',
-      'dueDate': '2025-11-08',
-    },
-  ];
-  final List<Map<String, String>> tests = const [
-    {
-      'subject': 'History Mid-Term',
-      'date': '2025-11-15',
-      'duration': '90 minutes',
-    },
-    {'subject': 'Math Quiz', 'date': '2025-11-18', 'duration': '30 minutes'},
-  ];
-  final List<Map<String, dynamic>> results = const [
-    {
-      'subject': 'Mathematics',
-      'examType': 'Mid-Term',
-      'score': 85,
-      'grade': 'A',
-      'date': '2024-12-01',
-      'status': 'completed',
-    },
-    {
-      'subject': 'Science',
-      'examType': 'Unit Test',
-      'score': 92,
-      'grade': 'A+',
-      'date': '2024-11-28',
-      'status': 'completed',
-    },
-    {
-      'subject': 'English',
-      'examType': 'Final Exam',
-      'score': 78,
-      'grade': 'B+',
-      'date': '2024-11-25',
-      'status': 'completed',
-    },
-  ];
+  DashboardData({
+    this.userName = '',
+    this.totalHomework = '0',
+    this.upcomingTests = '0',
+    this.totalResults = '0',
+    this.academicsScore = '0%',
+    this.extracurricularCount = '0',
+    this.feesStatus = 'Unknown',
+    Map<String, dynamic>? busDetails,
+    List<Map<String, String>>? homework,
+    List<Map<String, String>>? tests,
+    List<Map<String, dynamic>>? results,
+  })  : busDetails = busDetails ?? {},
+        homework = homework ?? [],
+        tests = tests ?? [],
+        results = results ?? [];
 }
 
 // -------------------------------------------------------------------------
@@ -166,7 +130,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final DashboardData mockData = const DashboardData();
+  DashboardData mockData = DashboardData();
   final math.Random _random = math.Random();
 
   // Initialize state variables for Calendar
@@ -251,7 +215,7 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       {
         'icon': Icons.directions_bus,
-        'number': mockData.busDetails['busNumber'] as String,
+        'number': (mockData.busDetails['busNumber'] as String?) ?? 'N/A',
         'label': 'Bus Details',
         'color': const Color(0xFF17a2b8),
         'action': () => Navigator.push(
@@ -1825,6 +1789,13 @@ class _BusDetailsCard extends StatelessWidget {
 
   const _BusDetailsCard({required this.details});
 
+  String _safeGet(String key, [String defaultValue = 'N/A']) {
+    final value = details[key];
+    if (value == null) return defaultValue;
+    if (value is String) return value;
+    return value.toString();
+  }
+
   Widget _buildDetailRow(String label, String value) {
     return Expanded(
       child: Column(
@@ -1868,7 +1839,7 @@ class _BusDetailsCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                'Bus ${details['busNumber']}',
+                'Bus ${_safeGet('busNumber', 'N/A')}',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 18,
@@ -1880,16 +1851,16 @@ class _BusDetailsCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildDetailRow('Route', details['route'] as String),
-              _buildDetailRow('Driver', details['driver'] as String),
+              _buildDetailRow('Route', _safeGet('route')),
+              _buildDetailRow('Driver', _safeGet('driver')),
             ],
           ),
           const Divider(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildDetailRow('Pickup Time', details['pickupTime'] as String),
-              _buildDetailRow('Drop Time', details['dropTime'] as String),
+              _buildDetailRow('Pickup Time', _safeGet('pickupTime')),
+              _buildDetailRow('Drop Time', _safeGet('dropTime')),
             ],
           ),
         ],
@@ -2445,7 +2416,7 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
                 return _buildChatTile(
                   avatar: teacher['avatar'],
                   name: teacher['name'],
-                  subtitle: teacher['lastMessage'],
+                  subtitle: teacher['subject'] ?? teacher['lastMessage'] ?? '',
                   time: teacher['time'],
                   unread: teacher['unread'],
                   online: teacher['online'],
@@ -2696,93 +2667,62 @@ class _WhatsAppChatScreenState extends State<_WhatsAppChatScreen>
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
-  final List<Map<String, dynamic>> _teachers = [
-    {
-      'name': 'Mr. John Smith',
-      'subject': 'Mathematics',
-      'online': true,
-      'unread': 2,
-      'lastMessage': 'Great progress this week!',
-      'time': '10:30 AM',
-      'avatar': '👨‍🏫',
-    },
-    {
-      'name': 'Ms. Sarah Johnson',
-      'subject': 'English',
-      'online': false,
-      'unread': 0,
-      'lastMessage': 'Assignment submitted',
-      'time': 'Yesterday',
-      'avatar': '👩‍🏫',
-    },
-    {
-      'name': 'Dr. Michael Brown',
-      'subject': 'Science',
-      'online': true,
-      'unread': 1,
-      'lastMessage': 'Lab report feedback ready',
-      'time': '2:15 PM',
-      'avatar': '👨‍🔬',
-    },
-    {
-      'name': 'Mrs. Emily Davis',
-      'subject': 'History',
-      'online': false,
-      'unread': 0,
-      'lastMessage': 'See you in class',
-      'time': '2 days ago',
-      'avatar': '👩‍🏫',
-    },
-    {
-      'name': 'Mr. Robert Wilson',
-      'subject': 'Physical Education',
-      'online': true,
-      'unread': 0,
-      'lastMessage': 'Sports day next week',
-      'time': '11:45 AM',
-      'avatar': '⚽',
-    },
-  ];
+  List<Map<String, dynamic>> _teachers = [];
+  List<Map<String, dynamic>> _groups = [];
+  bool _loadingTeachers = false;
 
-  final List<Map<String, dynamic>> _groups = [
-    {
-      'name': 'Class 10-A Parents',
-      'members': 35,
-      'unread': 5,
-      'lastMessage': 'Parent meeting on Friday',
-      'time': '1:20 PM',
-      'avatar': '👨‍👩‍👧‍👦',
-    },
-    {
-      'name': 'Mathematics Study Group',
-      'members': 12,
-      'unread': 0,
-      'lastMessage': 'Practice problems shared',
-      'time': 'Yesterday',
-      'avatar': '📐',
-    },
-    {
-      'name': 'School Events Committee',
-      'members': 8,
-      'unread': 3,
-      'lastMessage': 'Annual day preparations',
-      'time': '3:30 PM',
-      'avatar': '🎭',
-    },
-    {
-      'name': 'Sports Team Parents',
-      'members': 20,
-      'unread': 0,
-      'lastMessage': 'Tournament schedule',
-      'time': '3 days ago',
-      'avatar': '🏆',
-    },
-  ];
+  String _buildInitials(String name) {
+    final parts = name.split(' ').where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '👤';
+    final initials = parts.take(2).map((p) => p[0]).join();
+    return initials;
+  }
+
+  Future<void> _loadTeachers() async {
+    setState(() => _loadingTeachers = true);
+    try {
+      final data = await api.ApiService.fetchTeachers();
+      final mapped = data.map<Map<String, dynamic>>((t) {
+        final user = t['user'] as Map<String, dynamic>? ?? {};
+        final first = (user['first_name'] as String? ?? '').trim();
+        final last = (user['last_name'] as String? ?? '').trim();
+        final fullName = ('$first $last').trim();
+        final designation = t['designation'] as String? ?? 'Teacher';
+        return {
+          'name': fullName.isNotEmpty ? fullName : 'Teacher',
+          'subject': designation,
+          'online': false,
+          'unread': 0,
+          'lastMessage': '',
+          'time': '',
+          'avatar': _buildInitials(fullName.isNotEmpty ? fullName : 'T'),
+        };
+      }).toList();
+      setState(() {
+        _teachers = mapped;
+        _groups = [
+          {
+            'name': 'All Teachers',
+            'members': _teachers.length,
+            'unread': 0,
+            'lastMessage': '',
+            'time': '',
+            'avatar': '👥',
+          },
+        ];
+      });
+    } catch (e) {
+      debugPrint('Failed to load teachers: $e');
+    } finally {
+      if (mounted) setState(() => _loadingTeachers = false);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadTeachers();
   }
 
   @override
@@ -2793,6 +2733,7 @@ class _WhatsAppChatScreenState extends State<_WhatsAppChatScreen>
   }
 
   List<Map<String, dynamic>> get _filteredTeachers {
+    if (_loadingTeachers) return [];
     if (_searchQuery.isEmpty) return _teachers;
     return _teachers
         .where(
@@ -2808,6 +2749,7 @@ class _WhatsAppChatScreenState extends State<_WhatsAppChatScreen>
   }
 
   List<Map<String, dynamic>> get _filteredGroups {
+    if (_loadingTeachers) return [];
     if (_searchQuery.isEmpty) return _groups;
     return _groups
         .where(
@@ -2923,7 +2865,7 @@ class _WhatsAppChatScreenState extends State<_WhatsAppChatScreen>
                 return _buildChatTile(
                   avatar: teacher['avatar'],
                   name: teacher['name'],
-                  subtitle: teacher['lastMessage'],
+                  subtitle: teacher['subject'] ?? teacher['lastMessage'] ?? '',
                   time: teacher['time'],
                   unread: teacher['unread'],
                   online: teacher['online'],
@@ -3167,48 +3109,22 @@ class _TeacherChatScreen extends StatefulWidget {
 
 class _TeacherChatScreenState extends State<_TeacherChatScreen> {
   final TextEditingController _messageController = TextEditingController();
-  final List<Map<String, dynamic>> _messages = [
-    {
-      'text': 'Hello! How can I help you today?',
-      'isTeacher': true,
-      'time': '10:25 AM',
-    },
-    {
-      'text': 'I wanted to discuss my child\'s recent test scores.',
-      'isTeacher': false,
-      'time': '10:26 AM',
-    },
-    {
-      'text':
-          'Of course! Your child scored 85% on the last test. That\'s excellent progress!',
-      'isTeacher': true,
-      'time': '10:28 AM',
-    },
-    {
-      'text': 'Thank you! Any areas we should focus on?',
-      'isTeacher': false,
-      'time': '10:29 AM',
-    },
-    {
-      'text': 'Just review chapter 5 exercises for better understanding.',
-      'isTeacher': true,
-      'time': '10:30 AM',
-    },
-  ];
+  List<Map<String, dynamic>> _messages = [];
+  bool _isLoadingMessages = true;
 
   // State variable to track if text field is empty
   bool _isTextFieldEmpty = true;
-  late final RealtimeChatService _chatService;
+  RealtimeChatService? _chatService;
   StreamSubscription? _chatSubscription;
-  // Dummy room id for testing real‑time chat between
-  // John A. Smith (teacher) and John Michael Smith (student).
-  static const String _chatRoomId = 'STU-2024-001';
+  String? _chatRoomId;
+  String? _studentUsername;
+  String? _teacherUsername;
 
   @override
   void initState() {
     super.initState();
     _messageController.addListener(_updateTextFieldState);
-    _initializeRealtimeChat();
+    _initializeChat();
   }
 
   @override
@@ -3216,7 +3132,7 @@ class _TeacherChatScreenState extends State<_TeacherChatScreen> {
     _messageController.removeListener(_updateTextFieldState);
     _messageController.dispose();
     _chatSubscription?.cancel();
-    _chatService.disconnect();
+    _chatService?.disconnect();
     super.dispose();
   }
 
@@ -3233,7 +3149,9 @@ class _TeacherChatScreenState extends State<_TeacherChatScreen> {
     final trimmed = _messageController.text.trim();
     if (trimmed.isEmpty) return;
     try {
-      _chatService.sendMessage(sender: 'parent', message: trimmed);
+      if (_chatService != null) {
+        _chatService!.sendMessage(sender: 'parent', message: trimmed);
+      }
     } catch (error) {
       debugPrint('Realtime chat send error: $error');
     }
@@ -3241,7 +3159,7 @@ class _TeacherChatScreenState extends State<_TeacherChatScreen> {
       _messages.add({
         'text': trimmed,
         'isTeacher': false,
-        'time': 'Just now',
+        'time': intl.DateFormat('hh:mm a').format(DateTime.now()),
       });
       _messageController.clear();
     });
@@ -3252,28 +3170,125 @@ class _TeacherChatScreenState extends State<_TeacherChatScreen> {
     // Implement actual recording logic here (start/stop)
   }
 
-  void _initializeRealtimeChat() {
-    _chatService =
-        RealtimeChatService(baseWsUrl: 'ws://10.0.2.2:8000'); // Android emulator
-    _chatService.connect(roomId: _chatRoomId);
-    _chatSubscription = _chatService.stream?.listen((event) {
-      try {
-        final payload = event is String ? event : event.toString();
-        final decoded = jsonDecode(payload) as Map<String, dynamic>;
-        final messageText = decoded['message']?.toString() ?? '';
-        if (messageText.isEmpty) return;
-        final isTeacher = decoded['sender']?.toString() == 'teacher';
-        setState(() {
-          _messages.add({
-            'text': messageText,
-            'isTeacher': isTeacher,
-            'time': intl.DateFormat('hh:mm a').format(DateTime.now()),
-          });
-        });
-      } catch (error) {
-        debugPrint('Realtime chat parse error: $error');
+  Future<void> _initializeChat() async {
+    try {
+      // Fetch parent profile to get student data
+      final parentData = await api.ApiService.fetchParentProfile();
+      if (parentData != null && parentData['students'] != null) {
+        final students = parentData['students'];
+        if (students is List && students.isNotEmpty) {
+          // Use any available student from database
+          final studentData = students[0];
+          if (studentData is Map<String, dynamic>) {
+            // Get student ID and username for chat room
+            final studentId = studentData['id']?.toString() ?? studentData['student_id']?.toString() ?? '';
+            final studentUser = studentData['user'] as Map<String, dynamic>?;
+            _studentUsername = studentUser?['username']?.toString() ?? studentUser?['email']?.toString() ?? '';
+            
+            // Get teacher username
+            final teacherUser = widget.teacher['user'] as Map<String, dynamic>?;
+            _teacherUsername = teacherUser?['username']?.toString() ?? teacherUser?['email']?.toString() ?? widget.teacher['name']?.toString() ?? '';
+            
+            // Create room ID from student and teacher usernames
+            if (_studentUsername != null && _teacherUsername != null) {
+              _chatRoomId = '${_studentUsername}_${_teacherUsername}';
+            } else if (studentId.isNotEmpty) {
+              _chatRoomId = studentId;
+            } else {
+              _chatRoomId = 'chat_${DateTime.now().millisecondsSinceEpoch}';
+            }
+            
+            // Load existing messages from API
+            await _loadExistingMessages();
+            
+            // Initialize real-time chat
+            _initializeRealtimeChat();
+            
+            setState(() {
+              _isLoadingMessages = false;
+            });
+            return;
+          }
+        }
       }
-    });
+      
+      // Fallback: use teacher name for room ID
+      _chatRoomId = widget.teacher['name']?.toString().replaceAll(' ', '_') ?? 'chat_${DateTime.now().millisecondsSinceEpoch}';
+      _initializeRealtimeChat();
+      setState(() {
+        _isLoadingMessages = false;
+      });
+    } catch (e) {
+      debugPrint('Failed to initialize chat: $e');
+      setState(() {
+        _isLoadingMessages = false;
+      });
+    }
+  }
+
+  Future<void> _loadExistingMessages() async {
+    if (_studentUsername == null || _teacherUsername == null) return;
+    
+    try {
+      final messages = await api.ApiService.fetchCommunications(_studentUsername!, _teacherUsername!);
+      setState(() {
+        _messages = messages.map((msg) {
+          final sender = msg['sender'] as Map<String, dynamic>?;
+          final senderUsername = sender?['username']?.toString() ?? '';
+          final isTeacher = senderUsername == _teacherUsername;
+          
+          return {
+            'text': msg['message']?.toString() ?? msg['subject']?.toString() ?? '',
+            'isTeacher': isTeacher,
+            'time': _formatMessageTime(msg['created_at']?.toString()),
+          };
+        }).toList();
+      });
+    } catch (e) {
+      debugPrint('Failed to load existing messages: $e');
+    }
+  }
+
+  String _formatMessageTime(String? timeStr) {
+    if (timeStr == null || timeStr.isEmpty) {
+      return intl.DateFormat('hh:mm a').format(DateTime.now());
+    }
+    try {
+      final dateTime = DateTime.parse(timeStr);
+      return intl.DateFormat('hh:mm a').format(dateTime);
+    } catch (e) {
+      return intl.DateFormat('hh:mm a').format(DateTime.now());
+    }
+  }
+
+  void _initializeRealtimeChat() {
+    if (_chatRoomId == null) return;
+    
+    try {
+      _chatService = RealtimeChatService(baseWsUrl: 'ws://localhost:8000'); // Use localhost for web
+      _chatService!.connect(roomId: _chatRoomId!);
+      _chatSubscription = _chatService!.stream?.listen((event) {
+        try {
+          final payload = event is String ? event : event.toString();
+          final decoded = jsonDecode(payload) as Map<String, dynamic>;
+          final messageText = decoded['message']?.toString() ?? '';
+          if (messageText.isEmpty) return;
+          final sender = decoded['sender']?.toString() ?? '';
+          final isTeacher = sender == 'teacher' || sender == _teacherUsername;
+          setState(() {
+            _messages.add({
+              'text': messageText,
+              'isTeacher': isTeacher,
+              'time': intl.DateFormat('hh:mm a').format(DateTime.now()),
+            });
+          });
+        } catch (error) {
+          debugPrint('Realtime chat parse error: $error');
+        }
+      });
+    } catch (e) {
+      debugPrint('Failed to initialize realtime chat: $e');
+    }
   }
 
   @override
@@ -3340,7 +3355,16 @@ class _TeacherChatScreenState extends State<_TeacherChatScreen> {
             Expanded(
               child: Container(
                 color: Colors.grey.shade50,
-                child: ListView.builder(
+                child: _isLoadingMessages
+                    ? const Center(child: CircularProgressIndicator())
+                    : _messages.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'No messages yet. Start the conversation!',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          )
+                        : ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: _messages.length,
                   itemBuilder: (context, index) {

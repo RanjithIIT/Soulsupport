@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:main_login/main.dart' as main_login;
 import 'services/api_service.dart' as api;
-import 'dart:math';
 
 // --- UTILITY FUNCTION TO CREATE CUSTOM MATERIAL COLOR ---
 MaterialColor createMaterialColor(Color color) {
@@ -144,6 +143,102 @@ class StudentData {
           'description': 'Best project award for renewable energy model',
         },
       ];
+
+  // Constructor to create StudentData from API response
+  StudentData.fromJson(Map<String, dynamic> studentJson, Map<String, dynamic> parentJson)
+      : name = _getFullName(studentJson),
+        id = _safeString(studentJson['student_id']),
+        grade = _safeString(studentJson['class_name']),
+        section = _safeString(studentJson['section']),
+        rollNumber = _safeString(studentJson['student_id']),
+        dob = _formatDate(_safeString(studentJson['date_of_birth'])),
+        age = _calculateAge(_safeString(studentJson['date_of_birth'])),
+        gender = _safeString(studentJson['gender']),
+        admissionNo = _safeString(studentJson['student_id']),
+        attendanceRate = '0%', // TODO: Calculate from attendance data
+        gpa = '0.0', // TODO: Calculate from grades
+        classRank = '0', // TODO: Calculate from class data
+        achievementsCount = '0', // TODO: Fetch from achievements
+        fatherName = _safeString(studentJson['parent_name']),
+        motherName = '', // Not available in current schema
+        phoneNumber = _safeString(studentJson['parent_phone']),
+        email = _getEmail(studentJson),
+        address = _safeString(studentJson['address']),
+        city = '', // Extract from address if needed
+        state = '', // Extract from address if needed
+        postalCode = '', // Extract from address if needed
+        bloodGroup = _safeString(studentJson['blood_group']),
+        transportMode = _safeString(studentJson['bus_route']).isNotEmpty ? _safeString(studentJson['bus_route']) : 'N/A',
+        nationality = 'Indian', // Default
+        emergencyContactName = _safeString(studentJson['emergency_contact']),
+        emergencyContactPhone = '', // Not available in current schema
+        currentSubjects = [], // TODO: Fetch from timetable/classes
+        achievementsList = []; // TODO: Fetch from achievements
+
+  static String _safeString(dynamic value) {
+    if (value == null) return '';
+    if (value is String) return value;
+    return value.toString();
+  }
+
+  static String _getFullName(Map<String, dynamic> studentJson) {
+    try {
+      final user = studentJson['user'];
+      if (user != null && user is Map) {
+        final userMap = user as Map<String, dynamic>;
+        final first = _safeString(userMap['first_name']);
+        final last = _safeString(userMap['last_name']);
+        final fullName = ('$first $last').trim();
+        if (fullName.isNotEmpty) {
+          return fullName;
+        }
+      }
+      final studentId = _safeString(studentJson['student_id']);
+      return studentId.isNotEmpty ? studentId : 'Student';
+    } catch (e) {
+      return 'Student';
+    }
+  }
+
+  static String _getEmail(Map<String, dynamic> studentJson) {
+    try {
+      final user = studentJson['user'];
+      if (user != null && user is Map) {
+        final userMap = user as Map<String, dynamic>;
+        return _safeString(userMap['email']);
+      }
+      return '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  static String _formatDate(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return '';
+    try {
+      final date = DateTime.parse(dateStr);
+      final months = ['January', 'February', 'March', 'April', 'May', 'June',
+          'July', 'August', 'September', 'October', 'November', 'December'];
+      return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
+  static String _calculateAge(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return '';
+    try {
+      final date = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      int age = now.year - date.year;
+      if (now.month < date.month || (now.month == date.month && now.day < date.day)) {
+        age--;
+      }
+      return '$age years';
+    } catch (e) {
+      return '';
+    }
+  }
 }
 
 // -------------------------------------------------------------------------
@@ -599,8 +694,76 @@ void _showAchievementDetailsModal(
 // 4. STUDENT PROFILE PAGE
 // -------------------------------------------------------------------------
 
-class StudentProfilePage extends StatelessWidget {
+class StudentProfilePage extends StatefulWidget {
   const StudentProfilePage({super.key});
+
+  @override
+  State<StudentProfilePage> createState() => _StudentProfilePageState();
+}
+
+class _StudentProfilePageState extends State<StudentProfilePage> {
+  StudentData? _studentData;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStudentData();
+  }
+
+  Future<void> _loadStudentData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      // Fetch parent profile to get associated students
+      final parentData = await api.ApiService.fetchParentProfile();
+      if (parentData != null && parentData['students'] != null) {
+        final students = parentData['students'];
+        if (students is List && students.isNotEmpty) {
+          // Use any available student from the database
+          // If multiple students exist, we'll use the first one available
+          final studentData = students[0];
+          if (studentData is Map<String, dynamic>) {
+            final studentId = studentData['id'];
+            int? id;
+            if (studentId is int) {
+              id = studentId;
+            } else if (studentId is String) {
+              id = int.tryParse(studentId);
+            } else if (studentId != null) {
+              id = int.tryParse(studentId.toString());
+            }
+            
+            if (id != null) {
+              // Fetch full student details
+              final fullStudentData = await api.ApiService.fetchStudentById(id);
+              if (fullStudentData != null) {
+                setState(() {
+                  _studentData = StudentData.fromJson(fullStudentData, parentData);
+                  _isLoading = false;
+                });
+                return;
+              }
+            }
+          }
+        }
+      }
+      
+      setState(() {
+        _error = 'No student data found';
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to load student data: $e';
+        _isLoading = false;
+      });
+    }
+  }
 
   // Generic container for main content blocks (Personal Info, Contact, Achievements)
   Widget _buildInfoContainer(
@@ -928,9 +1091,57 @@ class StudentProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final data = StudentData.mock();
     final primaryColor = Theme.of(context).primaryColor;
     final secondaryColor = Theme.of(context).colorScheme.secondary;
+
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text(
+            'Student Profile',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: primaryColor,
+          elevation: 0,
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_error != null || _studentData == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text(
+            'Student Profile',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: primaryColor,
+          elevation: 0,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(
+                _error ?? 'No student data available',
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadStudentData,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final data = _studentData!;
 
     return Scaffold(
       appBar: AppBar(
