@@ -30,8 +30,8 @@ class StudentAdmin(admin.ModelAdmin):
 
 @admin.register(NewAdmission)
 class NewAdmissionAdmin(admin.ModelAdmin):
-    list_display = ['student_name', 'parent_name', 'school', 'applying_class', 'status', 'created_at']
-    list_filter = ['school', 'status', 'applying_class', 'category', 'gender']
+    list_display = ['student_name', 'parent_name', 'applying_class', 'status', 'created_at']
+    list_filter = ['status', 'applying_class', 'category', 'gender']
     search_fields = ['student_name', 'parent_name', 'email', 'admission_number']
     readonly_fields = ['created_at', 'updated_at']
     date_hierarchy = 'created_at'

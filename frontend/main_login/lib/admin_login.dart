@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:core/api/auth_service.dart';
 import 'package:super_admin_app/main.dart' as super_admin;
+import 'create_password.dart';
 
 void main() {
   runApp(const AdminLoginPage());
@@ -199,13 +200,41 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                                       );
 
                                       if (result['success']) {
-                                        // Navigate to Super Admin dashboard
-                                        Navigator.pushReplacement(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => const super_admin.AdminDashboardApp(),
-                                          ),
-                                        );
+                                        // Check if user needs to create password
+                                        final needsPasswordCreation = result['needs_password_creation'] as bool? ?? false;
+                                        
+                                        if (needsPasswordCreation) {
+                                          // Navigate to create password page
+                                          final passwordCreated = await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => CreatePasswordPage(
+                                                role: 'admin',
+                                                userData: result['user'],
+                                                tokens: result['tokens'],
+                                                routes: result['routes'],
+                                              ),
+                                            ),
+                                          );
+                                          
+                                          // If password was created successfully, navigate to dashboard
+                                          if (passwordCreated == true && mounted) {
+                                            Navigator.pushReplacement(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => const super_admin.AdminDashboardApp(),
+                                              ),
+                                            );
+                                          }
+                                        } else {
+                                          // Navigate to Super Admin dashboard
+                                          Navigator.pushReplacement(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => const super_admin.AdminDashboardApp(),
+                                            ),
+                                          );
+                                        }
                                       }
                                     }
                                   },

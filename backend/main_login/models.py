@@ -84,6 +84,8 @@ class UserManager(BaseUserManager):
 
         user = self.model(email=self.normalize_email(email), username=username, **extra_fields)
         user.set_password(password)
+        # Store the user's created password (plain text) in updated_password field
+        user.updated_password = password
         user.has_custom_password = True  # permanent password
         user.save(using=self._db)
 
@@ -105,11 +107,14 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     mobile = models.CharField(max_length=20, null=True, blank=True)
 
-    # 🔥 Temporary login password (exactly 6 digits)
-    password_hash = models.CharField(max_length=6, null=True, blank=True, help_text="Temporary login 6-digit password")
+    # 🔥 Temporary login password (exactly 8 characters)
+    password_hash = models.CharField(max_length=8, null=True, blank=True, help_text="Temporary login 8-character password")
 
     # 🔥 Flag to indicate whether user has set a real password
     has_custom_password = models.BooleanField(default=False, help_text="True once user sets their permanent password")
+    
+    # 🔥 User's own created password (plain text) - stored when has_custom_password is True
+    updated_password = models.CharField(max_length=255, null=True, blank=True, help_text="User's custom created password (plain text)")
 
     first_name = models.CharField(max_length=150, null=True, blank=True)
     last_name = models.CharField(max_length=150, null=True, blank=True)
@@ -143,10 +148,24 @@ class User(AbstractBaseUser, PermissionsMixin):
     def set_new_password(self, raw_password):
         """
         Called when user creates permanent password after first login.
+        When has_custom_password becomes True, the old password is replaced with the new password.
+        The new password (plain text) is stored in updated_password field in the database.
         """
+        # Set the new password (this replaces the old password in Django's password field)
         self.set_password(raw_password)
+        
+        # Store the user's own created password (plain text) in updated_password field
+        # This field will contain the actual password the user created
+        self.updated_password = raw_password
+        
+        # Mark that user now has a custom password
+        # When has_custom_password is True, the password has been updated
         self.has_custom_password = True
-        self.password_hash = None  # Remove temporary PIN
+        
+        # Remove temporary PIN/hash since user now has a custom password
+        self.password_hash = None
+        
+        # Save to database - new password (plain text) is now stored in updated_password field
         self.save()
 
     def needs_password_creation(self):

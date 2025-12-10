@@ -148,6 +148,8 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
   final TextEditingController _emergencyContactController = TextEditingController();
   final TextEditingController _medicalInfoController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
+  final TextEditingController _gradeController = TextEditingController();
+  final TextEditingController _feesController = TextEditingController();
   
   // Search/Filter Controllers
   final TextEditingController _searchController = TextEditingController();
@@ -157,7 +159,6 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
   String? _selectedCategory;
   String? _selectedBloodGroup;
   DateTime? _selectedDob;
-  int? _selectedSchoolId;
 
   String _filterStatus = "";
   String _filterClass = "";
@@ -189,6 +190,8 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
     _emergencyContactController.dispose();
     _medicalInfoController.dispose();
     _remarksController.dispose();
+    _gradeController.dispose();
+    _feesController.dispose();
     super.dispose();
   }
 
@@ -353,7 +356,6 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
       try {
         // Prepare data for API
         final admissionData = {
-          'school': _selectedSchoolId ?? 1, // Default to school ID 1 if not selected
           'student_name': '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'.trim(),
           'parent_name': _parentController.text.trim(),
           'date_of_birth': DateFormat('yyyy-MM-dd').format(_selectedDob!),
@@ -365,6 +367,10 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
           'admission_number': _admissionNoController.text.trim(),
           if (_studentIdController.text.trim().isNotEmpty)
             'student_id': _studentIdController.text.trim(),
+          if (_gradeController.text.trim().isNotEmpty)
+            'grade': _gradeController.text.trim(),
+          if (_feesController.text.trim().isNotEmpty)
+            'fees': double.tryParse(_feesController.text.trim()),
           if (_emailController.text.trim().isNotEmpty)
             'email': _emailController.text.trim(),
           if (_parentPhoneController.text.trim().isNotEmpty)
@@ -422,12 +428,13 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
           _emergencyContactController.clear();
           _medicalInfoController.clear();
           _remarksController.clear();
+          _gradeController.clear();
+          _feesController.clear();
           _selectedGender = null;
           _selectedClass = null;
           _selectedCategory = null;
           _selectedBloodGroup = null;
           _selectedDob = null;
-          _selectedSchoolId = null;
 
           // Reload admissions from server
           await _loadAdmissions();
@@ -1111,6 +1118,35 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
                         _selectedClass = value;
                       });
                     },
+                  ),
+                ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: TextFormField(
+                    controller: _gradeController,
+                    decoration: InputDecoration(
+                      labelText: 'Grade (Optional)',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: TextFormField(
+                    controller: _feesController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Fees (Optional)',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
                   ),
                 ),
               ],

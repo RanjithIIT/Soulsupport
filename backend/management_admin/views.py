@@ -1,6 +1,8 @@
 """
 Views for management_admin app - API layer for App 2
 """
+import random
+import string
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -34,9 +36,9 @@ class TeacherViewSet(viewsets.ModelViewSet):
     queryset = Teacher.objects.all()
     serializer_class = TeacherSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['school', 'department', 'designation']
-    search_fields = ['user__first_name', 'user__last_name', 'employee_id', 'designation']
-    ordering_fields = ['hire_date', 'created_at']
+    filterset_fields = ['department', 'designation', 'is_active']
+    search_fields = ['user__first_name', 'user__last_name', 'employee_no', 'designation', 'email', 'first_name', 'last_name']
+    ordering_fields = ['joining_date', 'created_at']
     ordering = ['-created_at']
 
     def get_permissions(self):
@@ -69,7 +71,7 @@ class NewAdmissionViewSet(viewsets.ModelViewSet):
     serializer_class = NewAdmissionSerializer
     permission_classes = [IsAuthenticated, IsManagementAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['school', 'status', 'applying_class', 'category', 'gender']
+    filterset_fields = ['status', 'applying_class', 'category', 'gender']
     search_fields = ['student_name', 'parent_name', 'parent_phone', 'email', 'admission_number']
     ordering_fields = ['created_at', 'status', 'student_name']
     ordering = ['-created_at']
@@ -125,37 +127,8 @@ class NewAdmissionViewSet(viewsets.ModelViewSet):
             )
     
     def perform_create(self, serializer):
-        """Override to handle school validation and create user account"""
-        from super_admin.models import School
+        """Override to create user account for admission"""
         from main_login.models import User, Role
-        import random
-        
-        # Get school from validated_data (could be School object or ID)
-        school = serializer.validated_data.get('school')
-        
-        # If school is provided as an ID (integer), get the School object
-        if isinstance(school, int):
-            try:
-                school = School.objects.get(id=school)
-            except School.DoesNotExist:
-                # If school doesn't exist, use first available or create default
-                school = School.objects.first()
-                if not school:
-                    school = School.objects.create(
-                        name='Default School',
-                        location='Default Location',
-                        status='active'
-                    )
-        
-        # If no school provided, use first available or create default
-        if not school:
-            school = School.objects.first()
-            if not school:
-                school = School.objects.create(
-                    name='Default School',
-                    location='Default Location',
-                    status='active'
-                )
         
         # Get email and student_name from validated data
         email = serializer.validated_data.get('email')
@@ -166,8 +139,9 @@ class NewAdmissionViewSet(viewsets.ModelViewSet):
         first_name = name_parts[0] if name_parts else student_name
         last_name = name_parts[1] if len(name_parts) > 1 else ''
         
-        # Generate 6-digit random password
-        generated_password = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+        # Generate 8-character random password (alphanumeric)
+        characters = string.ascii_letters + string.digits
+        generated_password = ''.join(random.choice(characters) for _ in range(8))
         
         # Get or create student_parent role
         role, _ = Role.objects.get_or_create(
@@ -197,17 +171,18 @@ class NewAdmissionViewSet(viewsets.ModelViewSet):
             }
         )
         
-        # Set password (this will hash it properly using Django's password hashing)
-        # This is the generated password that user will use for first login
-        user.set_password(generated_password)
+        # Set password_hash to the generated 8-character password
+        # Set password field to null/unusable so authentication backend checks password_hash
+        user.password_hash = generated_password
+        user.set_unusable_password()  # This sets password field to unusable (effectively null)
         user.has_custom_password = False  # Ensure flag is set
         user.save()
         
         # Store generated password in serializer context to return in response
         serializer.context['generated_password'] = generated_password
         
-        # Save the admission with user link
-        admission = serializer.save(school=school, user=user)
+        # Save the admission (without school and user links)
+        admission = serializer.save()
         
         return admission
     

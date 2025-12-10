@@ -40,6 +40,7 @@ class AuthService {
           final userData = data['user'] as Map<String, dynamic>?;
           final routes = data['routes'] as Map<String, dynamic>?;
           final message = data['message'] as String? ?? 'Login successful';
+          final needsPasswordCreation = data['needs_password_creation'] as bool? ?? false;
 
           if (accessToken != null) {
             await _apiService.setAuthToken(accessToken);
@@ -56,6 +57,7 @@ class AuthService {
               'user': userData,
               'tokens': tokens,
               'routes': routes,
+              'needs_password_creation': needsPasswordCreation,
             };
           } else {
             return {

@@ -24,51 +24,95 @@ class DepartmentSerializer(serializers.ModelSerializer):
 class TeacherSerializer(serializers.ModelSerializer):
     """Serializer for Teacher model"""
     user = UserSerializer(read_only=True)
-    school_name = serializers.CharField(source='school.name', read_only=True)
     department_name = serializers.CharField(source='department.name', read_only=True)
     
     # Writable fields for creating user
     first_name = serializers.CharField(write_only=True, required=False)
     last_name = serializers.CharField(write_only=True, required=False)
-    username = serializers.CharField(write_only=True, required=False)
-    email_user = serializers.EmailField(write_only=True, required=False, source='email_for_user')
     
     class Meta:
         model = Teacher
         fields = [
-            'id', 'user', 'school', 'school_name', 'department',
-            'department_name', 'employee_id', 'designation',
-            'hire_date', 'phone', 'email', 'address', 'experience',
-            'qualifications', 'specializations', 'class_teacher', 'photo',
-            'created_at', 'updated_at',
-            'first_name', 'last_name', 'username', 'email_user'
+            'teacher_id', 'user', 'department', 'department_name',
+            'employee_no', 'first_name', 'last_name', 'qualification',
+            'joining_date', 'dob', 'gender', 'designation', 'department',
+            'blood_group', 'nationality', 'mobile_no', 'email', 'address',
+            'primary_room_id', 'class_teacher_section_id', 'subject_specialization',
+            'emergency_contact', 'profile_photo_id', 'is_active',
+            'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'user']
+        read_only_fields = ['teacher_id', 'created_at', 'updated_at', 'user']
     
     def create(self, validated_data):
-        """Override create to handle user creation"""
-        from main_login.models import User
+        """Override create to handle user creation from email"""
+        import random
+        import string
+        from main_login.models import User, Role
         
-        # Extract user data
-        first_name = validated_data.pop('first_name', '')
-        last_name = validated_data.pop('last_name', '')
-        username = validated_data.pop('username', '')
-        email_for_user = validated_data.pop('email_for_user', '')
+        # Get user data (don't pop, as they're also Teacher model fields)
+        first_name = validated_data.get('first_name', '')
+        last_name = validated_data.get('last_name', '')
+        email = validated_data.get('email', '')
         
-        # Create or get user
-        if username and email_for_user:
+        # Create user from email if email is provided
+        user = None
+        if email:
+            # Generate username from email (part before @)
+            username = email.split('@')[0] if email else None
+            
+            # Ensure username is unique
+            if username:
+                base_username = username
+                counter = 1
+                while User.objects.filter(username=username).exists():
+                    username = f'{base_username}{counter}'
+                    counter += 1
+            else:
+                # Fallback if no email
+                username = f'teacher_{validated_data.get("employee_no", "unknown")}'
+                counter = 1
+                while User.objects.filter(username=username).exists():
+                    username = f'teacher_{validated_data.get("employee_no", "unknown")}_{counter}'
+                    counter += 1
+            
+            # Get or create teacher role
+            role, _ = Role.objects.get_or_create(
+                name='teacher',
+                defaults={'description': 'Teacher role'}
+            )
+            
+            # Generate 8-character random password (alphanumeric)
+            characters = string.ascii_letters + string.digits
+            generated_password = ''.join(random.choice(characters) for _ in range(8))
+            
+            # Create or get user
             user, created = User.objects.get_or_create(
-                username=username,
+                email=email,
                 defaults={
-                    'email': email_for_user,
-                    'first_name': first_name,
-                    'last_name': last_name,
+                    'username': username,
+                    'first_name': first_name or '',
+                    'last_name': last_name or '',
+                    'role': role,
+                    'is_active': True,
+                    'has_custom_password': False,  # Teacher needs to create their own password
                 }
             )
-        else:
-            raise serializers.ValidationError("Username and email_user are required for creating a teacher")
+            
+            # Set password_hash to the generated 8-character password
+            if created:
+                user.password_hash = generated_password
+                user.set_unusable_password()  # This sets password field to unusable (effectively null)
+                user.has_custom_password = False
+                user.save()
+            else:
+                # Update user if it already existed
+                if first_name:
+                    user.first_name = first_name
+                if last_name:
+                    user.last_name = last_name
+                user.save()
         
-        # Create teacher with the user
+        # Create teacher with the user (if created)
         teacher = Teacher.objects.create(user=user, **validated_data)
         return teacher
 
@@ -93,22 +137,20 @@ class StudentSerializer(serializers.ModelSerializer):
 
 class NewAdmissionSerializer(serializers.ModelSerializer):
     """Serializer for New Admission model"""
-    user = UserSerializer(read_only=True)
-    school_name = serializers.CharField(source='school.name', read_only=True)
-    generated_password = serializers.CharField(read_only=True, help_text='6-digit password generated for user login')
+    generated_password = serializers.CharField(read_only=True, help_text='8-character password generated for user login')
     created_student = StudentSerializer(read_only=True, help_text='Student record created when admission is approved')
     
     class Meta:
         model = NewAdmission
         fields = [
-            'id', 'user', 'school', 'school_name', 'student_name', 'parent_name',
-            'date_of_birth', 'gender', 'applying_class',
+            'id', 'student_name', 'parent_name',
+            'date_of_birth', 'gender', 'applying_class', 'grade', 'fees',
             'address', 'category', 'status',
-            'admission_number', 'email', 'parent_phone', 'emergency_contact',
+            'admission_number', 'student_id', 'email', 'parent_phone', 'emergency_contact',
             'medical_information', 'blood_group', 'previous_school', 'remarks',
             'created_at', 'updated_at', 'generated_password', 'created_student'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'generated_password', 'user', 'created_student']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'generated_password', 'created_student']
     
     def __init__(self, *args, **kwargs):
         """Override to make email required only for creation, not updates"""

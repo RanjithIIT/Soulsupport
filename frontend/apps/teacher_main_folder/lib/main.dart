@@ -1564,7 +1564,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
       child: Scaffold(
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(80.0),
+        preferredSize: const Size.fromHeight(100.0),
         child: _buildHeader(),
       ),
       body: Stack(

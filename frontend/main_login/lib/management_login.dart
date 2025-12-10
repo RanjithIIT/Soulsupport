@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:core/api/auth_service.dart';
 import 'package:management_org/main.dart' as management;
+import 'create_password.dart';
 
 void main() {
   runApp(const ManagementLoginPage());
@@ -197,14 +198,43 @@ class _ManagementLoginPageState extends State<ManagementLoginPage> {
                                 );
 
                                 if (result['success']) {
-                                  // Navigate to Management dashboard - completely replace the app
-                                  Navigator.pushAndRemoveUntil(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const management.SchoolManagementApp(),
-                                    ),
-                                    (route) => false, // Remove all previous routes
-                                  );
+                                  // Check if user needs to create password
+                                  final needsPasswordCreation = result['needs_password_creation'] as bool? ?? false;
+                                  
+                                  if (needsPasswordCreation) {
+                                    // Navigate to create password page
+                                    final passwordCreated = await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => CreatePasswordPage(
+                                          role: 'management',
+                                          userData: result['user'],
+                                          tokens: result['tokens'],
+                                          routes: result['routes'],
+                                        ),
+                                      ),
+                                    );
+                                    
+                                    // If password was created successfully, navigate to dashboard
+                                    if (passwordCreated == true && mounted) {
+                                      Navigator.pushAndRemoveUntil(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const management.SchoolManagementApp(),
+                                        ),
+                                        (route) => false, // Remove all previous routes
+                                      );
+                                    }
+                                  } else {
+                                    // Navigate to Management dashboard - completely replace the app
+                                    Navigator.pushAndRemoveUntil(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const management.SchoolManagementApp(),
+                                      ),
+                                      (route) => false, // Remove all previous routes
+                                    );
+                                  }
                                 }
                               }
                             },

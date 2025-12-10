@@ -111,7 +111,10 @@ def change_password(request):
                 {'old_password': 'Wrong password.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        user.set_password(serializer.validated_data['new_password'])
+        new_password = serializer.validated_data['new_password']
+        user.set_password(new_password)
+        # Store the user's created password (plain text) in updated_password field
+        user.updated_password = new_password
         user.has_custom_password = True
         user.save()
         return Response({'message': 'Password changed successfully'}, status=status.HTTP_200_OK)
@@ -125,11 +128,43 @@ def create_password(request):
     serializer = CreatePasswordSerializer(data=request.data)
     if serializer.is_valid():
         user = request.user
-        # Use the model's set_new_password method
-        user.set_new_password(serializer.validated_data['password'])
+        password = serializer.validated_data['password']
+        
+        # When user creates a custom password, has_custom_password will be set to True
+        # The old password will be updated/replaced with the new password in the database
+        # Use the model's set_new_password method which handles:
+        # 1. Setting has_custom_password = True
+        # 2. Replacing old password with new password
+        # 3. Removing temporary password_hash
+        user.set_new_password(password)
+        
+        # Verify that has_custom_password is now True
+        user.refresh_from_db()
+        if not user.has_custom_password:
+            return Response({
+                'success': False,
+                'message': 'Failed to set custom password flag'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # Also save password in NewAdmission table if user has a matching admission record
+        try:
+            from management_admin.models import NewAdmission
+            # Find NewAdmission by email (matching user's email)
+            admission = NewAdmission.objects.filter(email=user.email).first()
+            if admission:
+                # Store hashed password in NewAdmission table
+                # The password is already hashed by set_new_password
+                admission.password = user.password
+                admission.save()
+        except Exception as e:
+            # If NewAdmission doesn't exist or import fails, continue anyway
+            # This allows the password creation to succeed even if there's no admission record
+            pass
+        
         return Response({
             'success': True,
-            'message': 'Password created successfully. You can now use this password for future logins.'
+            'message': 'Password created successfully. You can now use this password for future logins.',
+            'has_custom_password': user.has_custom_password
         }, status=status.HTTP_200_OK)
     return Response({
         'success': False,

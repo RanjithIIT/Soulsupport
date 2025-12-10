@@ -206,28 +206,19 @@ class NewAdmission(models.Model):
         ('Other', 'Other'),
     ]
     
-    # Login reference (optional) - same as Student
-    user = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        db_column='user_id',
-        related_name='new_admission_profiles',
-        help_text='Linked login user account (if exists)'
-    )
-
-    # School link - same as Student
-    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='new_admissions')
-    
     # Same fields as Student model
     student_name = models.CharField(max_length=255)
     parent_name = models.CharField(max_length=255)
     date_of_birth = models.DateField()
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
     applying_class = models.CharField(max_length=50)
+    grade = models.CharField(max_length=50, null=True, blank=True, help_text="Grade/Level of the student")
+    fees = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Admission fees")
     address = models.TextField(default = "Address not provided")
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default = "")
+    
+    # Student ID field
+    student_id = models.CharField(max_length=100, null=True, blank=True, help_text="Student ID (can be provided during admission)")
     
     # Status field - unique to NewAdmission (not in Student)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
@@ -257,6 +248,9 @@ class NewAdmission(models.Model):
     blood_group = models.CharField(max_length=10, null=True, blank=True)
     previous_school = models.CharField(max_length=255, null=True, blank=True)
     remarks = models.TextField(null=True, blank=True)
+    
+    # Password field - stores hashed password after user creates it
+    password = models.CharField(max_length=128, null=True, blank=True, help_text='Hashed password created by user')
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -312,9 +306,7 @@ class NewAdmission(models.Model):
                          'blood_group', 'previous_school', 'remarks']:
                 setattr(existing_student, field, getattr(self, field, None))
             
-            # Update user link if not already set
-            if self.user and not existing_student.user:
-                existing_student.user = self.user
+            # Note: user link is no longer stored in NewAdmission
             
             # Update admission number if not set
             if self.admission_number and not existing_student.admission_number:
@@ -337,8 +329,19 @@ class NewAdmission(models.Model):
             self.save(update_fields=['admission_number'])
         
         # Create Student record - map all fields from NewAdmission (except status)
+        # Note: school and user are not stored in NewAdmission, so we need to get a default school
+        from super_admin.models import School
+        default_school = School.objects.first()
+        if not default_school:
+            # Create a default school if none exists
+            default_school = School.objects.create(
+                name='Default School',
+                location='Default Location',
+                status='active'
+            )
+        
         student_data = {
-            'school': self.school,
+            'school': default_school,
             'student_name': self.student_name,
             'parent_name': self.parent_name,
             'date_of_birth': self.date_of_birth,
@@ -354,7 +357,7 @@ class NewAdmission(models.Model):
             'blood_group': self.blood_group,
             'previous_school': self.previous_school,
             'remarks': self.remarks,
-            'user': self.user,  # Link the user account
+            # Note: user is not stored in NewAdmission, so it will be None
         }
         
         try:

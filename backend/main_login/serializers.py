@@ -97,9 +97,9 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'user_id', 'username', 'email', 'first_name', 'last_name',
             'mobile', 'role', 'role_name', 'is_active',
-            'created_at', 'updated_at', 'profile_photo_id'
+            'created_at', 'updated_at', 'profile_photo_id', 'has_custom_password', 'updated_password'
         ]
-        read_only_fields = ['user_id', 'created_at', 'updated_at']
+        read_only_fields = ['user_id', 'created_at', 'updated_at', 'updated_password']
     
     def get_role_name(self, obj):
         """Get role name from the User model property"""
