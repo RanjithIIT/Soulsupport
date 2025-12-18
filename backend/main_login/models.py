@@ -129,6 +129,16 @@ class User(AbstractBaseUser, PermissionsMixin):
         db_column='role_id',
         related_name='users'
     )
+    
+    # School ID for filtering (read-only, auto-populated from related models)
+    school_id = models.CharField(
+        max_length=100,
+        db_index=True,
+        null=True,
+        blank=True,
+        editable=False,
+        help_text='School ID for filtering (read-only, auto-populated from related models)'
+    )
 
     is_active = models.BooleanField(default=True)
 
@@ -171,6 +181,16 @@ class User(AbstractBaseUser, PermissionsMixin):
     def needs_password_creation(self):
         """Returns True if user must set new password after first login"""
         return not self.has_custom_password
+    
+    def save(self, *args, **kwargs):
+        """Auto-populate school_id from related models if not set"""
+        # Only auto-populate if school_id is not already set
+        if not self.school_id:
+            from .utils import get_user_school_id
+            school_id = get_user_school_id(self)
+            if school_id:
+                self.school_id = school_id
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.username} ({self.email})"

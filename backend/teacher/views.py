@@ -17,11 +17,12 @@ from .serializers import (
     TimetableSerializer, StudyMaterialSerializer
 )
 from main_login.permissions import IsTeacher
+from main_login.mixins import SchoolFilterMixin
 from management_admin.models import Teacher
 from management_admin.serializers import TeacherSerializer
 
 
-class ClassViewSet(viewsets.ModelViewSet):
+class ClassViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Class management"""
     queryset = Class.objects.all()
     serializer_class = ClassSerializer
@@ -42,7 +43,7 @@ class ClassViewSet(viewsets.ModelViewSet):
             return Class.objects.none()
 
 
-class ClassStudentViewSet(viewsets.ModelViewSet):
+class ClassStudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for ClassStudent management"""
     queryset = ClassStudent.objects.all()
     serializer_class = ClassStudentSerializer
@@ -51,7 +52,7 @@ class ClassStudentViewSet(viewsets.ModelViewSet):
     filterset_fields = ['class_obj', 'student']
 
 
-class AttendanceViewSet(viewsets.ModelViewSet):
+class AttendanceViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Attendance management"""
     queryset = Attendance.objects.all()
     serializer_class = AttendanceSerializer
@@ -62,7 +63,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     ordering = ['-date']
 
 
-class AssignmentViewSet(viewsets.ModelViewSet):
+class AssignmentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Assignment management"""
     queryset = Assignment.objects.all()
     serializer_class = AssignmentSerializer
@@ -83,7 +84,7 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             return Assignment.objects.none()
 
 
-class ExamViewSet(viewsets.ModelViewSet):
+class ExamViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Exam management"""
     queryset = Exam.objects.all()
     serializer_class = ExamSerializer
@@ -104,7 +105,7 @@ class ExamViewSet(viewsets.ModelViewSet):
             return Exam.objects.none()
 
 
-class GradeViewSet(viewsets.ModelViewSet):
+class GradeViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Grade management"""
     queryset = Grade.objects.all()
     serializer_class = GradeSerializer
@@ -115,7 +116,7 @@ class GradeViewSet(viewsets.ModelViewSet):
     ordering = ['-created_at']
 
 
-class TimetableViewSet(viewsets.ModelViewSet):
+class TimetableViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Timetable management"""
     queryset = Timetable.objects.all()
     serializer_class = TimetableSerializer
@@ -136,7 +137,7 @@ class TimetableViewSet(viewsets.ModelViewSet):
             return Timetable.objects.none()
 
 
-class StudyMaterialViewSet(viewsets.ModelViewSet):
+class StudyMaterialViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for StudyMaterial management"""
     queryset = StudyMaterial.objects.all()
     serializer_class = StudyMaterialSerializer

@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize ApiService to load stored tokens and handle token refresh
+  await ApiService().initialize();
+  
   runApp(const SchoolManagementApp());
 }
 
@@ -25,124 +32,149 @@ class SchoolManagementApp extends StatelessWidget {
 
 // --- 1. DATA MODEL ---
 class School {
-  final int id;
+  final String id;
   final String name;
   final String location;
-  final String principal;
+  final String? principal;
   final int students;
   final int teachers;
   final int buses;
   final String status;
-  final String established;
-  final String type;
+  final String? established;
+  final String? email;
+  final String? phone;
+  final String? address;
+  final String? licenseExpiry;
 
   School({
     required this.id,
     required this.name,
     required this.location,
-    required this.principal,
+    this.principal,
     required this.students,
     required this.teachers,
     required this.buses,
     required this.status,
-    required this.established,
-    required this.type,
+    this.established,
+    this.email,
+    this.phone,
+    this.address,
+    this.licenseExpiry,
   });
+
+  // Factory constructor to create School from API response
+  factory School.fromJson(Map<String, dynamic> json) {
+    final stats = json['stats'] as Map<String, dynamic>?;
+    final establishedYear = json['established_year'] as int?;
+    
+    return School(
+      id: json['school_id'] as String? ?? json['id']?.toString() ?? '',
+      name: json['name'] as String? ?? '',
+      location: json['location'] as String? ?? '',
+      principal: json['principal_name'] as String?,
+      students: stats != null ? (stats['total_students'] as int? ?? 0) : 0,
+      teachers: stats != null ? (stats['total_teachers'] as int? ?? 0) : 0,
+      buses: 0, // Not in backend model, default to 0
+      status: json['status'] as String? ?? 'active',
+      established: establishedYear?.toString(),
+      email: json['email'] as String?,
+      phone: json['phone'] as String?,
+      address: json['address'] as String?,
+      licenseExpiry: json['license_expiry'] as String?,
+    );
+  }
 }
 
 // --- 2. MAIN DASHBOARD SCREEN ---
 class AdminDashboard extends StatefulWidget {
-  const AdminDashboard({super.key});
+  final bool refreshOnMount;
+  
+  const AdminDashboard({super.key, this.refreshOnMount = false});
 
   @override
   State<AdminDashboard> createState() => _AdminDashboardState();
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
-  final List<School> _allSchools = [
-    School(
-      id: 3,
-      name: "South Middle School",
-      location: "Los Angeles, CA",
-      principal: "Ms. Emily White",
-      students: 950,
-      teachers: 60,
-      buses: 10,
-      status: "pending",
-      established: "1998",
-      type: "Public",
-    ),
-    School(
-      id: 4,
-      name: "East Academy",
-      location: "Miami, FL",
-      principal: "Dr. Robert Brown",
-      students: 600,
-      teachers: 40,
-      buses: 6,
-      status: "active",
-      established: "2010",
-      type: "Private",
-    ),
-    School(
-      id: 5,
-      name: "West Institute",
-      location: "Seattle, WA",
-      principal: "Prof. Lisa Wilson",
-      students: 700,
-      teachers: 50,
-      buses: 7,
-      status: "expired",
-      established: "2005",
-      type: "Private",
-    ),
-    School(
-      id: 6,
-      name: "Riverside High",
-      location: "Austin, TX",
-      principal: "Mr. David Davis",
-      students: 1100,
-      teachers: 75,
-      buses: 9,
-      status: "active",
-      established: "1992",
-      type: "Public",
-    ),
-    School(
-      id: 1,
-      name: "Central High School",
-      location: "New York, NY",
-      principal: "Dr. Sarah Johnson",
-      students: 1250,
-      teachers: 85,
-      buses: 12,
-      status: "active",
-      established: "1995",
-      type: "Public",
-    ),
-    School(
-      id: 2,
-      name: "North Elementary",
-      location: "Chicago, IL",
-      principal: "Mr. Michael Chen",
-      students: 800,
-      teachers: 45,
-      buses: 8,
-      status: "active",
-      established: "2000",
-      type: "Public",
-    ),
-  ];
-
+  List<School> _allSchools = [];
   List<School> _filteredSchools = [];
   String _searchQuery = "";
   String _statusFilter = "";
   final TextEditingController _searchController = TextEditingController();
+  bool _isLoading = true;
+  String? _errorMessage;
+  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
     super.initState();
-    _filteredSchools = List.from(_allSchools);
+    _fetchSchools();
+  }
+
+  @override
+  void didUpdateWidget(AdminDashboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Refresh if refreshOnMount is true
+    if (widget.refreshOnMount && !oldWidget.refreshOnMount) {
+      _fetchSchools();
+    }
+  }
+
+  // Fetch schools from API
+  Future<void> _fetchSchools() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await _apiService.initialize();
+      final response = await _apiService.get(Endpoints.adminSchools);
+
+      if (response.success && response.data != null) {
+        List<School> schools = [];
+        
+        // Handle both list and paginated responses
+        if (response.data is List) {
+          schools = (response.data as List)
+              .map((json) => School.fromJson(json as Map<String, dynamic>))
+              .toList();
+        } else if (response.data is Map<String, dynamic>) {
+          final data = response.data as Map<String, dynamic>;
+          // Check if it's a paginated response
+          if (data.containsKey('results')) {
+            schools = (data['results'] as List)
+                .map((json) => School.fromJson(json as Map<String, dynamic>))
+                .toList();
+          } else {
+            // Single school object
+            schools = [School.fromJson(data)];
+          }
+        }
+
+        setState(() {
+          _allSchools = schools;
+          _filteredSchools = List.from(_allSchools);
+          _isLoading = false;
+        });
+        _filterSchools();
+      } else {
+        setState(() {
+          _errorMessage = response.error ?? 'Failed to fetch schools';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error loading schools: ${e.toString()}';
+        _isLoading = false;
+      });
+    }
+  }
+
+  // Refresh schools list
+  Future<void> _refreshSchools() async {
+    await _fetchSchools();
   }
 
   void _filterSchools() {
@@ -153,7 +185,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
             school.location.toLowerCase().contains(
               _searchQuery.toLowerCase(),
             ) ||
-            school.principal.toLowerCase().contains(_searchQuery.toLowerCase());
+            (school.principal != null && 
+             school.principal!.toLowerCase().contains(_searchQuery.toLowerCase()));
         final matchesStatus =
             _statusFilter.isEmpty || school.status == _statusFilter;
         return matchesSearch && matchesStatus;
@@ -161,15 +194,65 @@ class _AdminDashboardState extends State<AdminDashboard> {
     });
   }
 
-  void _deleteSchool(int id) {
-    // Remove without confirmation dialog (navigation removed)
-    setState(() {
-      _allSchools.removeWhere((s) => s.id == id);
-      _filterSchools();
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("School deleted successfully")),
+  Future<void> _deleteSchool(String id) async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete School'),
+        content: const Text('Are you sure you want to delete this school? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
+
+    if (confirmed != true) return;
+
+    try {
+      final response = await _apiService.delete(
+        Endpoints.adminSchoolDetails.replaceAll('{id}', id),
+      );
+
+      if (response.success) {
+        // Remove from local list
+        setState(() {
+          _allSchools.removeWhere((s) => s.id == id);
+          _filterSchools();
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("School deleted successfully")),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.error ?? "Failed to delete school"),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error deleting school: ${e.toString()}"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _viewSchoolDetails(School school) {
@@ -219,42 +302,50 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       _buildSearchAndFilter(),
                       const SizedBox(height: 15),
                       Expanded(
-                        child: _filteredSchools.isEmpty
-                            ? _buildEmptyState()
-                            : GridView.builder(
-                                gridDelegate:
-                                    const SliverGridDelegateWithMaxCrossAxisExtent(
-                                      maxCrossAxisExtent: 400,
-                                      mainAxisExtent:
-                                          245, // REDUCED HEIGHT to remove bottom space
-                                      crossAxisSpacing: 12,
-                                      mainAxisSpacing: 12,
-                                      childAspectRatio: 1.0,
-                                    ),
-                                itemCount: _filteredSchools.length,
-                                itemBuilder: (context, index) {
-                                  return SchoolCard(
-                                    school: _filteredSchools[index],
-                                    onDelete: () => _deleteSchool(
-                                      _filteredSchools[index].id,
-                                    ),
-                                    onEdit: () {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            "Edit ${_filteredSchools[index].name}",
-                                          ),
+                        child: _isLoading
+                            ? const Center(
+                                child: CircularProgressIndicator(),
+                              )
+                            : _errorMessage != null
+                                ? _buildErrorState()
+                                : _filteredSchools.isEmpty
+                                    ? _buildEmptyState()
+                                    : RefreshIndicator(
+                                        onRefresh: _refreshSchools,
+                                        child: GridView.builder(
+                                          gridDelegate:
+                                              const SliverGridDelegateWithMaxCrossAxisExtent(
+                                                maxCrossAxisExtent: 400,
+                                                mainAxisExtent: 245,
+                                                crossAxisSpacing: 12,
+                                                mainAxisSpacing: 12,
+                                                childAspectRatio: 1.0,
+                                              ),
+                                          itemCount: _filteredSchools.length,
+                                          itemBuilder: (context, index) {
+                                            return SchoolCard(
+                                              school: _filteredSchools[index],
+                                              onDelete: () => _deleteSchool(
+                                                _filteredSchools[index].id,
+                                              ),
+                                              onEdit: () {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      "Edit ${_filteredSchools[index].name}",
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                              onView: () => _viewSchoolDetails(
+                                                _filteredSchools[index],
+                                              ),
+                                            );
+                                          },
                                         ),
-                                      );
-                                    },
-                                    onView: () => _viewSchoolDetails(
-                                      _filteredSchools[index],
-                                    ),
-                                  );
-                                },
-                              ),
+                                      ),
                       ),
                     ],
                   ),
@@ -445,12 +536,45 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
-          Icon(Icons.search_off, size: 50, color: Colors.grey),
-          SizedBox(height: 15),
+        children: [
+          const Icon(Icons.search_off, size: 50, color: Colors.grey),
+          const SizedBox(height: 15),
           Text(
-            "No schools found",
-            style: TextStyle(fontSize: 20, color: Color(0xFF333333)),
+            _searchQuery.isNotEmpty || _statusFilter.isNotEmpty
+                ? "No schools found matching your search"
+                : "No schools found",
+            style: const TextStyle(fontSize: 20, color: Color(0xFF333333)),
+          ),
+          if (_searchQuery.isEmpty && _statusFilter.isEmpty) ...[
+            const SizedBox(height: 10),
+            ElevatedButton.icon(
+              onPressed: _refreshSchools,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Refresh'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 50, color: Colors.red),
+          const SizedBox(height: 15),
+          Text(
+            _errorMessage ?? 'Error loading schools',
+            style: const TextStyle(fontSize: 16, color: Colors.red),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: _refreshSchools,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
           ),
         ],
       ),
@@ -752,15 +876,16 @@ class _SchoolCardState extends State<SchoolCard> {
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  Text(
-                                    "👨‍💼 ${widget.school.principal}",
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Color(0xFF666666),
+                                  if (widget.school.principal != null)
+                                    Text(
+                                      "👨‍💼 ${widget.school.principal}",
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Color(0xFF666666),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
                                 ],
                               ),
                             ),

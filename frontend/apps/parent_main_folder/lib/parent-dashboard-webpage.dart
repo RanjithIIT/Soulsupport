@@ -2189,7 +2189,7 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
     },
     {
       'name': 'Mr. Robert Wilson',
-      'subject': 'Physical Education',
+      'subject': 'Sports',
       'online': true,
       'unread': 0,
       'lastMessage': 'Sports day next week',

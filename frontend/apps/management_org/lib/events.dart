@@ -45,7 +45,7 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
       date: '2024-03-15',
       time: '09:00 AM - 04:00 PM',
       location: 'School Ground',
-      organizer: 'Physical Education Department',
+      organizer: 'Sports Department',
       participants: 450,
       status: 'Upcoming',
       description: 'Annual sports competition with various athletic events',

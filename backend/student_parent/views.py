@@ -13,11 +13,12 @@ from .serializers import (
     FeeSerializer, CommunicationSerializer
 )
 from main_login.permissions import IsStudentParent
+from main_login.mixins import SchoolFilterMixin
 from management_admin.models import Student
 from management_admin.serializers import StudentSerializer
 
 
-class ParentViewSet(viewsets.ReadOnlyModelViewSet):
+class ParentViewSet(SchoolFilterMixin, viewsets.ReadOnlyModelViewSet):
     """ViewSet for Parent profile"""
     queryset = Parent.objects.all()
     serializer_class = ParentSerializer
@@ -28,7 +29,7 @@ class ParentViewSet(viewsets.ReadOnlyModelViewSet):
         return Parent.objects.filter(user=self.request.user)
 
 
-class NotificationViewSet(viewsets.ModelViewSet):
+class NotificationViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Notification management"""
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
@@ -61,7 +62,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         return Response({'unread_count': count})
 
 
-class FeeViewSet(viewsets.ReadOnlyModelViewSet):
+class FeeViewSet(SchoolFilterMixin, viewsets.ReadOnlyModelViewSet):
     """ViewSet for Fee viewing"""
     queryset = Fee.objects.all()
     serializer_class = FeeSerializer
@@ -109,7 +110,7 @@ class FeeViewSet(viewsets.ReadOnlyModelViewSet):
         })
 
 
-class CommunicationViewSet(viewsets.ModelViewSet):
+class CommunicationViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Communication management"""
     queryset = Communication.objects.all()
     serializer_class = CommunicationSerializer

@@ -1,10 +1,11 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
 import 'main.dart' as app;
 import 'dashboard.dart';
 import 'admissions.dart';
-import 'services/api_service.dart';
 
 class StudentAcademics {
   final String overallScore;
@@ -69,6 +70,7 @@ class Student {
   final StudentAcademics academics;
   final StudentExtracurricular extracurricular;
   final StudentFees fees;
+  final String? profilePhotoUrl;
 
   Student({
     required this.id,
@@ -91,6 +93,7 @@ class Student {
     required this.academics,
     required this.extracurricular,
     required this.fees,
+    this.profilePhotoUrl,
   });
 
   // Factory constructor to parse from JSON (database response)
@@ -103,7 +106,6 @@ class Student {
     final totalFeeAmount = (json['total_fee_amount'] as num?)?.toDouble() ?? 0.0;
     final paidFeeAmount = (json['paid_fee_amount'] as num?)?.toDouble() ?? 0.0;
     final dueFeeAmount = (json['due_fee_amount'] as num?)?.toDouble() ?? 0.0;
-    final feesCount = json['fees_count'] as int? ?? 0;
     
     // Determine fee status
     String feeStatus = '';
@@ -113,6 +115,15 @@ class Student {
       feeStatus = 'Paid';
     } else {
       feeStatus = 'No Fees';
+    }
+
+    // Get profile photo URL
+    String? profilePhotoUrl;
+    if (json['profile_photo_url'] != null) {
+      profilePhotoUrl = json['profile_photo_url'] as String;
+    } else if (json['profile_photo'] != null && json['profile_photo'] is Map) {
+      final profilePhoto = json['profile_photo'] as Map<String, dynamic>;
+      profilePhotoUrl = profilePhoto['file_url'] as String?;
     }
 
     return Student(
@@ -155,6 +166,7 @@ class Student {
         due: '₹${dueFeeAmount.toStringAsFixed(0)}',
         status: feeStatus,
       ),
+      profilePhotoUrl: profilePhotoUrl,
     );
   }
 
@@ -187,15 +199,31 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
 
   Future<void> _fetchStudents() async {
     try {
-      final data = await ApiService.fetchStudents();
-      final students = data
-          .map((item) => Student.fromJson(item as Map<String, dynamic>))
-          .toList();
-      if (!mounted) return;
-      setState(() {
-        _students = students;
-        _visibleStudents = List<Student>.from(_students);
-      });
+      // Use the core ApiService that includes authentication
+      final apiService = ApiService();
+      await apiService.initialize();
+      
+      final response = await apiService.get(Endpoints.students);
+      
+      if (response.success && response.data != null) {
+        List<dynamic> data = [];
+        if (response.data is List) {
+          data = response.data as List;
+        } else if (response.data is Map && (response.data as Map)['results'] != null) {
+          data = (response.data as Map)['results'] as List;
+        }
+        
+        final students = data
+            .map((item) => Student.fromJson(item as Map<String, dynamic>))
+            .toList();
+        if (!mounted) return;
+        setState(() {
+          _students = students;
+          _visibleStudents = List<Student>.from(_students);
+        });
+      } else {
+        throw Exception(response.error ?? 'Failed to fetch students');
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -370,22 +398,54 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
         Container(
           width: 150,
           height: 150,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-            ),
+            gradient: student.profilePhotoUrl == null
+                ? const LinearGradient(
+                    colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                  )
+                : null,
           ),
-          child: Center(
-            child: Text(
-              student.initials,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 48,
-              ),
-            ),
-          ),
+          child: student.profilePhotoUrl != null
+              ? ClipOval(
+                  child: Image.network(
+                    student.profilePhotoUrl!,
+                    width: 150,
+                    height: 150,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      // Fallback to initials if image fails to load
+                      return Container(
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            student.initials,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 48,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                )
+              : Center(
+                  child: Text(
+                    student.initials,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 48,
+                    ),
+                  ),
+                ),
         ),
         const SizedBox(height: 20),
         Text(
@@ -537,7 +597,10 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                 }
 
                 try {
-                  await ApiService.deleteStudent(student.id);
+                  // Use the core ApiService for authenticated requests
+                  final apiService = ApiService();
+                  await apiService.initialize();
+                  await apiService.delete('${Endpoints.students}${student.id}/');
                   await closeLoading();
 
                   if (!mounted) return;
@@ -575,8 +638,16 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
     );
   }
 
-  void _addStudent() {
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdmissionsScreen()));
+  void _addStudent() async {
+    // Navigate to admissions screen and refresh when returning
+    await Navigator.push(
+      context, 
+      MaterialPageRoute(builder: (_) => const AdmissionsScreen())
+    );
+    // Refresh students list when returning from admissions
+    if (mounted) {
+      await _fetchStudents();
+    }
   }
 
   @override
@@ -1119,15 +1190,46 @@ class _StudentCardWithHoverState extends State<_StudentCardWithHover> {
                   Container(
                     width: 60,
                     height: 60,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                      ),
+                      gradient: widget.student.profilePhotoUrl == null
+                          ? const LinearGradient(
+                              colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                            )
+                          : null,
                     ),
-                    child: Center(
-                      child: Text(
-                        widget.student.initials,
+                    child: widget.student.profilePhotoUrl != null
+                        ? ClipOval(
+                            child: Image.network(
+                              widget.student.profilePhotoUrl!,
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      widget.student.initials,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 20,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          )
+                        : Center(
+                            child: Text(
+                              widget.student.initials,
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,

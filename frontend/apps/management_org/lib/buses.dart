@@ -2,6 +2,9 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'dashboard.dart';
+import 'widgets/student_list_dialog.dart';
+import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
 
 class BusStop {
   final String name;
@@ -220,11 +223,15 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
                             _buildRouteMap(
                               'Morning Route (Pickup)',
                               bus.routeStops,
+                              busId: bus.id.toString(),
+                              routeType: 'morning',
                             ),
                             const SizedBox(height: 20),
                             _buildRouteMap(
                               'Afternoon Route (Drop-off)',
                               bus.returnStops,
+                              busId: bus.id.toString(),
+                              routeType: 'afternoon',
                             ),
                           ],
                         );
@@ -243,11 +250,15 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
                           _buildRouteMap(
                             'Morning Route (Pickup)',
                             bus.routeStops,
+                            busId: bus.id.toString(),
+                            routeType: 'morning',
                           ),
                           const SizedBox(height: 20),
                           _buildRouteMap(
                             'Afternoon Route (Drop-off)',
                             bus.returnStops,
+                            busId: bus.id.toString(),
+                            routeType: 'afternoon',
                           ),
                         ],
                       );
@@ -378,7 +389,9 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
     );
   }
 
-  Widget _buildRouteMap(String title, List<BusStop> stops) {
+  Widget _buildRouteMap(String title, List<BusStop> stops, {String? busId, String? routeType}) {
+    final ApiService apiService = ApiService();
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -403,62 +416,194 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
             ],
           ),
           const SizedBox(height: 15),
-          ...stops.map(
-            (stop) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                        ),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        stop.time,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 15),
-                    Expanded(
-                      child: Text(
-                        stop.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF333333),
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '${stop.students} students',
-                      style: const TextStyle(
-                        color: Color(0xFF666666),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+          if (stops.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(20),
+              child: Center(
+                child: Text(
+                  'No stops added yet',
+                  style: TextStyle(color: Colors.grey),
                 ),
               ),
+            )
+          else
+            ...stops.asMap().entries.map(
+              (entry) {
+                final index = entry.key;
+                final stop = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: InkWell(
+                    onTap: () {
+                      // Double tap to view students - for real API integration
+                      if (busId != null) {
+                        _viewStopStudents(context, stop.name, busId, routeType ?? 'morning', apiService);
+                      }
+                    },
+                    onDoubleTap: () {
+                      if (busId != null) {
+                        _viewStopStudents(context, stop.name, busId, routeType ?? 'morning', apiService);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: busId != null ? const Color(0xFF667EEA) : Colors.transparent,
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                              ),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${index + 1}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 15),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                              ),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              stop.time,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 15),
+                          Expanded(
+                            child: Text(
+                              stop.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF333333),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${stop.students} students',
+                            style: const TextStyle(
+                              color: Color(0xFF666666),
+                              fontSize: 12,
+                            ),
+                          ),
+                          if (busId != null) ...[
+                            const SizedBox(width: 10),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                _viewStopStudents(context, stop.name, busId, routeType ?? 'morning', apiService);
+                              },
+                              icon: const Icon(Icons.visibility, size: 16),
+                              label: const Text('View'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF667EEA),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                minimumSize: Size.zero,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
-          ),
         ],
       ),
     );
+  }
+
+  Future<void> _viewStopStudents(BuildContext context, String stopName, String busId, String routeType, ApiService apiService) async {
+    try {
+      // First, get bus stops for this bus and route type
+      await apiService.initialize();
+      final stopsResponse = await apiService.get('${Endpoints.buses}$busId/');
+      
+      if (!stopsResponse.success) {
+        throw Exception('Failed to load bus stops');
+      }
+
+      final busData = stopsResponse.data as Map<String, dynamic>;
+      final stops = routeType == 'morning' 
+          ? (busData['morning_stops'] as List?) ?? []
+          : (busData['afternoon_stops'] as List?) ?? [];
+
+      // Find the stop by name
+      final stop = stops.firstWhere(
+        (s) => (s as Map)['stop_name'] == stopName,
+        orElse: () => null,
+      );
+
+      if (stop == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Stop not found')),
+        );
+        return;
+      }
+
+      final stopId = (stop as Map)['stop_id']?.toString();
+      if (stopId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Stop ID not found')),
+        );
+        return;
+      }
+
+      // Load students for this stop
+      final studentsResponse = await apiService.get('${Endpoints.busStops}$stopId/students/');
+      final students = studentsResponse.success 
+          ? ((studentsResponse.data as List?) ?? [])
+          : <dynamic>[];
+
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => StudentListDialog(
+            stopId: stopId,
+            stopName: stopName,
+            routeType: routeType,
+            busId: busId,
+            initialStudents: students,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading students: $e')),
+        );
+      }
+    }
   }
 
   void _editBus(Bus bus) {
@@ -500,10 +645,7 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
   }
 
   void _addBus() {
-    // Navigate to add bus page (can be created later)
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add bus feature coming soon')),
-    );
+    Navigator.pushNamed(context, '/add-new-bus');
   }
 
   @override

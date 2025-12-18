@@ -2,29 +2,62 @@
 Serializers for management_admin app
 """
 from rest_framework import serializers
-from .models import Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent
 from main_login.serializers import UserSerializer
+from main_login.serializer_mixins import SchoolIdMixin
+from main_login.utils import get_user_school_id
 from super_admin.serializers import SchoolSerializer
+
+
+class FileSerializer(serializers.ModelSerializer):
+    """Serializer for File model"""
+    file_url = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = File
+        fields = [
+            'file_id', 'file', 'file_url', 'file_name', 'file_type', 'file_size',
+            'school_id', 'uploaded_by', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['file_id', 'school_id', 'created_at', 'updated_at']
+    
+    def get_file_url(self, obj):
+        """Get the URL to access the file"""
+        if obj.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url
+        return None
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
     """Serializer for Department model"""
     head = UserSerializer(read_only=True)
     school_name = serializers.CharField(source='school.name', read_only=True)
+    school_id = serializers.CharField(source='school.school_id', read_only=True, help_text='School ID (read-only)')
     
     class Meta:
         model = Department
         fields = [
-            'id', 'school', 'school_name', 'name', 'description',
+            'id', 'school', 'school_id', 'school_name', 'name', 'description',
             'head', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'school_id', 'created_at', 'updated_at']
 
 
-class TeacherSerializer(serializers.ModelSerializer):
+
+class TeacherSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Teacher model"""
     user = UserSerializer(read_only=True)
     department_name = serializers.CharField(source='department.name', read_only=True)
+    department = serializers.PrimaryKeyRelatedField(
+        queryset=Department.objects.all(),
+        required=False,
+        allow_null=True,
+        help_text='Department ID (optional)'
+    )
+    profile_photo_url = serializers.SerializerMethodField()
     
     # Writable fields for creating user
     first_name = serializers.CharField(write_only=True, required=False)
@@ -33,15 +66,24 @@ class TeacherSerializer(serializers.ModelSerializer):
     class Meta:
         model = Teacher
         fields = [
-            'teacher_id', 'user', 'department', 'department_name',
+            'teacher_id', 'school_id', 'user', 'department', 'department_name',
             'employee_no', 'first_name', 'last_name', 'qualification',
-            'joining_date', 'dob', 'gender', 'designation', 'department',
+            'joining_date', 'dob', 'gender',
             'blood_group', 'nationality', 'mobile_no', 'email', 'address',
             'primary_room_id', 'class_teacher_section_id', 'subject_specialization',
-            'emergency_contact', 'profile_photo_id', 'is_active',
+            'emergency_contact', 'profile_photo', 'profile_photo_id', 'profile_photo_url', 'is_active',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['teacher_id', 'created_at', 'updated_at', 'user']
+        read_only_fields = ['teacher_id', 'created_at', 'updated_at', 'user', 'profile_photo_id', 'profile_photo_url']
+    
+    def get_profile_photo_url(self, obj):
+        """Get the URL to access the profile photo"""
+        if obj.profile_photo and obj.profile_photo.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.profile_photo.file.url)
+            return obj.profile_photo.file.url
+        return None
     
     def create(self, validated_data):
         """Override create to handle user creation from email"""
@@ -121,23 +163,35 @@ class StudentSerializer(serializers.ModelSerializer):
     """Serializer for Student model"""
     user = UserSerializer(read_only=True)
     school_name = serializers.CharField(source='school.name', read_only=True)
+    school_id = serializers.CharField(source='school.school_id', read_only=True, help_text='School ID (read-only)')
     total_fee_amount = serializers.SerializerMethodField()
     paid_fee_amount = serializers.SerializerMethodField()
     due_fee_amount = serializers.SerializerMethodField()
     fees_count = serializers.SerializerMethodField()
+    profile_photo_url = serializers.SerializerMethodField()
     
     class Meta:
         model = Student
         fields = [
-            'email', 'user', 'school', 'school_name', 'student_id',
+            'email', 'user', 'school', 'school_id', 'school_name', 'student_id',
             'student_name', 'parent_name', 'date_of_birth', 'gender',
             'applying_class', 'grade', 'address', 'category', 'admission_number',
             'parent_phone', 'emergency_contact', 'medical_information',
             'blood_group', 'previous_school', 'remarks',
+            'profile_photo', 'profile_photo_id', 'profile_photo_url',
             'total_fee_amount', 'paid_fee_amount', 'due_fee_amount', 'fees_count',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['email', 'created_at', 'updated_at', 'user']
+        read_only_fields = ['email', 'school_id', 'created_at', 'updated_at', 'user', 'profile_photo_id', 'profile_photo_url']
+    
+    def get_profile_photo_url(self, obj):
+        """Get the URL to access the profile photo"""
+        if obj.profile_photo and obj.profile_photo.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.profile_photo.file.url)
+            return obj.profile_photo.file.url
+        return None
     
     def get_total_fee_amount(self, obj):
         """Calculate total fee amount for this student"""
@@ -155,8 +209,8 @@ class StudentSerializer(serializers.ModelSerializer):
         from django.db.models import Sum
         from django.db import DataError
         try:
-            total = obj.management_fees.aggregate(Sum('paid_amount'))['paid_amount__sum'] or 0
-            return float(total)
+            paid = obj.management_fees.aggregate(Sum('paid_amount'))['paid_amount__sum'] or 0
+            return float(paid)
         except (DataError, ValueError, TypeError):
             return 0.0
     
@@ -165,8 +219,8 @@ class StudentSerializer(serializers.ModelSerializer):
         from django.db.models import Sum
         from django.db import DataError
         try:
-            total = obj.management_fees.aggregate(Sum('due_amount'))['due_amount__sum'] or 0
-            return float(total)
+            due = obj.management_fees.aggregate(Sum('due_amount'))['due_amount__sum'] or 0
+            return float(due)
         except (DataError, ValueError, TypeError):
             return 0.0
     
@@ -179,7 +233,7 @@ class StudentSerializer(serializers.ModelSerializer):
             return 0
 
 
-class NewAdmissionSerializer(serializers.ModelSerializer):
+class NewAdmissionSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for New Admission model"""
     generated_password = serializers.CharField(read_only=True, help_text='8-character password generated for user login')
     created_student = StudentSerializer(read_only=True, help_text='Student record created when admission is approved')
@@ -187,7 +241,7 @@ class NewAdmissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = NewAdmission
         fields = [
-            'student_id', 'student_name', 'parent_name',
+            'student_id', 'school_id', 'student_name', 'parent_name',
             'date_of_birth', 'gender', 'applying_class', 'grade',
             'address', 'category', 'status',
             'admission_number', 'email', 'parent_phone', 'emergency_contact',
@@ -213,78 +267,82 @@ class NewAdmissionSerializer(serializers.ModelSerializer):
     
     def validate_email(self, value):
         """Validate email - required for creation, optional for updates"""
-        # If this is a create (no instance) and email is not provided
-        if self.instance is None and (value is None or value == ''):
+        if not self.instance and not value:
             raise serializers.ValidationError("Email is required for new admissions.")
-        # For updates, if email is not provided, keep existing email
-        if self.instance is not None and (value is None or value == ''):
-            return self.instance.email
         return value
     
-    def validate_admission_number(self, value):
-        """Validate admission_number uniqueness, excluding current instance"""
-        # Handle empty strings - convert to None
-        if value is not None:
-            if isinstance(value, str):
-                value = value.strip()
-            if not value:
-                value = None
+    def create(self, validated_data):
+        """Override create to generate student_id and password if not provided"""
+        import random
+        import string
+        import datetime
+        from main_login.models import User, Role
         
-        # Only validate uniqueness if value is provided and not empty
-        if value:
-            # Check if admission_number already exists (excluding current instance)
-            queryset = NewAdmission.objects.filter(admission_number=value)
-            if self.instance:
-                queryset = queryset.exclude(pk=self.instance.pk)
-            if queryset.exists():
-                raise serializers.ValidationError(
-                    f"Admission number '{value}' already exists."
-                )
-        # Return None for empty values (admission_number is optional)
-        return value
-    
-    def validate(self, attrs):
-        """Generate student_id if not provided"""
-        # Only generate student_id during creation (not updates)
-        if self.instance is None:
-            student_id = attrs.get('student_id')
-            if not student_id or (isinstance(student_id, str) and not student_id.strip()):
-                # Generate a unique student_id
-                import uuid
-                import datetime
-                from .models import NewAdmission
-                
-                # Generate format: STD-YYYYMMDD-HHMMSS-XXXX
-                # Keep generating until we get a unique one
-                max_attempts = 10
-                for attempt in range(max_attempts):
-                    timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-                    unique_suffix = uuid.uuid4().hex[:4].upper()
-                    generated_id = f'STD-{timestamp}-{unique_suffix}'
-                    
-                    # Check if this ID already exists
-                    if not NewAdmission.objects.filter(student_id=generated_id).exists():
-                        attrs['student_id'] = generated_id
-                        break
-                    
-                    # If all attempts fail, use UUID as fallback
-                    if attempt == max_attempts - 1:
-                        attrs['student_id'] = f'STD-{uuid.uuid4().hex[:16].upper()}'
-            else:
-                # If student_id is provided, check if it's unique
-                if isinstance(student_id, str) and student_id.strip():
-                    from .models import NewAdmission
-                    if NewAdmission.objects.filter(student_id=student_id.strip()).exists():
-                        raise serializers.ValidationError({
-                            'student_id': f"Student ID '{student_id}' already exists."
-                        })
-                    attrs['student_id'] = student_id.strip()
-        return attrs
+        # Generate student_id if not provided
+        student_id = validated_data.get('student_id')
+        if not student_id:
+            # Generate unique student ID
+            timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+            student_id = f'STUD-{datetime.datetime.now().year}-{timestamp[-6:]}'
+            # Ensure uniqueness
+            while NewAdmission.objects.filter(student_id=student_id).exists():
+                timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')
+                student_id = f'STUD-{datetime.datetime.now().year}-{timestamp[-6:]}'
+            validated_data['student_id'] = student_id
+        
+        # Generate 8-character password for user login
+        characters = string.ascii_letters + string.digits
+        generated_password = ''.join(random.choice(characters) for _ in range(8))
+        
+        # Store generated password in the instance (will be returned in response)
+        self.generated_password = generated_password
+        
+        # Create user account if email is provided
+        email = validated_data.get('email')
+        if email:
+            # Generate username from email
+            username = email.split('@')[0]
+            # Ensure username is unique
+            base_username = username
+            counter = 1
+            while User.objects.filter(username=username).exists():
+                username = f'{base_username}{counter}'
+                counter += 1
+            
+            # Get or create student/parent role
+            role, _ = Role.objects.get_or_create(
+                name='student_parent',
+                defaults={'description': 'Student/Parent role'}
+            )
+            
+            # Create user
+            user = User.objects.create(
+                email=email,
+                username=username,
+                first_name=validated_data.get('student_name', ''),
+                role=role,
+                is_active=True,
+                has_custom_password=False,
+            )
+            
+            # Set password_hash to the generated 8-character password
+            user.password_hash = generated_password
+            user.set_unusable_password()  # This sets password field to unusable
+            user.has_custom_password = False
+            user.save()
+        
+        # Create admission record
+        admission = NewAdmission.objects.create(**validated_data)
+        
+        # Store generated password in admission for response
+        admission.generated_password = generated_password
+        
+        return admission
 
 
 class DashboardStatsSerializer(serializers.ModelSerializer):
-    """Serializer for Dashboard Statistics"""
-    school = SchoolSerializer(read_only=True)
+    """Serializer for Dashboard Stats"""
+    school_name = serializers.CharField(source='school.name', read_only=True)
     
     class Meta:
         model = DashboardStats
@@ -294,29 +352,33 @@ class DashboardStatsSerializer(serializers.ModelSerializer):
         ]
 
 
-class ExaminationManagementSerializer(serializers.ModelSerializer):
+class ExaminationManagementSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Examination Management model"""
     
     class Meta:
         model = Examination_management
         fields = [
-            'id', 'Exam_Title', 'Exam_Type', 'Exam_Date', 'Exam_Time',
-            'Exam_Subject', 'Exam_Class', 'Exam_Duration', 'Exam_Marks', 
-            'Exam_Description', 'Exam_Location', 'Exam_Status', 
+            'id', 'school_id', 'Exam_Title', 'Exam_Type', 'Exam_Date', 'Exam_Time',
+            'Exam_Subject', 'Exam_Class', 'Exam_Duration', 'Exam_Marks',
+            'Exam_Description', 'Exam_Location', 'Exam_Status',
             'Exam_Created_At', 'Exam_Updated_At'
         ]
-        read_only_fields = ['id', 'Exam_Created_At', 'Exam_Updated_At']
+        read_only_fields = ['id', 'school_id', 'Exam_Created_At', 'Exam_Updated_At']
 
 
 class PaymentHistorySerializer(serializers.ModelSerializer):
-    """Serializer for PaymentHistory model"""
+    """Serializer for Payment History model"""
+    
     class Meta:
         model = PaymentHistory
-        fields = ['id', 'payment_amount', 'payment_date', 'receipt_number', 'notes', 'created_at']
+        fields = [
+            'id', 'fee', 'payment_amount', 'payment_date', 'receipt_number',
+            'notes', 'created_at'
+        ]
         read_only_fields = ['id', 'created_at']
 
 
-class FeeSerializer(serializers.ModelSerializer):
+class FeeSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Fee model"""
     student_id = serializers.SerializerMethodField()
     student_email = serializers.SerializerMethodField()
@@ -325,7 +387,7 @@ class FeeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Fee
         fields = [
-            'id', 'student', 'student_id', 'student_id_string', 'student_email', 'student_name', 'applying_class', 'fee_type', 'grade',
+            'id', 'school_id', 'student', 'student_id', 'student_id_string', 'student_email', 'student_name', 'applying_class', 'fee_type', 'grade',
             'total_amount', 'frequency', 'due_date', 'late_fee', 'description',
             'status', 'paid_amount', 'due_amount', 
             'last_paid_date', 'payment_history', 'created_at', 'updated_at'
@@ -377,3 +439,48 @@ class FeeSerializer(serializers.ModelSerializer):
         
         return super().create(validated_data)
 
+
+class BusStopStudentSerializer(SchoolIdMixin, serializers.ModelSerializer):
+    """Serializer for BusStopStudent model"""
+    student_name = serializers.CharField(source='student.student_name', read_only=True)
+    bus_stop_name = serializers.CharField(source='bus_stop.stop_name', read_only=True)
+    
+    class Meta:
+        model = BusStopStudent
+        fields = [
+            'id', 'school_id', 'bus_stop', 'bus_stop_name', 'student', 'student_name',
+            'pickup_time', 'dropoff_time', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'school_id', 'created_at', 'updated_at']
+
+
+class BusStopSerializer(SchoolIdMixin, serializers.ModelSerializer):
+    """Serializer for BusStop model"""
+    bus_name = serializers.CharField(source='bus.bus_number', read_only=True)
+    
+    class Meta:
+        model = BusStop
+        fields = [
+            'id', 'school_id', 'bus', 'bus_name', 'stop_name', 'stop_address',
+            'route_type', 'stop_order', 'latitude', 'longitude',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'school_id', 'created_at', 'updated_at']
+
+
+class BusSerializer(SchoolIdMixin, serializers.ModelSerializer):
+    """Serializer for Bus model"""
+    school_name = serializers.CharField(source='school.name', read_only=True)
+    school_id = serializers.CharField(source='school.school_id', read_only=True, help_text='School ID (read-only)')
+    
+    class Meta:
+        model = Bus
+        fields = [
+            'bus_id', 'school', 'school_id', 'school_name', 'bus_number', 'bus_type',
+            'capacity', 'registration_number', 'driver_name', 'driver_phone',
+            'driver_license', 'driver_experience', 'route_name', 'route_distance',
+            'route_description', 'morning_start_time', 'morning_end_time',
+            'afternoon_start_time', 'afternoon_end_time', 'notes', 'is_active',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['bus_id', 'school_id', 'created_at', 'updated_at']

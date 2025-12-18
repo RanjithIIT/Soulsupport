@@ -6,10 +6,11 @@ from .models import (
     Class, ClassStudent, Attendance, Assignment,
     Exam, Grade, Timetable, StudyMaterial
 )
+from main_login.serializer_mixins import SchoolIdMixin
 from management_admin.serializers import TeacherSerializer, StudentSerializer, DepartmentSerializer
 
 
-class ClassSerializer(serializers.ModelSerializer):
+class ClassSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Class model"""
     teacher = TeacherSerializer(read_only=True)
     department = DepartmentSerializer(read_only=True)
@@ -17,23 +18,23 @@ class ClassSerializer(serializers.ModelSerializer):
     class Meta:
         model = Class
         fields = [
-            'id', 'name', 'section', 'teacher', 'department',
+            'id', 'school_id', 'name', 'section', 'teacher', 'department',
             'academic_year', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
-class ClassStudentSerializer(serializers.ModelSerializer):
+class ClassStudentSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for ClassStudent model"""
     class_obj = ClassSerializer(read_only=True)
     student = StudentSerializer(read_only=True)
     
     class Meta:
         model = ClassStudent
-        fields = ['id', 'class_obj', 'student', 'enrolled_date']
+        fields = ['id', 'school_id', 'class_obj', 'student', 'enrolled_date']
 
 
-class AttendanceSerializer(serializers.ModelSerializer):
+class AttendanceSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Attendance model"""
     class_obj = ClassSerializer(read_only=True)
     student = StudentSerializer(read_only=True)
@@ -42,13 +43,13 @@ class AttendanceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Attendance
         fields = [
-            'id', 'class_obj', 'student', 'date', 'status',
+            'id', 'school_id', 'class_obj', 'student', 'date', 'status',
             'marked_by', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
 
 
-class AssignmentSerializer(serializers.ModelSerializer):
+class AssignmentSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Assignment model"""
     class_obj = ClassSerializer(read_only=True)
     teacher = TeacherSerializer(read_only=True)
@@ -56,13 +57,13 @@ class AssignmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Assignment
         fields = [
-            'id', 'class_obj', 'teacher', 'title', 'description',
+            'id', 'school_id', 'class_obj', 'teacher', 'title', 'description',
             'due_date', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
-class ExamSerializer(serializers.ModelSerializer):
+class ExamSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Exam model"""
     class_obj = ClassSerializer(read_only=True)
     teacher = TeacherSerializer(read_only=True)
@@ -70,13 +71,13 @@ class ExamSerializer(serializers.ModelSerializer):
     class Meta:
         model = Exam
         fields = [
-            'id', 'class_obj', 'teacher', 'title', 'description',
+            'id', 'school_id', 'class_obj', 'teacher', 'title', 'description',
             'exam_date', 'total_marks', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
-class GradeSerializer(serializers.ModelSerializer):
+class GradeSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Grade model"""
     exam = ExamSerializer(read_only=True)
     student = StudentSerializer(read_only=True)
@@ -84,13 +85,13 @@ class GradeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Grade
         fields = [
-            'id', 'exam', 'student', 'marks_obtained',
+            'id', 'school_id', 'exam', 'student', 'marks_obtained',
             'remarks', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
-class TimetableSerializer(serializers.ModelSerializer):
+class TimetableSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Timetable model"""
     class_obj = ClassSerializer(read_only=True)
     teacher = TeacherSerializer(read_only=True)
@@ -98,13 +99,13 @@ class TimetableSerializer(serializers.ModelSerializer):
     class Meta:
         model = Timetable
         fields = [
-            'id', 'class_obj', 'teacher', 'day_of_week',
+            'id', 'school_id', 'class_obj', 'teacher', 'day_of_week',
             'start_time', 'end_time', 'subject', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
-class StudyMaterialSerializer(serializers.ModelSerializer):
+class StudyMaterialSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for StudyMaterial model"""
     class_obj = ClassSerializer(read_only=True)
     teacher = TeacherSerializer(read_only=True)
@@ -112,7 +113,7 @@ class StudyMaterialSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudyMaterial
         fields = [
-            'id', 'class_obj', 'teacher', 'title', 'description',
+            'id', 'school_id', 'class_obj', 'teacher', 'title', 'description',
             'file_url', 'file_path', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']

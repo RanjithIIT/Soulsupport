@@ -1,8 +1,14 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
+import 'admin-schools.dart' as schools;
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize ApiService to load stored tokens and handle token refresh
+  await ApiService().initialize();
+  
   runApp(
     MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -36,9 +42,15 @@ class _AddSchoolScreenState extends State<AddSchoolScreen> {
   final TextEditingController _capacityController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
   final TextEditingController _facilitiesController = TextEditingController();
+  // New fields for school_id generation
+  final TextEditingController _statecodeController = TextEditingController();
+  final TextEditingController _districtcodeController = TextEditingController();
+  final TextEditingController _registrationNumberController = TextEditingController();
+  final TextEditingController _establishedYearController = TextEditingController();
+  final TextEditingController _licenseExpiryController = TextEditingController();
 
-  // Dropdown Value
-  String? _selectedSchoolType;
+  // Dropdown Values
+  String? _selectedStatus;
 
   // --- Design Colors (Exact matches from CSS) ---
   final Color _gradStart = const Color(0xFF667eea);
@@ -53,55 +65,112 @@ class _AddSchoolScreenState extends State<AddSchoolScreen> {
 
     setState(() => _isLoading = true);
 
-    // 1. Prepare Data (Matching JS structure)
+    // Initialize ApiService to ensure tokens are loaded
+    final apiService = ApiService();
+    await apiService.initialize();
+
+    // 1. Prepare Data (Matching backend model structure)
+    // Combine city, state, zipCode into location field
+    final List<String> locationParts = [];
+    if (_cityController.text.isNotEmpty) locationParts.add(_cityController.text);
+    if (_stateController.text.isNotEmpty) locationParts.add(_stateController.text);
+    if (_zipController.text.isNotEmpty) locationParts.add(_zipController.text);
+    final String location = locationParts.join(', ');
+
+    // Build full address including description and facilities if provided
+    final List<String> addressParts = [_addressController.text];
+    if (_descController.text.isNotEmpty) {
+      addressParts.add('\nDescription: ${_descController.text}');
+    }
+    if (_facilitiesController.text.isNotEmpty) {
+      addressParts.add('\nFacilities: ${_facilitiesController.text}');
+    }
+    final String fullAddress = addressParts.join('\n');
+
     final Map<String, dynamic> schoolData = {
-      'name': _nameController.text,
-      'type': _selectedSchoolType,
-      'address': _addressController.text,
-      'city': _cityController.text,
-      'state': _stateController.text,
-      'zipCode': _zipController.text,
-      'phone': _phoneController.text,
-      'email': _emailController.text,
-      'principal': _principalController.text,
-      'capacity': int.tryParse(_capacityController.text) ?? 0,
-      'description': _descController.text,
-      'facilities': _facilitiesController.text,
+      'name': _nameController.text.trim(),
+      'location': location.isNotEmpty ? location : _addressController.text.trim(),
+      'statecode': _statecodeController.text.trim(),
+      'districtcode': _districtcodeController.text.trim(),
+      'registration_number': _registrationNumberController.text.trim(),
+      'address': fullAddress.trim(),
+      'email': _emailController.text.trim(),
+      'phone': _phoneController.text.trim(),
+      'principal_name': _principalController.text.trim(),
+      'status': _selectedStatus ?? 'active',
     };
-
-    // 2. API Configuration
-    const String apiUrl =
-        'https://your-backend-domain.com/api/admin/schools'; // Update this
-
-    // Mock Token retrieval (In real app, use SharedPreferences)
-    const String token = "YOUR_STORED_TOKEN";
+    
+    // Add optional fields if provided
+    if (_establishedYearController.text.isNotEmpty) {
+      final year = int.tryParse(_establishedYearController.text.trim());
+      if (year != null) {
+        schoolData['established_year'] = year;
+      }
+    }
+    
+    if (_licenseExpiryController.text.isNotEmpty) {
+      schoolData['license_expiry'] = _licenseExpiryController.text.trim();
+    }
 
     try {
-      final response = await http.post(
-        Uri.parse(apiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(schoolData),
+      final response = await apiService.post(
+        Endpoints.adminSchools,
+        body: schoolData,
       );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      if (response.success) {
         if (mounted) {
-          _showSnackBar('School added successfully!', isError: false);
+          final message = response.data is Map<String, dynamic> &&
+                  response.data['message'] != null
+              ? response.data['message']
+              : 'School added successfully!';
+          _showSnackBar(message, isError: false);
           _clearForm();
-          // Navigation removed: no automatic redirect after submit
+          
+          // Navigate back to schools list after successful submission
+          // Wait a moment to show the success message
+          await Future.delayed(const Duration(seconds: 1));
+          
+          if (mounted) {
+            // Return true to indicate success, which will trigger refresh
+            Navigator.of(context).pop(true);
+          }
         }
       } else {
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['message'] ?? 'Failed to add school');
+        String errorMessage = 'Failed to add school';
+        if (response.data is Map<String, dynamic>) {
+          final data = response.data as Map<String, dynamic>;
+          errorMessage = data['message'] as String? ??
+              data['error'] as String? ??
+              errorMessage;
+          // Check for validation errors
+          if (data['errors'] is Map) {
+            final errors = data['errors'] as Map;
+            final errorList = <String>[];
+            errors.forEach((key, value) {
+              if (value is List) {
+                errorList.addAll(value.map((e) => e.toString()));
+              } else {
+                errorList.add(value.toString());
+              }
+            });
+            if (errorList.isNotEmpty) {
+              errorMessage = errorList.join(', ');
+            }
+          }
+        } else if (response.error != null) {
+          errorMessage = response.error!;
+        }
+        throw Exception(errorMessage);
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar(
-          e.toString().replaceAll("Exception: ", ""),
-          isError: true,
-        );
+        String errorMsg = e.toString().replaceAll("Exception: ", "");
+        // Handle network errors
+        if (errorMsg.contains('Network error') || errorMsg.contains('Failed to fetch')) {
+          errorMsg = 'Unable to connect to server. Please check your internet connection and ensure the backend server is running.';
+        }
+        _showSnackBar(errorMsg, isError: true);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -120,7 +189,14 @@ class _AddSchoolScreenState extends State<AddSchoolScreen> {
     _capacityController.clear();
     _descController.clear();
     _facilitiesController.clear();
-    setState(() => _selectedSchoolType = null);
+    _statecodeController.clear();
+    _districtcodeController.clear();
+    _registrationNumberController.clear();
+    _establishedYearController.clear();
+    _licenseExpiryController.clear();
+    setState(() {
+      _selectedStatus = 'active';
+    });
   }
 
   void _showSnackBar(String message, {required bool isError}) {
@@ -151,6 +227,11 @@ class _AddSchoolScreenState extends State<AddSchoolScreen> {
     _capacityController.dispose();
     _descController.dispose();
     _facilitiesController.dispose();
+    _statecodeController.dispose();
+    _districtcodeController.dispose();
+    _registrationNumberController.dispose();
+    _establishedYearController.dispose();
+    _licenseExpiryController.dispose();
     super.dispose();
   }
 
@@ -182,12 +263,15 @@ class _AddSchoolScreenState extends State<AddSchoolScreen> {
         actions: [
           TextButton.icon(
             onPressed: () {
-              // Navigate back to dashboard
+              // Navigate back to schools list
               if (Navigator.of(context).canPop()) {
                 Navigator.of(context).pop();
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Navigating to Dashboard')),
+                // If we can't pop, navigate to schools dashboard
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => const schools.AdminDashboard(),
+                  ),
                 );
               }
             },
@@ -252,21 +336,45 @@ class _AddSchoolScreenState extends State<AddSchoolScreen> {
                       ),
                     ],
                   ),
-                  child: Form(
+                    child: Form(
                     key: _formKey,
                     child: Column(
                       children: [
-                        // Row 1
-                        _buildResponsiveRow(isDesktop, [
-                          _buildInput(
+                        // Row 1 - School Name
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 25),
+                          child: _buildInput(
                             label: 'School Name *',
                             controller: _nameController,
                             hint: 'Enter school name',
                           ),
-                          _buildDropdown(isDesktop),
+                        ),
+                        
+                        // Row 2 - State Code, District Code, Registration Number (for school_id generation)
+                        _buildResponsiveRow(isDesktop, [
+                          _buildInput(
+                            label: 'State Code *',
+                            controller: _statecodeController,
+                            hint: 'e.g., TG',
+                          ),
+                          _buildInput(
+                            label: 'District Code *',
+                            controller: _districtcodeController,
+                            hint: 'e.g., HYD',
+                          ),
                         ]),
+                        
+                        // Row 3 - Registration Number
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 25),
+                          child: _buildInput(
+                            label: 'Registration Number *',
+                            controller: _registrationNumberController,
+                            hint: 'Enter school registration number',
+                          ),
+                        ),
 
-                        // Row 2
+                        // Row 4 - Address and City
                         _buildResponsiveRow(isDesktop, [
                           _buildInput(
                             label: 'Address *',
@@ -280,7 +388,7 @@ class _AddSchoolScreenState extends State<AddSchoolScreen> {
                           ),
                         ]),
 
-                        // Row 3
+                        // Row 5 - State and ZIP Code
                         _buildResponsiveRow(isDesktop, [
                           _buildInput(
                             label: 'State *',
@@ -294,13 +402,14 @@ class _AddSchoolScreenState extends State<AddSchoolScreen> {
                           ),
                         ]),
 
-                        // Row 4
+                        // Row 6 - Phone and Email
                         _buildResponsiveRow(isDesktop, [
                           _buildInput(
-                            label: 'Phone Number *',
+                            label: 'Phone Number',
                             controller: _phoneController,
                             hint: 'Enter phone number',
                             type: TextInputType.phone,
+                            isRequired: false,
                           ),
                           _buildInput(
                             label: 'Email *',
@@ -310,18 +419,31 @@ class _AddSchoolScreenState extends State<AddSchoolScreen> {
                           ),
                         ]),
 
-                        // Row 5
+                        // Row 7 - Principal Name and Status
                         _buildResponsiveRow(isDesktop, [
                           _buildInput(
-                            label: 'Principal Name *',
+                            label: 'Principal Name',
                             controller: _principalController,
                             hint: 'Enter principal name',
+                            isRequired: false,
+                          ),
+                          _buildStatusDropdown(isDesktop),
+                        ]),
+
+                        // Row 8 - Established Year and License Expiry
+                        _buildResponsiveRow(isDesktop, [
+                          _buildInput(
+                            label: 'Established Year',
+                            controller: _establishedYearController,
+                            hint: 'e.g., 2020',
+                            type: TextInputType.number,
+                            isRequired: false,
                           ),
                           _buildInput(
-                            label: 'Student Capacity *',
-                            controller: _capacityController,
-                            hint: 'Enter student capacity',
-                            type: TextInputType.number,
+                            label: 'License Expiry (YYYY-MM-DD)',
+                            controller: _licenseExpiryController,
+                            hint: 'e.g., 2025-12-31',
+                            isRequired: false,
                           ),
                         ]),
 
@@ -515,13 +637,13 @@ class _AddSchoolScreenState extends State<AddSchoolScreen> {
     );
   }
 
-  // Dropdown Field
-  Widget _buildDropdown(bool isDesktop) {
+  // Status Dropdown Field
+  Widget _buildStatusDropdown(bool isDesktop) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          "School Type *",
+          "Status *",
           style: TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 16,
@@ -530,20 +652,15 @@ class _AddSchoolScreenState extends State<AddSchoolScreen> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          initialValue: _selectedSchoolType,
+          value: _selectedStatus ?? 'active',
           items: const [
-            DropdownMenuItem(value: 'primary', child: Text('Primary School')),
-            DropdownMenuItem(value: 'middle', child: Text('Middle School')),
-            DropdownMenuItem(value: 'high', child: Text('High School')),
-            DropdownMenuItem(
-              value: 'comprehensive',
-              child: Text('Comprehensive School'),
-            ),
+            DropdownMenuItem(value: 'active', child: Text('Active')),
+            DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
+            DropdownMenuItem(value: 'suspended', child: Text('Suspended')),
           ],
-          onChanged: (val) => setState(() => _selectedSchoolType = val),
-          validator: (val) => val == null ? 'Select school type' : null,
+          onChanged: (val) => setState(() => _selectedStatus = val),
           decoration: InputDecoration(
-            hintText: "Select school type",
+            hintText: "Select status",
             hintStyle: TextStyle(color: Colors.grey[400]),
             filled: true,
             fillColor: Colors.white.withValues(alpha: 0.9),

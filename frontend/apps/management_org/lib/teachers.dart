@@ -1,14 +1,15 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
 import 'main.dart' as app;
 import 'dashboard.dart';
-import 'services/api_service.dart';
 
 class Teacher {
   final int id;
   final String name;
-  final String designation;
+  final String department;
   final String phone;
   final String email;
   final String address;
@@ -21,11 +22,12 @@ class Teacher {
   final String joiningDate;
   final String salary;
   final String status;
+  final String? profilePhotoUrl;
 
   Teacher({
     required this.id,
     required this.name,
-    required this.designation,
+    required this.department,
     required this.phone,
     required this.email,
     required this.address,
@@ -38,30 +40,41 @@ class Teacher {
     required this.joiningDate,
     required this.salary,
     required this.status,
+    this.profilePhotoUrl,
   });
 
   // Factory constructor to parse from JSON (database response)
   factory Teacher.fromJson(Map<String, dynamic> json) {
-    final firstName = json['user']?['first_name'] as String? ?? '';
-    final lastName = json['user']?['last_name'] as String? ?? '';
+    final firstName = json['first_name'] as String? ?? json['user']?['first_name'] as String? ?? '';
+    final lastName = json['last_name'] as String? ?? json['user']?['last_name'] as String? ?? '';
     final fullName = '$firstName $lastName'.trim();
     
+    // Get profile photo URL
+    String? profilePhotoUrl;
+    if (json['profile_photo_url'] != null) {
+      profilePhotoUrl = json['profile_photo_url'] as String;
+    } else if (json['profile_photo'] != null && json['profile_photo'] is Map) {
+      final profilePhoto = json['profile_photo'] as Map<String, dynamic>;
+      profilePhotoUrl = profilePhoto['file_url'] as String?;
+    }
+    
     return Teacher(
-      id: json['id'] as int? ?? 0,
+      id: json['teacher_id'] != null ? int.tryParse(json['teacher_id'].toString()) ?? 0 : (json['id'] as int? ?? 0),
       name: fullName.isNotEmpty ? fullName : 'Unknown Teacher',
-      designation: json['designation'] as String? ?? '',
-      phone: json['phone'] as String? ?? '',
+      department: json['department_name'] as String? ?? json['department']?['name'] as String? ?? 'No Department',
+      phone: json['mobile_no'] as String? ?? json['phone'] as String? ?? '',
       email: json['email'] as String? ?? json['user']?['email'] as String? ?? '',
       address: json['address'] as String? ?? '',
       initials: _getInitials(firstName, lastName),
       classTeacher: json['class_teacher'] as String?,
       experience: (json['experience'] as String?) ?? '0',
-      qualifications: json['qualifications'] as String? ?? '',
-      specializations: json['specializations'] as String? ?? '',
+      qualifications: json['qualification'] as String? ?? json['qualifications'] as String? ?? '',
+      specializations: json['subject_specialization'] as String? ?? json['specializations'] as String? ?? '',
       subjects: [],
-      joiningDate: json['hire_date'] as String? ?? '',
+      joiningDate: json['joining_date'] as String? ?? json['hire_date'] as String? ?? '',
       salary: '',
-      status: 'Active',
+      status: json['is_active'] == true ? 'Active' : 'Inactive',
+      profilePhotoUrl: profilePhotoUrl,
     );
   }
 
@@ -95,15 +108,31 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
 
   Future<void> _fetchTeachers() async {
     try {
-      final data = await ApiService.fetchTeachers();
-      final teachers = data
-          .map((item) => Teacher.fromJson(item as Map<String, dynamic>))
-          .toList();
-      if (!mounted) return;
-      setState(() {
-        _teachers = teachers;
-        _visibleTeachers = List<Teacher>.from(_teachers);
-      });
+      // Use the core ApiService that includes authentication
+      final apiService = ApiService();
+      await apiService.initialize();
+      
+      final response = await apiService.get(Endpoints.teachers);
+      
+      if (response.success && response.data != null) {
+        List<dynamic> data = [];
+        if (response.data is List) {
+          data = response.data as List;
+        } else if (response.data is Map && (response.data as Map)['results'] != null) {
+          data = (response.data as Map)['results'] as List;
+        }
+        
+        final teachers = data
+            .map((item) => Teacher.fromJson(item as Map<String, dynamic>))
+            .toList();
+        if (!mounted) return;
+        setState(() {
+          _teachers = teachers;
+          _visibleTeachers = List<Teacher>.from(_teachers);
+        });
+      } else {
+        throw Exception(response.error ?? 'Failed to fetch teachers');
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -143,7 +172,7 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
       final lower = query.toLowerCase();
       _visibleTeachers = _teachers.where((teacher) {
         return teacher.name.toLowerCase().contains(lower) ||
-            teacher.designation.toLowerCase().contains(lower) ||
+            teacher.department.toLowerCase().contains(lower) ||
             (teacher.classTeacher?.toLowerCase().contains(lower) ?? false);
       }).toList();
     });
@@ -171,7 +200,15 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
           TextButton(
             onPressed: () async {
               try {
-                await ApiService.deleteTeacher(teacher.id);
+                // Use the core ApiService for authenticated delete
+                final apiService = ApiService();
+                await apiService.initialize();
+                final response = await apiService.delete('${Endpoints.teachers}${teacher.id}/');
+                
+                if (!response.success) {
+                  throw Exception(response.error ?? 'Failed to delete teacher');
+                }
+                
                 if (!mounted) return;
                 Navigator.of(context).pop();
                 setState(() {
@@ -293,7 +330,7 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
                                                 ),
                                                 const SizedBox(height: 4),
                                                 Text(
-                                                  teacher.designation,
+                                                  teacher.department,
                                                   style: const TextStyle(
                                                     color: Color(0xFF666666),
                                                   ),
@@ -614,7 +651,7 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
                       onChanged: _filterTeachers,
                       decoration: const InputDecoration(
                         hintText:
-                            'Search teachers by name, designation, or class...',
+                            'Search teachers by name, department, or class...',
                         border: InputBorder.none,
                         contentPadding:
                             EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -828,7 +865,7 @@ class _TeacherCardWithHoverState extends State<_TeacherCardWithHover> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${widget.teacher.designation} • ${widget.teacher.classTeacher ?? 'No Class Assigned'}',
+                          '${widget.teacher.department} • ${widget.teacher.classTeacher ?? 'No Class Assigned'}',
                           style: const TextStyle(
                             color: Color(0xFF666666),
                             fontSize: 13,

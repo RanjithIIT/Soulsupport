@@ -4,9 +4,74 @@ Models for management_admin app - API layer for App 2
 import uuid
 from datetime import date
 from django.db import models
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator, FileExtensionValidator
+from django.core.exceptions import ValidationError
 from main_login.models import User
 from super_admin.models import School
+
+
+def validate_file_size(value):
+    """Validate file size is between 2MB and 4MB"""
+    max_size = 4 * 1024 * 1024  # 4MB
+    min_size = 2 * 1024 * 1024  # 2MB
+    if value.size > max_size:
+        raise ValidationError(f'File size cannot exceed 4MB. Current size: {value.size / (1024*1024):.2f}MB')
+    if value.size < min_size:
+        raise ValidationError(f'File size must be at least 2MB. Current size: {value.size / (1024*1024):.2f}MB')
+
+
+class File(models.Model):
+    """File model to store uploaded files"""
+    file_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    file = models.FileField(
+        upload_to='profile_photos/',
+        validators=[
+            FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif']),
+            validate_file_size
+        ],
+        help_text='Profile photo (2-4MB, jpg/jpeg/png/gif only)'
+    )
+    file_name = models.CharField(max_length=255)
+    file_type = models.CharField(max_length=50)
+    file_size = models.IntegerField(help_text='File size in bytes')
+    school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only)')
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='uploaded_files'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def save(self, *args, **kwargs):
+        """Auto-populate file metadata and school_id"""
+        if self.file and not self.file_name:
+            self.file_name = self.file.name
+        if self.file and not self.file_type:
+            import os
+            ext = os.path.splitext(self.file.name)[1].lower().lstrip('.')
+            self.file_type = ext
+        if self.file and not self.file_size:
+            self.file_size = self.file.size
+        
+        # Auto-populate school_id from uploaded_by user if available
+        if self.uploaded_by and not self.school_id:
+            from main_login.utils import get_user_school_id
+            school_id = get_user_school_id(self.uploaded_by)
+            if school_id:
+                self.school_id = school_id
+        
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"{self.file_name} ({self.file_id})"
+    
+    class Meta:
+        db_table = 'files'
+        verbose_name = 'File'
+        verbose_name_plural = 'Files'
 
 
 class Department(models.Model):
@@ -37,6 +102,7 @@ class Department(models.Model):
 class Teacher(models.Model):
     """Teacher model"""
     teacher_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
     user = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -59,7 +125,6 @@ class Teacher(models.Model):
         ('Other', 'Other'),
     ]
     gender = models.CharField(max_length=20, choices=GENDER_CHOICES, null=True, blank=True)
-    designation = models.CharField(max_length=100, null=True, blank=True)
     
     # Foreign key to Department
     department = models.ForeignKey(
@@ -82,10 +147,29 @@ class Teacher(models.Model):
     subject_specialization = models.TextField(null=True, blank=True, help_text='Subject specialization details')
     emergency_contact = models.CharField(max_length=20, null=True, blank=True)
     
-    profile_photo_id = models.UUIDField(null=True, blank=True, help_text='Reference to files.file_id for profile photo')
+    profile_photo = models.ForeignKey(
+        File,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='teacher_profiles',
+        db_column='profile_photo_id',
+        help_text='Profile photo file (2-4MB)'
+    )
     is_active = models.BooleanField(default=True, null=False)
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
+    
+    def save(self, *args, **kwargs):
+        """Auto-populate school_id from department's school and sync profile_photo_id"""
+        # Get school_id from department's school ForeignKey
+        if self.department and self.department.school:
+            department_school_id = self.department.school.school_id
+            if not self.school_id or self.school_id != department_school_id:
+                self.school_id = department_school_id
+        
+        # profile_photo_id is now the ForeignKey field itself (db_column='profile_photo_id')
+        super().save(*args, **kwargs)
     
     def __str__(self):
         name = f"{self.first_name} {self.last_name}".strip() or self.employee_no or str(self.teacher_id)
@@ -173,9 +257,25 @@ class Student(models.Model):
     blood_group = models.CharField(max_length=10, null=True, blank=True)
     previous_school = models.CharField(max_length=255, null=True, blank=True)
     remarks = models.TextField(null=True, blank=True)
+    
+    profile_photo = models.ForeignKey(
+        File,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='student_profiles',
+        db_column='profile_photo_id',
+        help_text='Profile photo file (2-4MB)'
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    def save(self, *args, **kwargs):
+        """Sync profile_photo_id with profile_photo if profile_photo is set"""
+        if self.profile_photo:
+            self.profile_photo_id = self.profile_photo.file_id
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.student_name} - {self.applying_class}"
@@ -232,6 +332,9 @@ class NewAdmission(models.Model):
     
     # Student ID field - Primary Key
     student_id = models.CharField(max_length=100, primary_key=True, help_text="Student ID (Primary Key)")
+    
+    # School ID for filtering (read-only, auto-populated)
+    school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
     
     # Status field - unique to NewAdmission (not in Student)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
@@ -347,19 +450,28 @@ class NewAdmission(models.Model):
             self.save(update_fields=['admission_number'])
         
         # Create Student record - map all fields from NewAdmission (except status)
-        # Note: school and user are not stored in NewAdmission, so we need to get a default school
+        # Get school from NewAdmission's school_id if available
         from super_admin.models import School
-        default_school = School.objects.first()
-        if not default_school:
-            # Create a default school if none exists
-            default_school = School.objects.create(
-                name='Default School',
-                location='Default Location',
-                status='active'
-            )
+        school = None
+        if self.school_id:
+            try:
+                school = School.objects.get(school_id=self.school_id)
+            except School.DoesNotExist:
+                pass
+        
+        # If no school found, try to get default school
+        if not school:
+            school = School.objects.first()
+            if not school:
+                # Create a default school if none exists
+                school = School.objects.create(
+                    name='Default School',
+                    location='Default Location',
+                    status='active'
+                )
         
         student_data = {
-            'school': default_school,
+            'school': school,
             'student_id': self.student_id,  # Fetch student_id from NewAdmission
             'student_name': self.student_name,
             'parent_name': self.parent_name,
@@ -434,6 +546,7 @@ class Examination_management(models.Model):
     Exam_Description = models.TextField(blank=True)
     Exam_Location = models.CharField(max_length=255)
     Exam_Status = models.CharField(max_length=255)
+    school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
     Exam_Created_At = models.DateTimeField(auto_now_add=True)
     Exam_Updated_At = models.DateTimeField(auto_now=True)
     
@@ -476,6 +589,7 @@ class Fee(models.Model):
         ('overdue', 'Overdue'),
     ]
     
+    school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
     # Note: Django automatically creates a 'student_id' field for the ForeignKey
     # We'll add a custom 'student_id_string' field to store the student ID as a string
     student_id_string = models.CharField(
@@ -573,3 +687,131 @@ class PaymentHistory(models.Model):
         verbose_name = 'Payment History'
         verbose_name_plural = 'Payment Histories'
         ordering = ['-payment_date', '-created_at']
+
+
+class Bus(models.Model):
+    """Bus model"""
+    BUS_TYPE_CHOICES = [
+        ('Mini Bus', 'Mini Bus'),
+        ('Standard Bus', 'Standard Bus'),
+        ('Large Bus', 'Large Bus'),
+        ('AC Bus', 'AC Bus'),
+    ]
+    
+    bus_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, db_column='bus_id')
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='buses')
+    # Note: Django automatically creates 'school_id' field for ForeignKey which can be used for filtering
+    
+    bus_number = models.CharField(max_length=100, unique=True, help_text='Unique bus number/identifier')
+    bus_type = models.CharField(max_length=50, choices=BUS_TYPE_CHOICES, help_text='Type of bus')
+    capacity = models.IntegerField(validators=[MinValueValidator(1)], help_text='Passenger capacity of the bus')
+    registration_number = models.CharField(max_length=100, unique=True, help_text='Vehicle registration number')
+    driver_name = models.CharField(max_length=255, help_text='Full name of the driver')
+    driver_phone = models.CharField(max_length=20, help_text='Driver contact phone number')
+    driver_license = models.CharField(max_length=100, help_text='Driver license number')
+    driver_experience = models.IntegerField(blank=True, null=True, validators=[MinValueValidator(0)], help_text='Years of driving experience')
+    route_name = models.CharField(max_length=255, help_text='Name of the bus route')
+    route_distance = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, validators=[MinValueValidator(0)], help_text='Route distance in kilometers')
+    route_description = models.TextField(blank=True, help_text='Detailed description of the route')
+    morning_start_time = models.TimeField(help_text='Morning pickup start time')
+    morning_end_time = models.TimeField(help_text='Morning pickup end time')
+    afternoon_start_time = models.TimeField(help_text='Afternoon drop-off start time')
+    afternoon_end_time = models.TimeField(help_text='Afternoon drop-off end time')
+    notes = models.TextField(blank=True, help_text='Additional notes or comments about the bus')
+    is_active = models.BooleanField(default=True, help_text='Whether the bus is currently active')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def save(self, *args, **kwargs):
+        """Save method for Bus model"""
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"{self.bus_number}"
+    
+    class Meta:
+        db_table = 'buses'
+        verbose_name = 'Bus'
+        verbose_name_plural = 'Buses'
+
+
+class BusStop(models.Model):
+    """Bus Stop model"""
+    stop_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    bus = models.ForeignKey(Bus, on_delete=models.CASCADE, related_name='stops')
+    school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
+    stop_name = models.CharField(max_length=255, help_text='Name of the bus stop')
+    stop_address = models.TextField(blank=True, help_text='Address of the bus stop')
+    route_type = models.CharField(
+        max_length=20,
+        choices=[('morning', 'Morning Route (Pick-up)'), ('afternoon', 'Afternoon Route (Drop-off)')],
+        help_text='Type of route: morning (pick-up) or afternoon (drop-off)'
+    )
+    stop_order = models.IntegerField(validators=[MinValueValidator(1)], help_text='Order of stop in the route (1, 2, 3, ...)')
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True, help_text='Latitude coordinate')
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True, help_text='Longitude coordinate')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def save(self, *args, **kwargs):
+        """Auto-populate school_id from bus's school"""
+        if self.bus and self.bus.school:
+            self.school_id = self.bus.school.school_id
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"{self.stop_name} - {self.get_route_type_display()}"
+    
+    class Meta:
+        db_table = 'bus_stops'
+        verbose_name = 'Bus Stop'
+        verbose_name_plural = 'Bus Stops'
+        ordering = ['bus', 'route_type', 'stop_order']
+        unique_together = ['bus', 'route_type', 'stop_order']
+
+
+class BusStopStudent(models.Model):
+    """Bus Stop Student model - links students to bus stops"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    bus_stop = models.ForeignKey(BusStop, on_delete=models.CASCADE, related_name='stop_students')
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='bus_stops')
+    school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
+    student_id_string = models.CharField(max_length=100, blank=True, help_text='Student ID as string (cached from student table)')
+    student_name = models.CharField(max_length=255, blank=True, help_text='Student name (cached from student table)')
+    student_class = models.CharField(max_length=50, blank=True, help_text='Student class (cached from student table)')
+    student_grade = models.CharField(max_length=50, blank=True, help_text='Student grade (cached from student table)')
+    pickup_time = models.TimeField(null=True, blank=True, help_text='Pickup time for this student at this stop')
+    dropoff_time = models.TimeField(null=True, blank=True, help_text='Dropoff time for this student at this stop')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def save(self, *args, **kwargs):
+        """Auto-populate fields from student and bus_stop"""
+        if self.student:
+            if not self.student_id_string:
+                self.student_id_string = self.student.student_id or ''
+            if not self.student_name:
+                self.student_name = self.student.student_name or ''
+            if not self.student_class:
+                self.student_class = self.student.applying_class or ''
+            if not self.student_grade:
+                self.student_grade = self.student.grade or ''
+            
+            # Get school_id from student's school
+            if self.student.school:
+                self.school_id = self.student.school.school_id
+        elif self.bus_stop and self.bus_stop.bus and self.bus_stop.bus.school:
+            # Fallback to bus's school
+            self.school_id = self.bus_stop.bus.school.school_id
+        
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"{self.student_name} - {self.bus_stop.stop_name}"
+    
+    class Meta:
+        db_table = 'bus_stop_students'
+        verbose_name = 'Bus Stop Student'
+        verbose_name_plural = 'Bus Stop Students'
+        ordering = ['bus_stop', 'student_name']
+        unique_together = ['bus_stop', 'student']

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:core/api/api_service.dart';
 import 'package:main_login/main.dart' as main_login;
 import 'admin-schools.dart' as schools;
 import 'admin-revenue.dart' as revenue;
@@ -8,7 +9,12 @@ import 'admin-add-school.dart' as add_school;
 import 'admin-school-details.dart' as school_details;
 import 'admin-school-management.dart' as school_management;
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize ApiService to load stored tokens and handle token refresh
+  await ApiService().initialize();
+  
   runApp(const AdminDashboardApp());
 }
 
@@ -388,7 +394,11 @@ class _SidebarState extends State<Sidebar> {
     Widget? targetScreen;
     switch (section) {
       case 'overview':
-        // Stay on current screen (overview)
+        // Stay on current screen (overview) - navigate back to home
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const AdminDashboardScreen()),
+          (route) => false,
+        );
         return;
       case 'schools':
         targetScreen = const schools.AdminDashboard();
@@ -397,11 +407,10 @@ class _SidebarState extends State<Sidebar> {
         targetScreen = const revenue.RevenueDashboard();
         break;
       case 'licenses':
-        // For now, show a placeholder - you can create admin-licenses.dart later
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Licenses page coming soon')),
-        );
-        return;
+      case 'school_management':
+        // Navigate to school management for licenses
+        targetScreen = const school_management.SchoolDashboard();
+        break;
       case 'billing':
         targetScreen = const billing.BillingDashboard();
         break;
@@ -488,6 +497,34 @@ class _SidebarState extends State<Sidebar> {
             title: 'Schools',
             isActive: activeSection == 'schools',
             onTap: () => navigateTo('schools'),
+          ),
+          SidebarNavItem(
+            icon: '➕',
+            title: 'Add School',
+            isActive: activeSection == 'add_school',
+            onTap: () async {
+              setState(() {
+                activeSection = 'add_school';
+              });
+              if (Scaffold.of(context).hasDrawer) {
+                Navigator.of(context).pop();
+              }
+              // Navigate and wait for result
+              final result = await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const add_school.AddSchoolScreen(),
+                ),
+              );
+              // If school was added successfully, navigate to schools list with refresh flag
+              if (result == true) {
+                // Navigate to schools list and refresh
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => const schools.AdminDashboard(refreshOnMount: true),
+                  ),
+                );
+              }
+            },
           ),
           SidebarNavItem(
             icon: '📋',
@@ -1123,9 +1160,11 @@ class _LicensedSchoolsSectionState extends State<LicensedSchoolsSection> {
       'All'; // State for selected filter: All, active, pending, expired
 
   void _showSchoolDetails(BuildContext context, School school) {
-    // Dialog/navigation removed. Show a brief message instead.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('School details disabled for ${school.name}')),
+    // Navigate to school details page
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const school_details.SchoolDetailsScreen(),
+      ),
     );
   }
 
@@ -1149,11 +1188,34 @@ class _LicensedSchoolsSectionState extends State<LicensedSchoolsSection> {
 
     return SectionCard(
       title: '🏫 Licensed Schools',
-      // The actions row now holds the View All button AND the status filter
+      // The actions row now holds the Add School, Status Filter, and View All buttons
       actions: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 1. Status Filter Dropdown
+          // 1. Add School Button
+          ElevatedButton.icon(
+            onPressed: () {
+              // Navigate to Add School page
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const add_school.AddSchoolScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Add School'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF28a745),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: 0,
+            ),
+          ),
+          const SizedBox(width: 15),
+          // 2. Status Filter Dropdown
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
@@ -1192,7 +1254,7 @@ class _LicensedSchoolsSectionState extends State<LicensedSchoolsSection> {
           ),
           const SizedBox(width: 15),
 
-          // 2. View All Button
+          // 3. View All Button
           ElevatedButton.icon(
             onPressed:
                 widget.onViewAll, // Triggers state change to SchoolsListView
@@ -1272,9 +1334,11 @@ class _SchoolsListViewState extends State<SchoolsListView> {
   }
 
   void _showSchoolDetails(BuildContext context, School school) {
-    // Dialog/navigation removed. Show a brief message instead.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('School details disabled for ${school.name}')),
+    // Navigate to school details page
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const school_details.SchoolDetailsScreen(),
+      ),
     );
   }
 
@@ -1339,7 +1403,27 @@ class _SchoolsListViewState extends State<SchoolsListView> {
         if (!context.isLargeScreen) const SizedBox(height: 20),
         SectionCard(
           title: '🏫 All Licensed Schools (${_filteredSchools.length})',
-          actions: const SizedBox.shrink(), // Removed the Back button here
+          actions: ElevatedButton.icon(
+            onPressed: () {
+              // Navigate to Add School page
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const add_school.AddSchoolScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Add School'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF28a745),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: 0,
+            ),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

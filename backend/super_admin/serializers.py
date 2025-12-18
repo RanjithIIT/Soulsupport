@@ -16,14 +16,23 @@ class SchoolStatsSerializer(serializers.ModelSerializer):
 class SchoolSerializer(serializers.ModelSerializer):
     """Serializer for School model"""
     stats = SchoolStatsSerializer(read_only=True)
+    generated_password = serializers.SerializerMethodField()
+    user_id = serializers.UUIDField(source='user.user_id', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
     
     class Meta:
         model = School
         fields = [
-            'id', 'name', 'location', 'status', 'license_expiry',
-            'stats', 'created_at', 'updated_at'
+            'school_id', 'name', 'location', 'statecode', 'districtcode', 'registration_number',
+            'email', 'phone', 'address', 'principal_name', 'established_year', 'status',
+            'license_expiry', 'user', 'user_id', 'username', 'stats', 'generated_password',
+            'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['school_id', 'user', 'user_id', 'username', 'created_at', 'updated_at']
+    
+    def get_generated_password(self, obj):
+        """Get generated password from context (only available during creation)"""
+        return self.context.get('generated_password', None)
 
 
 class ActivitySerializer(serializers.ModelSerializer):

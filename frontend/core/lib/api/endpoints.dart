@@ -13,8 +13,8 @@ class Endpoints {
   static const String createPassword = '/auth/create-password/';
 
   // Admin endpoints
-  static const String adminSchools = '/admin/schools';
-  static const String adminSchoolDetails = '/admin/schools/{id}';
+  static const String adminSchools = '/super-admin/schools/';
+  static const String adminSchoolDetails = '/super-admin/schools/{id}/';
   static const String adminRevenue = '/admin/revenue';
   static const String adminBilling = '/admin/billing';
 
@@ -22,7 +22,10 @@ class Endpoints {
   static const String students = '/management-admin/students/';
   static const String teachers = '/management-admin/teachers/';
   static const String departments = '/management-admin/departments/';
-  static const String buses = '/management/buses';
+  static const String files = '/management-admin/files/';
+  static const String buses = '/management-admin/buses/';
+  static const String busStops = '/management-admin/bus-stops/';
+  static const String busStopStudents = '/management-admin/bus-stop-students/';
   static const String busRoutes = '/management/bus-routes';
   static const String fees = '/management-admin/fees/';
   static const String admissions = '/management-admin/admissions/';

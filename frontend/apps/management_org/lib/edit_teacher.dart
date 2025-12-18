@@ -1,9 +1,10 @@
-import 'services/api_service.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
 
 class EditTeacherPage extends StatefulWidget {
   final int? teacherId;
@@ -32,8 +33,27 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
   final _subjectSpecializationController = TextEditingController();
   final _emergencyContactController = TextEditingController();
 
-  String? _designation;
+  String? _selectedDepartmentId;
+  List<Map<String, dynamic>> _departments = [];
+  bool _isLoadingDepartments = false;
   String? _gender;
+  
+  // Default department names (from old designation dropdown)
+  static const List<String> _defaultDepartmentNames = [
+    'Mathematics',
+    'Physics',
+    'Chemistry',
+    'Biology',
+    'English',
+    'History',
+    'Geography',
+    'Computer Science',
+    'Art',
+    'Music',
+    'Principal',
+    'Vice Principal',
+    'Coordinator',
+  ];
   DateTime? _dob;
   DateTime? _joiningDate;
   Uint8List? _photoBytes;
@@ -46,20 +66,84 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
   @override
   void initState() {
     super.initState();
+    _loadDepartments();
     _loadTeacherData();
+  }
+
+  Future<void> _loadDepartments() async {
+    setState(() => _isLoadingDepartments = true);
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.get(Endpoints.departments);
+      
+      if (response.success && response.data != null) {
+        List<dynamic> data = [];
+        if (response.data is List) {
+          data = response.data as List;
+        } else if (response.data is Map && (response.data as Map)['results'] != null) {
+          data = (response.data as Map)['results'] as List;
+        }
+        
+        if (mounted) {
+          setState(() {
+            _departments = data.map((d) => d as Map<String, dynamic>).toList();
+            // If no departments from API, add default ones as fallback
+            if (_departments.isEmpty) {
+              _departments = _defaultDepartmentNames.map((name) => <String, dynamic>{
+                'id': name,
+                'name': name,
+              }).toList();
+            }
+            _isLoadingDepartments = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            // If API fails, use default departments as fallback
+            _departments = _defaultDepartmentNames.map((name) => <String, dynamic>{
+              'id': name,
+              'name': name,
+            }).toList();
+            _isLoadingDepartments = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingDepartments = false);
+      }
+    }
   }
 
   Future<void> _loadTeacherData() async {
     if (widget.teacherId == null) return;
     try {
-      final data = await ApiService.fetchTeacherById(widget.teacherId!);
+      // Use core ApiService for authenticated requests
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.get('${Endpoints.teachers}${widget.teacherId}/');
+      
+      if (!response.success || response.data == null) {
+        throw Exception(response.error ?? 'Failed to load teacher');
+      }
+      
+      final data = response.data as Map<String, dynamic>;
       
       _teacherIdController.text = data['teacher_id']?.toString() ?? '';
       _employeeNoController.text = data['employee_no'] as String? ?? '';
       _firstNameController.text = data['first_name'] as String? ?? '';
       _lastNameController.text = data['last_name'] as String? ?? '';
       _qualificationController.text = data['qualification'] as String? ?? '';
-      _designation = data['designation'] as String?;
+      // Set department from data - department can be an ID or an object
+      if (data['department'] != null) {
+        if (data['department'] is Map) {
+          _selectedDepartmentId = data['department']['id']?.toString();
+        } else {
+          _selectedDepartmentId = data['department'].toString();
+        }
+      }
       _gender = data['gender'] as String?;
       _mobileNoController.text = data['mobile_no'] as String? ?? '';
       _emailController.text = data['email'] as String? ?? '';
@@ -128,6 +212,41 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
     });
 
     try {
+      // Upload profile photo if available
+      String? profilePhotoFileId;
+      if (_photoBytes != null && _photoBytes!.isNotEmpty) {
+        try {
+          // Generate a filename
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          final fileName = 'teacher_photo_$timestamp.jpg';
+          
+          // Upload file first
+          final apiService = ApiService();
+          await apiService.initialize();
+          final uploadResponse = await apiService.uploadFile(
+            Endpoints.files,
+            fileBytes: _photoBytes!,
+            fileName: fileName,
+            fieldName: 'file',
+            additionalFields: {
+              'file_name': fileName,
+              'file_type': 'jpg',
+            },
+          );
+          
+          if (uploadResponse.success && uploadResponse.data is Map) {
+            final fileData = uploadResponse.data as Map<String, dynamic>;
+            profilePhotoFileId = fileData['file_id']?.toString();
+          } else {
+            // Log error but continue without photo
+            print('Failed to upload profile photo: ${uploadResponse.error ?? "Unknown error"}');
+          }
+        } catch (e) {
+          // Log error but continue without photo
+          print('Error uploading profile photo: $e');
+        }
+      }
+
       final payload = {
         'employee_no': _employeeNoController.text.trim(),
         'first_name': _firstNameController.text.trim(),
@@ -140,7 +259,8 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
             ? DateFormat('yyyy-MM-dd').format(_dob!) 
             : null,
         'gender': _gender,
-        'designation': _designation,
+        if (_selectedDepartmentId != null) 
+          'department': int.tryParse(_selectedDepartmentId!) ?? null,
         'mobile_no': _mobileNoController.text.trim(),
         'email': _emailController.text.trim(),
         'address': _addressController.text.trim(),
@@ -150,10 +270,18 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
         'class_teacher_section_id': _classTeacherSectionIdController.text.trim(),
         'subject_specialization': _subjectSpecializationController.text.trim(),
         'emergency_contact': _emergencyContactController.text.trim(),
+        if (profilePhotoFileId != null) 'profile_photo': profilePhotoFileId,
       };
 
       if (widget.teacherId != null) {
-        await ApiService.updateTeacher(widget.teacherId!, payload);
+        // Use core ApiService for authenticated requests
+        final apiService = ApiService();
+        await apiService.initialize();
+        final response = await apiService.put('${Endpoints.teachers}${widget.teacherId}/', body: payload);
+        
+        if (!response.success) {
+          throw Exception(response.error ?? 'Failed to update teacher');
+        }
       }
 
       if (!mounted) return;
@@ -186,7 +314,9 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
               _PreviewItem('Teacher ID', _teacherIdController.text),
               _PreviewItem('Employee No', _employeeNoController.text),
               _PreviewItem('Name', '${_firstNameController.text} ${_lastNameController.text}'.trim()),
-              _PreviewItem('Designation', _designation ?? 'Not provided'),
+              _PreviewItem('Department', _selectedDepartmentId != null 
+                  ? _departments.firstWhere((d) => d['id'].toString() == _selectedDepartmentId, orElse: () => {})['name'] ?? 'Not provided'
+                  : 'Not provided'),
               _PreviewItem('Gender', _gender ?? 'Not provided'),
               _PreviewItem('Mobile No', _mobileNoController.text),
               _PreviewItem('Email', _emailController.text),
@@ -242,10 +372,12 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
                         firstNameController: _firstNameController,
                         lastNameController: _lastNameController,
                         qualificationController: _qualificationController,
-                        designation: _designation,
-                        onDesignationChanged: (value) {
+                        departmentId: _selectedDepartmentId,
+                        departments: _departments,
+                        isLoadingDepartments: _isLoadingDepartments,
+                        onDepartmentChanged: (value) {
                           setState(() {
-                            _designation = value;
+                            _selectedDepartmentId = value;
                           });
                         },
                         gender: _gender,
@@ -499,8 +631,10 @@ class _FormCard extends StatelessWidget {
   final TextEditingController firstNameController;
   final TextEditingController lastNameController;
   final TextEditingController qualificationController;
-  final String? designation;
-  final ValueChanged<String?> onDesignationChanged;
+  final String? departmentId;
+  final List<Map<String, dynamic>> departments;
+  final bool isLoadingDepartments;
+  final ValueChanged<String?> onDepartmentChanged;
   final String? gender;
   final ValueChanged<String?> onGenderChanged;
   final DateTime? dob;
@@ -533,8 +667,10 @@ class _FormCard extends StatelessWidget {
     required this.firstNameController,
     required this.lastNameController,
     required this.qualificationController,
-    required this.designation,
-    required this.onDesignationChanged,
+    required this.departmentId,
+    required this.departments,
+    required this.isLoadingDepartments,
+    required this.onDepartmentChanged,
     required this.gender,
     required this.onGenderChanged,
     required this.dob,
@@ -820,39 +956,51 @@ class _FormCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 20),
-            // Designation
-            DropdownButtonFormField<String>(
-              decoration: InputDecoration(
-                labelText: 'Designation',
+            // Department
+            isLoadingDepartments
+                ? const Center(child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: CircularProgressIndicator(),
+                  ))
+                : DropdownButtonFormField<String>(
+                    decoration: InputDecoration(
+                      labelText: 'Department *',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                       filled: true,
                       fillColor: Colors.white,
-                      prefixIcon: const Icon(Icons.badge),
+                      prefixIcon: const Icon(Icons.business),
                     ),
-                    value: designation,
-                    items: const [
-                      'Mathematics',
-                      'Physics',
-                      'Chemistry',
-                      'Biology',
-                      'English',
-                      'History',
-                      'Geography',
-                      'Computer Science',
-                      'Physical Education',
-                      'Art',
-                      'Music',
-                      'Principal',
-                      'Vice Principal',
-                      'Coordinator',
-                    ]
-                        .map((value) =>
-                            DropdownMenuItem(value: value, child: Text(value)))
-                        .toList(),
-                    onChanged: onDesignationChanged,
-            ),
+                    value: departmentId,
+                    items: [
+                      const DropdownMenuItem<String>(
+                        value: null,
+                        child: Text('Select Department'),
+                      ),
+                      ...departments.where((dept) {
+                        // Only show departments with valid integer IDs (from API)
+                        final id = dept['id'];
+                        return id != null && int.tryParse(id.toString()) != null;
+                      }).map(
+                        (dept) => DropdownMenuItem<String>(
+                          value: dept['id']?.toString(),
+                          child: Text(dept['name'] ?? 'Unknown'),
+                        ),
+                      ),
+                    ],
+                    onChanged: onDepartmentChanged,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please select a department';
+                      }
+                      // Validate that the selected department has a valid integer ID
+                      if (int.tryParse(value) == null) {
+                        return 'Please select a valid department';
+                      }
+                      return null;
+                    },
+                  ),
             const SizedBox(height: 20),
             // Mobile No and Email
             Row(

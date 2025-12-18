@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:core/api/endpoints.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -69,9 +70,9 @@ class ApiService {
   }
 
   // Get default headers
-  Map<String, String> _getHeaders({Map<String, String>? additionalHeaders}) {
+  Map<String, String> _getHeaders({Map<String, String>? additionalHeaders, bool isMultipart = false}) {
     final headers = <String, String>{
-      'Content-Type': 'application/json',
+      if (!isMultipart) 'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
 
@@ -373,6 +374,77 @@ class ApiService {
       }
     } catch (e) {
       return ApiResponse.error('Failed to parse response: ${e.toString()}');
+    }
+  }
+
+  // Upload file (multipart/form-data)
+  Future<ApiResponse> uploadFile(
+    String endpoint, {
+    required Uint8List fileBytes,
+    required String fileName,
+    String fieldName = 'file',
+    Map<String, String>? additionalFields,
+    bool retryOn401 = true,
+  }) async {
+    try {
+      final uri = Uri.parse(Endpoints.buildUrl(endpoint));
+      
+      // Create multipart request
+      final request = http.MultipartRequest('POST', uri);
+      
+      // Add headers (without Content-Type, let multipart set it)
+      final headers = _getHeaders(isMultipart: true);
+      headers.remove('Content-Type'); // Remove Content-Type for multipart
+      request.headers.addAll(headers);
+      
+      // Add file
+      final multipartFile = http.MultipartFile.fromBytes(
+        fieldName,
+        fileBytes,
+        filename: fileName,
+      );
+      request.files.add(multipartFile);
+      
+      // Add additional fields if provided
+      if (additionalFields != null) {
+        request.fields.addAll(additionalFields);
+      }
+      
+      // Send request
+      final streamedResponse = await request.send().timeout(_timeout);
+      final response = await http.Response.fromStream(streamedResponse);
+      
+      // Handle 401 - try to refresh token
+      if (response.statusCode == 401 && retryOn401) {
+        final refreshed = await _refreshAccessToken();
+        if (refreshed) {
+          // Retry the request with new token
+          return uploadFile(
+            endpoint,
+            fileBytes: fileBytes,
+            fileName: fileName,
+            fieldName: fieldName,
+            additionalFields: additionalFields,
+            retryOn401: false,
+          );
+        }
+      }
+      
+      // Parse response
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final data = jsonDecode(response.body);
+        return ApiResponse.success(data: data);
+      } else {
+        final errorData = jsonDecode(response.body);
+        return ApiResponse.error(
+          errorData['detail']?.toString() ?? 
+          errorData['message']?.toString() ?? 
+          'Upload failed with status ${response.statusCode}',
+          data: errorData,
+        );
+      }
+    } catch (e) {
+      return ApiResponse.error('Upload error: ${e.toString()}');
     }
   }
 }

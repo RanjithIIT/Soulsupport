@@ -3,8 +3,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
 import 'dashboard.dart';
-import 'services/api_service.dart';
 
 class AddTeacherPage extends StatefulWidget {
   const AddTeacherPage({super.key});
@@ -31,8 +32,27 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
   final _subjectSpecializationController = TextEditingController();
   final _emergencyContactController = TextEditingController();
 
-  String? _designation;
+  String? _selectedDepartmentId;
+  List<Map<String, dynamic>> _departments = [];
+  bool _isLoadingDepartments = false;
   String? _gender;
+  
+  // Default department names (from old designation dropdown)
+  static const List<String> _defaultDepartmentNames = [
+    'Mathematics',
+    'Physics',
+    'Chemistry',
+    'Biology',
+    'English',
+    'History',
+    'Geography',
+    'Computer Science',
+    'Art',
+    'Music',
+    'Principal',
+    'Vice Principal',
+    'Coordinator',
+  ];
   DateTime? _dob;
   DateTime? _joiningDate;
   Uint8List? _photoBytes;
@@ -47,7 +67,9 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
         employeeNo: _employeeNoController.text,
         firstName: _firstNameController.text,
         lastName: _lastNameController.text,
-        designation: _designation,
+        department: _selectedDepartmentId != null 
+            ? _departments.firstWhere((d) => d['id'].toString() == _selectedDepartmentId, orElse: () => {})['name']
+            : null,
         mobileNo: _mobileNoController.text,
         email: _emailController.text,
         address: _addressController.text,
@@ -55,6 +77,59 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
         qualification: _qualificationController.text,
         subjectSpecialization: _subjectSpecializationController.text,
       );
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDepartments();
+  }
+
+  Future<void> _loadDepartments() async {
+    setState(() => _isLoadingDepartments = true);
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.get(Endpoints.departments);
+      
+      if (response.success && response.data != null) {
+        List<dynamic> data = [];
+        if (response.data is List) {
+          data = response.data as List;
+        } else if (response.data is Map && (response.data as Map)['results'] != null) {
+          data = (response.data as Map)['results'] as List;
+        }
+        
+        if (mounted) {
+          setState(() {
+            _departments = data.map((d) => d as Map<String, dynamic>).toList();
+            // If no departments from API, add default ones as fallback
+            if (_departments.isEmpty) {
+              _departments = _defaultDepartmentNames.map((name) => <String, dynamic>{
+                'id': name,
+                'name': name,
+              }).toList();
+            }
+            _isLoadingDepartments = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            // If API fails, use default departments as fallback
+            _departments = _defaultDepartmentNames.map((name) => <String, dynamic>{
+              'id': name,
+              'name': name,
+            }).toList();
+            _isLoadingDepartments = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingDepartments = false);
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -97,13 +172,21 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
 
     try {
       // Prepare teacher data for API
-      final teacherData = {
+      // Helper function to convert empty strings to null
+      String? _nullIfEmpty(String? value) {
+        if (value == null || value.trim().isEmpty) return null;
+        return value.trim();
+      }
+      
+      final teacherData = <String, dynamic>{
         'employee_no': _employeeNoController.text.trim().isNotEmpty 
             ? _employeeNoController.text.trim() 
             : 'EMP-${DateTime.now().millisecondsSinceEpoch}',
-        'first_name': _firstNameController.text.trim(),
-        'last_name': _lastNameController.text.trim(),
-        'qualification': _qualificationController.text.trim(),
+        'first_name': _firstNameController.text.trim().isNotEmpty 
+            ? _firstNameController.text.trim() 
+            : '',
+        'last_name': _nullIfEmpty(_lastNameController.text),
+        'qualification': _nullIfEmpty(_qualificationController.text),
         'joining_date': _joiningDate != null 
             ? DateFormat('yyyy-MM-dd').format(_joiningDate!) 
             : null,
@@ -111,27 +194,113 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
             ? DateFormat('yyyy-MM-dd').format(_dob!) 
             : null,
         'gender': _gender,
-        'designation': _designation,
-        'mobile_no': _mobileNoController.text.trim(),
-        'email': _emailController.text.trim(),
-        'address': _addressController.text.trim(),
-        'blood_group': _bloodGroupController.text.trim(),
-        'nationality': _nationalityController.text.trim(),
-        'primary_room_id': _primaryRoomIdController.text.trim(),
-        'class_teacher_section_id': _classTeacherSectionIdController.text.trim(),
-        'subject_specialization': _subjectSpecializationController.text.trim(),
-        'emergency_contact': _emergencyContactController.text.trim(),
         'is_active': true,
       };
+      
+      // Only add department if we have a valid integer ID
+      if (_selectedDepartmentId != null) {
+        final deptId = int.tryParse(_selectedDepartmentId!);
+        if (deptId != null) {
+          teacherData['department'] = deptId;
+        }
+      }
+      
+      // Add optional fields only if they have values
+      final mobileNo = _nullIfEmpty(_mobileNoController.text);
+      if (mobileNo != null) teacherData['mobile_no'] = mobileNo;
+      
+      final email = _nullIfEmpty(_emailController.text);
+      if (email != null) teacherData['email'] = email;
+      
+      final address = _nullIfEmpty(_addressController.text);
+      if (address != null) teacherData['address'] = address;
+      
+      final bloodGroup = _nullIfEmpty(_bloodGroupController.text);
+      if (bloodGroup != null) teacherData['blood_group'] = bloodGroup;
+      
+      final nationality = _nullIfEmpty(_nationalityController.text);
+      if (nationality != null) teacherData['nationality'] = nationality;
+      
+      final primaryRoomId = _nullIfEmpty(_primaryRoomIdController.text);
+      if (primaryRoomId != null) teacherData['primary_room_id'] = primaryRoomId;
+      
+      final classTeacherSectionId = _nullIfEmpty(_classTeacherSectionIdController.text);
+      if (classTeacherSectionId != null) teacherData['class_teacher_section_id'] = classTeacherSectionId;
+      
+      final subjectSpecialization = _nullIfEmpty(_subjectSpecializationController.text);
+      if (subjectSpecialization != null) teacherData['subject_specialization'] = subjectSpecialization;
+      
+      final emergencyContact = _nullIfEmpty(_emergencyContactController.text);
+      if (emergencyContact != null) teacherData['emergency_contact'] = emergencyContact;
 
-      // Call API to create teacher
-      final response = await ApiService.createTeacher(teacherData);
+      // Upload profile photo if available
+      String? profilePhotoFileId;
+      if (_photoBytes != null && _photoBytes!.isNotEmpty) {
+        try {
+          // Generate a filename
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          final fileName = 'teacher_photo_$timestamp.jpg';
+          
+          // Upload file first
+          final apiService = ApiService();
+          await apiService.initialize();
+          final uploadResponse = await apiService.uploadFile(
+            Endpoints.files,
+            fileBytes: _photoBytes!,
+            fileName: fileName,
+            fieldName: 'file',
+            additionalFields: {
+              'file_name': fileName,
+              'file_type': 'jpg',
+            },
+          );
+          
+          if (uploadResponse.success && uploadResponse.data is Map) {
+            final fileData = uploadResponse.data as Map<String, dynamic>;
+            profilePhotoFileId = fileData['file_id']?.toString();
+            if (profilePhotoFileId != null) {
+              teacherData['profile_photo'] = profilePhotoFileId;
+            }
+          } else {
+            // Log error but continue without photo
+            print('Failed to upload profile photo: ${uploadResponse.error ?? "Unknown error"}');
+          }
+        } catch (e) {
+          // Log error but continue without photo
+          print('Error uploading profile photo: $e');
+        }
+      }
+
+      // Call API to create teacher using core ApiService
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.post(Endpoints.teachers, body: teacherData);
+      
+      if (!response.success) {
+        // Get detailed error message from response
+        String errorMessage = 'Failed to create teacher';
+        if (response.data is Map) {
+          final errorData = response.data as Map<String, dynamic>;
+          if (errorData.containsKey('detail')) {
+            errorMessage = errorData['detail'].toString();
+          } else if (errorData.isNotEmpty) {
+            // Format validation errors
+            final errors = errorData.entries.map((e) => '${e.key}: ${e.value}').join(', ');
+            errorMessage = 'Validation errors: $errors';
+          }
+        } else if (response.error != null) {
+          errorMessage = response.error!;
+        }
+        throw Exception(errorMessage);
+      }
+      
+      final responseData = response.data as Map<String, dynamic>? ?? {};
       
       if (!mounted) return;
       
       // Populate teacher_id from response if available
-      if (response['teacher_id'] != null) {
-        _teacherIdController.text = response['teacher_id'].toString();
+      if (responseData['teacher_id'] != null) {
+        _teacherIdController.text = responseData['teacher_id'].toString();
       }
       
       setState(() {
@@ -188,7 +357,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                       label: 'Name',
                       value: '${data.firstName ?? ''} ${data.lastName ?? ''}'.trim(),
                     ),
-                    _PreviewRow(label: 'Designation', value: data.designation),
+                    _PreviewRow(label: 'Department', value: data.department),
                     _PreviewRow(label: 'Mobile No', value: data.mobileNo),
                     _PreviewRow(label: 'Email', value: data.email),
                     _PreviewRow(label: 'Address', value: data.address),
@@ -470,28 +639,51 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                         ),
                                       ),
                                     ),
-                                    // Designation
+                                    // Department
                                     SizedBox(
                                       width:
                                           isTwoColumns ? (constraints.maxWidth - 30) / 2 : constraints.maxWidth,
                                       child: _LabeledField(
-                                        label: 'Designation',
-                                        child: DropdownButtonFormField<String>(
-                                          value: _designation,
-                                          items: _designationOptions
-                                              .map(
-                                                (value) => DropdownMenuItem(
-                                                  value: value,
-                                                  child: Text(value),
+                                        label: 'Department *',
+                                        child: _isLoadingDepartments
+                                            ? const Center(child: Padding(
+                                                padding: EdgeInsets.all(16.0),
+                                                child: CircularProgressIndicator(),
+                                              ))
+                                            : DropdownButtonFormField<String>(
+                                                value: _selectedDepartmentId,
+                                                items: [
+                                                  const DropdownMenuItem<String>(
+                                                    value: null,
+                                                    child: Text('Select Department'),
+                                                  ),
+                                                  ..._departments.where((dept) {
+                                                    // Only show departments with valid integer IDs (from API)
+                                                    final id = dept['id'];
+                                                    return id != null && int.tryParse(id.toString()) != null;
+                                                  }).map(
+                                                    (dept) => DropdownMenuItem<String>(
+                                                      value: dept['id']?.toString(),
+                                                      child: Text(dept['name'] ?? 'Unknown'),
+                                                    ),
+                                                  ),
+                                                ],
+                                                decoration: _inputDecoration(
+                                                  hint: 'Select department',
                                                 ),
-                                              )
-                                              .toList(),
-                                          decoration: _inputDecoration(
-                                            hint: 'Select designation',
-                                          ),
-                                          onChanged: (value) =>
-                                              setState(() => _designation = value),
-                                        ),
+                                                onChanged: (value) =>
+                                                    setState(() => _selectedDepartmentId = value),
+                                                validator: (value) {
+                                                  if (value == null || value.isEmpty) {
+                                                    return 'Please select a department';
+                                                  }
+                                                  // Validate that the selected department has a valid integer ID
+                                                  if (int.tryParse(value) == null) {
+                                                    return 'Please select a valid department';
+                                                  }
+                                                  return null;
+                                                },
+                                              ),
                                       ),
                                     ),
                                     // Mobile No
@@ -748,24 +940,6 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
   }
-
-  List<String> get _designationOptions => const [
-        'Mathematics',
-        'Physics',
-        'Chemistry',
-        'Biology',
-        'English',
-        'History',
-        'Geography',
-        'Computer Science',
-        'Physical Education',
-        'Art',
-        'Music',
-        'Principal',
-        'Vice Principal',
-        'Coordinator',
-      ];
-
 }
 
 class _LabeledField extends StatelessWidget {
@@ -998,7 +1172,7 @@ class TeacherPreviewData {
   final String? employeeNo;
   final String? firstName;
   final String? lastName;
-  final String? designation;
+  final String? department;
   final String? mobileNo;
   final String? email;
   final String? address;
@@ -1011,7 +1185,7 @@ class TeacherPreviewData {
     required this.employeeNo,
     required this.firstName,
     required this.lastName,
-    required this.designation,
+    required this.department,
     required this.mobileNo,
     required this.email,
     required this.address,

@@ -8,20 +8,47 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent
+from super_admin.models import School
 from .serializers import (
+    FileSerializer,
     DepartmentSerializer,
     TeacherSerializer,
     StudentSerializer,
     DashboardStatsSerializer,
     NewAdmissionSerializer,
     ExaminationManagementSerializer,
-    FeeSerializer
+    FeeSerializer,
+    BusSerializer,
+    BusStopSerializer,
+    BusStopStudentSerializer
 )
 from main_login.permissions import IsManagementAdmin
+from main_login.mixins import SchoolFilterMixin
+from main_login.utils import get_user_school_id
 
 
-class DepartmentViewSet(viewsets.ModelViewSet):
+class FileViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
+    """ViewSet for File uploads (profile photos)"""
+    queryset = File.objects.all()
+    serializer_class = FileSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['file_type', 'school_id']
+    search_fields = ['file_name']
+    ordering_fields = ['created_at']
+    ordering = ['-created_at']
+    
+    def perform_create(self, serializer):
+        """Set uploaded_by and school_id when creating file"""
+        school_id = get_user_school_id(self.request.user)
+        serializer.save(
+            uploaded_by=self.request.user,
+            school_id=school_id
+        )
+
+
+class DepartmentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Department management"""
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
@@ -33,13 +60,13 @@ class DepartmentViewSet(viewsets.ModelViewSet):
     ordering = ['-created_at']
 
 
-class TeacherViewSet(viewsets.ModelViewSet):
+class TeacherViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Teacher management"""
     queryset = Teacher.objects.all()
     serializer_class = TeacherSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['department', 'designation', 'is_active']
-    search_fields = ['user__first_name', 'user__last_name', 'employee_no', 'designation', 'email', 'first_name', 'last_name']
+    filterset_fields = ['department', 'is_active']
+    search_fields = ['user__first_name', 'user__last_name', 'employee_no', 'email', 'first_name', 'last_name']
     ordering_fields = ['joining_date', 'created_at']
     ordering = ['-created_at']
 
@@ -48,9 +75,125 @@ class TeacherViewSet(viewsets.ModelViewSet):
         if self.action in ['list', 'retrieve', 'create', 'destroy']:
             return [AllowAny()]
         return [IsAuthenticated(), IsManagementAdmin()]
+    
+    def perform_create(self, serializer):
+        """Override to ensure school_id is set correctly when creating teachers"""
+        school_id = self.get_school_id()
+        
+        # Check if user is super admin
+        if hasattr(self.request.user, 'role') and self.request.user.role:
+            if self.request.user.role.name == 'super_admin':
+                # Super admin can set school_id manually or leave it
+                # If school_id is provided in data, use it; otherwise let it be set from department
+                super().perform_create(serializer)
+                # After save, ensure school_id is set from department if not already set
+                teacher = serializer.instance
+                if teacher and teacher.department and teacher.department.school:
+                    department_school_id = teacher.department.school.school_id
+                    if not teacher.school_id or teacher.school_id != department_school_id:
+                        teacher.school_id = department_school_id
+                        teacher.save(update_fields=['school_id'])
+                return
+        
+        # For non-super-admin users, automatically set school_id
+        serializer.save()
+        
+        # After save, ensure school_id is set
+        teacher = serializer.instance
+        if teacher:
+            # First, try to get school_id from department's school
+            if teacher.department and teacher.department.school:
+                department_school_id = teacher.department.school.school_id
+                if not teacher.school_id or teacher.school_id != department_school_id:
+                    teacher.school_id = department_school_id
+                    teacher.save(update_fields=['school_id'])
+            # If no department or department has no school, use school_id from user context
+            elif school_id and not teacher.school_id:
+                teacher.school_id = school_id
+                teacher.save(update_fields=['school_id'])
+    
+    def create(self, request, *args, **kwargs):
+        """
+        Override create to allow creation even if school_id is not found initially.
+        school_id will be auto-populated from department when teacher is saved.
+        This completely bypasses the SchoolFilterMixin.create() check.
+        Also handles profile photo upload.
+        """
+        # Handle profile photo upload if present
+        profile_photo_file = request.FILES.get('profile_photo')
+        profile_photo_id = None
+        
+        if profile_photo_file:
+            # Create File record for the uploaded photo
+            from main_login.utils import get_user_school_id
+            school_id = get_user_school_id(request.user) if request.user.is_authenticated else None
+            
+            file_obj = File.objects.create(
+                file=profile_photo_file,
+                file_name=profile_photo_file.name,
+                file_type=profile_photo_file.name.split('.')[-1].lower() if '.' in profile_photo_file.name else '',
+                file_size=profile_photo_file.size,
+                uploaded_by=request.user if request.user.is_authenticated else None,
+                school_id=school_id
+            )
+            profile_photo_id = file_obj.file_id
+        
+        # Prepare data for serializer (remove profile_photo file, use profile_photo_id)
+        data = request.data.copy()
+        if 'profile_photo' in data:
+            del data['profile_photo']
+        if profile_photo_id:
+            data['profile_photo'] = str(profile_photo_id)
+        
+        # Get serializer
+        serializer = self.get_serializer(data=data)
+        
+        # Validate and log errors if validation fails
+        if not serializer.is_valid():
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Teacher creation validation failed: {serializer.errors}")
+            logger.error(f"Request data: {data}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Call perform_create which will handle school_id assignment
+        # This allows creation even if school_id is not found (will be set from department)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+    
+    def get_queryset(self):
+        """
+        Override to filter by school_id using SchoolFilterMixin logic.
+        """
+        # Call SchoolFilterMixin's get_queryset to get proper filtering
+        queryset = super(SchoolFilterMixin, self).get_queryset()
+        
+        # Get school_id for filtering
+        school_id = self.get_school_id()
+        
+        # Check if user is super admin
+        if hasattr(self.request.user, 'role') and self.request.user.role:
+            if self.request.user.role.name == 'super_admin':
+                # Super admin can see all teachers
+                return queryset
+        
+        # For non-super-admin users, filter by school_id
+        if school_id:
+            # Filter by school_id
+            queryset = queryset.filter(school_id=school_id)
+        else:
+            # If no school_id found and user is authenticated, return empty queryset
+            # This prevents users without school access from seeing any data
+            if self.request.user.is_authenticated:
+                return queryset.none()
+            # For unauthenticated users (AllowAny), return all (but this shouldn't happen in production)
+            return queryset
+        
+        return queryset
 
 
-class StudentViewSet(viewsets.ModelViewSet):
+class StudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Student management"""
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
@@ -65,9 +208,54 @@ class StudentViewSet(viewsets.ModelViewSet):
         if self.action in ['list', 'retrieve', 'create', 'destroy']:
             return [AllowAny()]
         return [IsAuthenticated(), IsManagementAdmin()]
+    
+    def perform_create(self, serializer):
+        """Override to ensure school is set correctly when creating students"""
+        school_id = self.get_school_id()
+        
+        # Check if user is super admin
+        if hasattr(self.request.user, 'role') and self.request.user.role:
+            if self.request.user.role.name == 'super_admin':
+                # Super admin can set school manually or leave it
+                # If school is provided in data, use it; otherwise let it be set manually
+                if 'school' not in serializer.validated_data:
+                    # Try to get school from request data
+                    school_id_from_request = self.request.data.get('school')
+                    if school_id_from_request:
+                        from super_admin.models import School
+                        try:
+                            school = School.objects.get(school_id=school_id_from_request)
+                            serializer.save(school=school)
+                            return
+                        except School.DoesNotExist:
+                            pass
+                super().perform_create(serializer)
+                return
+        
+        # For non-super-admin users, automatically set school
+        if school_id:
+            from super_admin.models import School
+            try:
+                school = School.objects.get(school_id=school_id)
+                # Always set school, even if provided in data (to prevent cross-school data)
+                serializer.save(school=school)
+                return
+            except School.DoesNotExist:
+                pass
+        
+        # If no school_id found and user is authenticated, this is an error
+        if self.request.user.is_authenticated:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({
+                'school': 'No school associated with your account. Please contact administrator.'
+            })
+        
+        # If user is not authenticated, try to use school from serializer if provided
+        # Otherwise, let parent handle it (might fail validation)
+        super().perform_create(serializer)
 
 
-class NewAdmissionViewSet(viewsets.ModelViewSet):
+class NewAdmissionViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for New Admission management"""
     queryset = NewAdmission.objects.all()
     serializer_class = NewAdmissionSerializer
@@ -354,7 +542,7 @@ class DashboardViewSet(viewsets.ViewSet):
         })
 
 
-class ExaminationManagementViewSet(viewsets.ModelViewSet):
+class ExaminationManagementViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Examination Management"""
     queryset = Examination_management.objects.all()
     serializer_class = ExaminationManagementSerializer
@@ -372,7 +560,7 @@ class ExaminationManagementViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsManagementAdmin()]
 
 
-class FeeViewSet(viewsets.ModelViewSet):
+class FeeViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Fee Management"""
     queryset = Fee.objects.select_related('student').prefetch_related('payment_history').all()
     serializer_class = FeeSerializer
@@ -389,48 +577,52 @@ class FeeViewSet(viewsets.ModelViewSet):
             return [AllowAny()]
         return [IsAuthenticated(), IsManagementAdmin()]
     
+    def get_queryset(self):
+        """Override to ensure school_id filtering is applied"""
+        queryset = super().get_queryset()
+        
+        # Check if user is super admin
+        if hasattr(self.request.user, 'role') and self.request.user.role:
+            if self.request.user.role.name == 'super_admin':
+                return queryset
+        
+        # Get school_id for filtering
+        school_id = self.get_school_id()
+        if school_id:
+            # Filter by school_id
+            queryset = queryset.filter(school_id=school_id)
+        else:
+            # If no school_id and user is authenticated (not super admin), return empty
+            if self.request.user.is_authenticated:
+                return queryset.none()
+        
+        return queryset
+    
     def list(self, request, *args, **kwargs):
         """Override list to ensure proper response format and handle errors gracefully"""
         try:
-            # Get all fees without any filters first
+            # Get queryset (already filtered by school_id via get_queryset)
             queryset = self.get_queryset()
-            total_count = queryset.count()
-            print(f"FeeViewSet.list: Total fees in database: {total_count}")
             
-            # Apply filters if any
+            # Apply additional filters if any
             queryset = self.filter_queryset(queryset)
-            filtered_count = queryset.count()
-            print(f"FeeViewSet.list: Fees after filtering: {filtered_count}")
             
             # Serialize the data
             serializer = self.get_serializer(queryset, many=True)
             data = serializer.data
-            print(f"FeeViewSet.list: Serialized {len(data)} fees")
-            
-            # Log first fee for debugging
-            if data:
-                print(f"FeeViewSet.list: First fee sample: {data[0]}")
-            else:
-                print("FeeViewSet.list: No fees to return")
             
             return Response(data)
         except Exception as e:
             import traceback
-            print(f"Error in FeeViewSet.list: {e}")
-            print(traceback.format_exc())
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error in FeeViewSet.list: {e}")
+            logger.error(traceback.format_exc())
             
-            # Try to return at least an empty list instead of error
-            try:
-                # Fallback: try to get fees without student relationship
-                queryset = Fee.objects.all()
-                serializer = self.get_serializer(queryset, many=True)
-                return Response(serializer.data)
-            except Exception as e2:
-                print(f"Fallback also failed: {e2}")
-                return Response(
-                    {'error': str(e), 'detail': 'An error occurred while fetching fees'},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+            return Response(
+                {'error': str(e), 'detail': 'An error occurred while fetching fees'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
     
     @action(detail=True, methods=['post'], url_path='record-payment')
     def record_payment(self, request, pk=None):
@@ -641,3 +833,237 @@ class FeeViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+
+class BusViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
+    """ViewSet for Bus management"""
+    queryset = Bus.objects.all()
+    serializer_class = BusSerializer
+    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    lookup_field = 'bus_id'  # Explicitly set lookup field to bus_id (UUID)
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['school', 'bus_type', 'is_active']
+    search_fields = ['bus_number', 'driver_name', 'route_name', 'registration_number']
+    ordering_fields = ['bus_number', 'created_at']
+    ordering = ['-created_at']
+    
+    def create(self, request, *args, **kwargs):
+        """Override create to automatically get school from logged-in user if not provided"""
+        # Get school from request data if provided
+        school_id = request.data.get('school')
+        
+        # If school_id not provided, try to get it from the logged-in user
+        if not school_id:
+            try:
+                school = School.objects.filter(user=request.user).first()
+                if not school:
+                    return Response(
+                        {
+                            'success': False,
+                            'message': 'No school found. Please contact administrator to assign a school to your account.',
+                            'error': 'School not found'
+                        },
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+                # Create mutable copy of request data and add school_id
+                mutable_data = request.data.copy()
+                if hasattr(mutable_data, '_mutable'):
+                    mutable_data._mutable = True
+                mutable_data['school'] = school.school_id
+                # Update request data
+                request._full_data = mutable_data
+            except Exception as e:
+                return Response(
+                    {
+                        'success': False,
+                        'message': f'Error getting school: {str(e)}',
+                        'error': 'Failed to get school'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Call parent create method
+        return super().create(request, *args, **kwargs)
+
+
+class BusStopViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
+    """ViewSet for BusStop management"""
+    queryset = BusStop.objects.all()
+    serializer_class = BusStopSerializer
+    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    lookup_field = 'stop_id'  # Explicitly set lookup field to stop_id (UUID)
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['bus', 'route_type']
+    search_fields = ['stop_name']
+    ordering_fields = ['stop_order', 'stop_time']
+    ordering = ['bus', 'route_type', 'stop_order']
+    
+    @action(detail=True, methods=['get'])
+    def students(self, request, pk=None):
+        """Get all students for a specific stop"""
+        stop = self.get_object()
+        students = stop.stop_students.all()
+        serializer = BusStopStudentSerializer(students, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'], url_path='drop-off-view')
+    def drop_off_view(self, request, pk=None):
+        """
+        Get drop-off view for the first morning stop.
+        Returns the last drop-off stop information if this is the first morning stop.
+        """
+        stop = self.get_object()
+        
+        # Check if this is the first morning stop
+        if stop.route_type == 'morning' and stop.stop_order == 1:
+            drop_off_stop = stop.corresponding_drop_off_stop
+            if drop_off_stop:
+                serializer = BusStopSerializer(drop_off_stop)
+                return Response({
+                    'success': True,
+                    'message': 'Drop-off stop information for first morning stop',
+                    'first_morning_stop': BusStopSerializer(stop).data,
+                    'last_drop_off_stop': serializer.data
+                })
+            else:
+                return Response({
+                    'success': False,
+                    'message': 'No drop-off stop found. The last drop-off stop will be created automatically when saved.',
+                    'first_morning_stop': BusStopSerializer(stop).data
+                })
+        else:
+            return Response({
+                'success': False,
+                'message': 'This endpoint is only available for the first morning stop (stop_order=1, route_type=morning)'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BusStopStudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
+    """ViewSet for BusStopStudent management"""
+    queryset = BusStopStudent.objects.all()
+    serializer_class = BusStopStudentSerializer
+    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['stop', 'student']
+    search_fields = ['student_name', 'student_id_string', 'student__student_id', 'student__student_name']
+    ordering_fields = ['created_at']
+    ordering = ['stop', 'student_name']
+    
+    def create(self, request, *args, **kwargs):
+        """Override create to fetch student by student_id and validate school match"""
+        student_id = request.data.get('student_id')
+        stop_id = request.data.get('stop')
+        
+        if not student_id:
+            return Response(
+                {'error': 'student_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not stop_id:
+            return Response(
+                {'error': 'stop is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            stop = BusStop.objects.select_related('bus', 'bus__school').get(pk=stop_id)
+        except BusStop.DoesNotExist:
+            return Response(
+                {'error': 'Stop not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Get the bus and its school
+        bus = stop.bus
+        bus_school = bus.school
+        
+        if not bus_school:
+            return Response(
+                {'error': 'Bus does not have an associated school'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Find student by student_id and filter by school_id to ensure it belongs to the same school
+            student = Student.objects.select_related('school').get(
+                student_id=student_id,
+                school=bus_school
+            )
+        except Student.DoesNotExist:
+            return Response(
+                {
+                    'error': f'Student with ID {student_id} not found in school {bus_school.name}. Please ensure the student belongs to the same school as the bus.',
+                    'school_id': str(bus_school.school_id)
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Additional validation: ensure student's school matches bus's school
+        if student.school != bus_school:
+            return Response(
+                {
+                    'error': f'Student belongs to a different school. Bus belongs to {bus_school.name}, but student belongs to {student.school.name}',
+                    'bus_school_id': str(bus_school.school_id),
+                    'student_school_id': str(student.school.school_id)
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if student is already assigned to this stop
+        if BusStopStudent.objects.filter(stop=stop, student=student).exists():
+            return Response(
+                {'error': 'Student is already assigned to this stop'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create the BusStopStudent
+        bus_stop_student = BusStopStudent.objects.create(
+            stop=stop,
+            student=student
+        )
+        
+        serializer = self.get_serializer(bus_stop_student)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class SchoolViewSet(viewsets.ViewSet):
+    """ViewSet for getting current user's school"""
+    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    
+    @action(detail=False, methods=['get'], url_path='current')
+    def current(self, request):
+        """Get the school associated with the current logged-in user"""
+        from super_admin.models import School
+        from super_admin.serializers import SchoolSerializer
+        
+        try:
+            # Get school from user's school_account relationship
+            school = School.objects.filter(user=request.user).first()
+            
+            if not school:
+                return Response(
+                    {
+                        'success': False,
+                        'message': 'No school found for this user. Please contact administrator.',
+                        'error': 'School not found'
+                    },
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            serializer = SchoolSerializer(school)
+            return Response(
+                {
+                    'success': True,
+                    'data': serializer.data
+                },
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return Response(
+                {
+                    'success': False,
+                    'message': str(e),
+                    'error': 'Failed to fetch school'
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

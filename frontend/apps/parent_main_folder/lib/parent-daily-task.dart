@@ -148,13 +148,13 @@ class _DailyTasksPageState extends State<DailyTasksPage>
     ),
     Task(
       id: 8,
-      title: 'Physical Education',
+      title: 'Sports Activity',
       description: 'Complete 30 minutes of exercise',
       category: 'activity',
       priority: 'medium',
       status: 'pending',
       dueDate: '2024-12-15',
-      subject: 'Physical Education',
+      subject: 'Sports',
     ),
   ];
 

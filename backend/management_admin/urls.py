@@ -8,12 +8,17 @@ from . import views
 app_name = 'management_admin'
 
 router = DefaultRouter()
+router.register(r'files', views.FileViewSet, basename='file')
 router.register(r'departments', views.DepartmentViewSet, basename='department')
 router.register(r'teachers', views.TeacherViewSet, basename='teacher')
 router.register(r'students', views.StudentViewSet, basename='student')
 router.register(r'admissions', views.NewAdmissionViewSet, basename='admission')
 router.register(r'examinations', views.ExaminationManagementViewSet, basename='examination')
 router.register(r'fees', views.FeeViewSet, basename='fee')
+router.register(r'buses', views.BusViewSet, basename='bus')
+router.register(r'bus-stops', views.BusStopViewSet, basename='busstop')
+router.register(r'bus-stop-students', views.BusStopStudentViewSet, basename='busstopstudent')
+router.register(r'schools', views.SchoolViewSet, basename='school')
 
 urlpatterns = [
     path('', include(router.urls)),
