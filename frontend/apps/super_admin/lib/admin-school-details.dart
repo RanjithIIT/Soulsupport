@@ -1,4 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'main.dart' as main_dashboard;
+import 'admin-schools.dart' as schools;
+import 'admin-revenue.dart' as revenue;
+import 'admin-billing.dart' as billing;
+import 'admin-add-school.dart' as add_school;
+import 'admin-school-management.dart' as school_management;
 
 void main() {
   runApp(const SchoolManagementApp());
@@ -48,16 +55,13 @@ class SchoolDetailsScreen extends StatelessWidget {
                   ),
                 )
               : null,
-          drawer: !isDesktop ? const Drawer(child: SidebarContent()) : null,
+          drawer: !isDesktop ? const Drawer(child: UnifiedSidebar(initialActiveSection: 'schools')) : null,
           body: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Sidebar (Visible on Desktop)
               if (isDesktop)
-                const SizedBox(
-                  width: 280,
-                  child: SidebarContent(),
-                ), // Slightly wider sidebar
+                const UnifiedSidebar(initialActiveSection: 'schools'),
               // Main Scrollable Content
               Expanded(
                 child: SingleChildScrollView(
@@ -75,65 +79,107 @@ class SchoolDetailsScreen extends StatelessWidget {
 
                       // 3. Content Grid
 
-                      // ROW A: Notifications & Admissions
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: _buildNotificationsSection(context)),
-                          const SizedBox(width: 30),
-                          Expanded(child: _buildAdmissionsSection(context)),
-                        ],
-                      ),
-                      const SizedBox(height: 30),
+                      // Responsive layout based on screen width
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isMobile = constraints.maxWidth < 800;
+                          
+                          if (isMobile) {
+                            // Stack all sections vertically on mobile
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _buildNotificationsSection(context),
+                                const SizedBox(height: 20),
+                                _buildAdmissionsSection(context),
+                                const SizedBox(height: 20),
+                                _buildDepartmentsSection(context),
+                                const SizedBox(height: 20),
+                                _buildExtracurricularsSection(context),
+                                const SizedBox(height: 20),
+                                _buildFeeStructureSection(context),
+                                const SizedBox(height: 20),
+                                _buildBusRoutesSection(context),
+                                const SizedBox(height: 20),
+                                _buildPhotoGallerySection(context),
+                                const SizedBox(height: 20),
+                                _buildAwardsSection(context),
+                                const SizedBox(height: 20),
+                                _buildEventsAndCalendarSection(context),
+                                const SizedBox(height: 20),
+                                _buildCampusLifeSection(context),
+                                const SizedBox(height: 20),
+                                _buildRTIActSection(context),
+                              ],
+                            );
+                          } else {
+                            // Desktop layout with rows
+                            return Column(
+                              children: [
+                                // ROW A: Notifications & Admissions
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(child: _buildNotificationsSection(context)),
+                                    const SizedBox(width: 30),
+                                    Expanded(child: _buildAdmissionsSection(context)),
+                                  ],
+                                ),
+                                const SizedBox(height: 30),
 
-                      // ROW B: Academics (Departments) & Activities
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(flex: 2, child: _buildDepartmentsSection(context)),
-                          const SizedBox(width: 30),
-                          Expanded(
-                            flex: 1,
-                            child: _buildExtracurricularsSection(context),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 30),
+                                // ROW B: Academics (Departments) & Activities
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(flex: 2, child: _buildDepartmentsSection(context)),
+                                    const SizedBox(width: 30),
+                                    Expanded(
+                                      flex: 1,
+                                      child: _buildExtracurricularsSection(context),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 30),
 
-                      // ROW C: Logistics (Fees & Bus Routes)
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: _buildFeeStructureSection(context)),
-                          const SizedBox(width: 30),
-                          Expanded(child: _buildBusRoutesSection(context)),
-                        ],
-                      ),
-                      const SizedBox(height: 30),
+                                // ROW C: Logistics (Fees & Bus Routes)
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(child: _buildFeeStructureSection(context)),
+                                    const SizedBox(width: 30),
+                                    Expanded(child: _buildBusRoutesSection(context)),
+                                  ],
+                                ),
+                                const SizedBox(height: 30),
 
-                      // ROW D: Media (Gallery & Awards)
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(flex: 2, child: _buildPhotoGallerySection(context)),
-                          const SizedBox(width: 30),
-                          Expanded(flex: 1, child: _buildAwardsSection(context)),
-                        ],
-                      ),
-                      const SizedBox(height: 30),
+                                // ROW D: Media (Gallery & Awards)
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(flex: 2, child: _buildPhotoGallerySection(context)),
+                                    const SizedBox(width: 30),
+                                    Expanded(flex: 1, child: _buildAwardsSection(context)),
+                                  ],
+                                ),
+                                const SizedBox(height: 30),
 
-                      // ROW E: Events & Calendar
-                      _buildEventsAndCalendarSection(context),
-                      const SizedBox(height: 30),
+                                // ROW E: Events & Calendar
+                                _buildEventsAndCalendarSection(context),
+                                const SizedBox(height: 30),
 
-                      // ROW F: Footer Info (Campus Life & RTI)
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: _buildCampusLifeSection(context)),
-                          const SizedBox(width: 30),
-                          Expanded(child: _buildRTIActSection(context)),
-                        ],
+                                // ROW F: Footer Info (Campus Life & RTI)
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(child: _buildCampusLifeSection(context)),
+                                    const SizedBox(width: 30),
+                                    Expanded(child: _buildRTIActSection(context)),
+                                  ],
+                                ),
+                              ],
+                            );
+                          }
+                        },
                       ),
                       const SizedBox(height: 50), // Bottom padding
                     ],
@@ -860,7 +906,7 @@ class TopHeader extends StatelessWidget {
               ),
               const SizedBox(width: 20),
               // Buttons
-              _headerButton("Back to Schools", true),
+              _headerButton(context, "Back to Schools", true),
             ],
           ),
         ],
@@ -868,9 +914,16 @@ class TopHeader extends StatelessWidget {
     );
   }
 
-  Widget _headerButton(String text, bool dark) {
+  Widget _headerButton(BuildContext context, String text, bool dark) {
     return ElevatedButton.icon(
-      onPressed: () {},
+      onPressed: () {
+        // Navigate back to schools list
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const schools.AdminDashboard(),
+          ),
+        );
+      },
       icon: const Icon(Icons.arrow_back, size: 18),
       label: Text(text, style: const TextStyle(fontSize: 15)), // Increased
       style: ElevatedButton.styleFrom(
@@ -1055,82 +1108,204 @@ class ContentCard extends StatelessWidget {
   }
 }
 
-// --- 5. SIDEBAR ---
-class SidebarContent extends StatelessWidget {
-  const SidebarContent({super.key});
+// Unified Sidebar (same as main.dart)
+class UnifiedSidebar extends StatefulWidget {
+  final String initialActiveSection;
+  
+  const UnifiedSidebar({
+    super.key,
+    this.initialActiveSection = 'overview',
+  });
+
+  @override
+  State<UnifiedSidebar> createState() => _UnifiedSidebarState();
+}
+
+class _UnifiedSidebarState extends State<UnifiedSidebar> {
+  late String activeSection;
+  
+  @override
+  void initState() {
+    super.initState();
+    activeSection = widget.initialActiveSection;
+  }
+
+  void navigateTo(String section) {
+    setState(() {
+      activeSection = section;
+    });
+    
+    // Close drawer on mobile
+    if (Scaffold.of(context).hasDrawer) {
+      Navigator.of(context).pop();
+    }
+    
+    // Navigate to the corresponding screen
+    Widget? targetScreen;
+    switch (section) {
+      case 'overview':
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const main_dashboard.AdminDashboardScreen()),
+          (route) => false,
+        );
+        return;
+      case 'schools':
+        targetScreen = const schools.AdminDashboard();
+        break;
+      case 'revenue':
+        targetScreen = const revenue.RevenueDashboard();
+        break;
+      case 'licenses':
+      case 'school_management':
+        targetScreen = const school_management.SchoolDashboard();
+        break;
+      case 'billing':
+        targetScreen = const billing.BillingDashboard();
+        break;
+      case 'reports':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Reports page coming soon')),
+        );
+        return;
+      case 'settings':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Settings page coming soon')),
+        );
+        return;
+    }
+    
+    // Navigate to the target screen
+    if (targetScreen != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => targetScreen!),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white,
+      width: 280,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(right: BorderSide(color: Color(0xFFe9ecef))),
+        boxShadow: [
+          BoxShadow(
+            color: Color.fromRGBO(0, 0, 0, 0.1),
+            offset: Offset(2, 0),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Logo - Fixed at top
           Container(
-            margin: const EdgeInsets.all(20),
-            padding: const EdgeInsets.symmetric(vertical: 25),
-            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 20),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF007BFF), Color(0xFF0056B3)],
+                colors: [Color(0xFF007bff), Color(0xFF0056b3)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(15),
             ),
             child: Column(
-              children: const [
-                Icon(Icons.school, color: Colors.white, size: 36), // Larger
-                SizedBox(height: 10),
+              children: [
                 Text(
-                  "SMS",
-                  style: TextStyle(
-                    color: Colors.white,
+                  '🏫 SMS',
+                  style: GoogleFonts.inter(
                     fontSize: 24,
+                    color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
-                ), // Larger
-                Text(
-                  "School Management",
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
-                ), // Larger
+                ),
+                const SizedBox(height: 5),
+                const Text(
+                  'School Management System',
+                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                ),
               ],
             ),
           ),
+          // Nav Menu - Scrollable
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-              children: const [
-                NavItem(
-                  icon: Icons.dashboard,
-                  title: "Dashboard",
-                  isActive: false,
-                ),
-                NavItem(
-                  icon: Icons.info,
-                  title: "School Details",
-                  isActive: true,
-                ),
-                NavItem(
-                  icon: Icons.school,
-                  title: "School Overview",
-                  isActive: false,
-                ),
-                NavItem(icon: Icons.group, title: "Students", isActive: false),
-                NavItem(icon: Icons.people, title: "Teachers", isActive: false),
-                NavItem(
-                  icon: Icons.directions_bus,
-                  title: "Buses",
-                  isActive: false,
-                ),
-                NavItem(
-                  icon: Icons.check_circle,
-                  title: "Attendance",
-                  isActive: false,
-                ),
-                NavItem(
-                  icon: Icons.bar_chart,
-                  title: "Reports",
-                  isActive: false,
-                ),
-              ],
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  UnifiedSidebarNavItem(
+                    icon: '📊',
+                    title: 'Overview',
+                    isActive: activeSection == 'overview',
+                    onTap: () => navigateTo('overview'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '🏫',
+                    title: 'Schools',
+                    isActive: activeSection == 'schools',
+                    onTap: () => navigateTo('schools'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '➕',
+                    title: 'Add School',
+                    isActive: activeSection == 'add_school',
+                    onTap: () async {
+                      setState(() {
+                        activeSection = 'add_school';
+                      });
+                      if (Scaffold.of(context).hasDrawer) {
+                        Navigator.of(context).pop();
+                      }
+                      final result = await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const add_school.AddSchoolScreen(),
+                        ),
+                      );
+                      if (result == true) {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(
+                            builder: (context) => const schools.AdminDashboard(refreshOnMount: true),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '📋',
+                    title: 'Licenses',
+                    isActive: activeSection == 'licenses',
+                    onTap: () => navigateTo('licenses'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '💰',
+                    title: 'Revenue',
+                    isActive: activeSection == 'revenue',
+                    onTap: () => navigateTo('revenue'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '💳',
+                    title: 'Billing',
+                    isActive: activeSection == 'billing',
+                    onTap: () => navigateTo('billing'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '📈',
+                    title: 'Reports',
+                    isActive: activeSection == 'reports',
+                    onTap: () => navigateTo('reports'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '⚙️',
+                    title: 'Settings',
+                    isActive: activeSection == 'settings',
+                    onTap: () => navigateTo('settings'),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -1139,76 +1314,88 @@ class SidebarContent extends StatelessWidget {
   }
 }
 
-class NavItem extends StatelessWidget {
-  final IconData icon;
+class UnifiedSidebarNavItem extends StatefulWidget {
+  final String icon;
   final String title;
   final bool isActive;
+  final VoidCallback onTap;
 
-  const NavItem({
+  const UnifiedSidebarNavItem({
     super.key,
     required this.icon,
     required this.title,
     required this.isActive,
+    required this.onTap,
   });
 
   @override
+  State<UnifiedSidebarNavItem> createState() => _UnifiedSidebarNavItemState();
+}
+
+class _UnifiedSidebarNavItemState extends State<UnifiedSidebarNavItem> {
+  bool _isHovering = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: isActive
-          ? BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF007BFF), Color(0xFF0056B3)],
+    const primaryColor = Color(0xFF007bff);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10.0),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovering = true),
+        onExit: (_) => setState(() => _isHovering = false),
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+            decoration: BoxDecoration(
+              color: widget.isActive
+                  ? primaryColor
+                  : (_isHovering
+                        ? const Color(0xFFe9ecef)
+                        : const Color(0xFFf8f9fa)),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: widget.isActive
+                    ? primaryColor
+                    : (_isHovering
+                          ? const Color(0xFFced4da)
+                          : const Color(0xFFe9ecef)),
+                width: 1,
               ),
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF007BFF).withValues(alpha: 0.3),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+              gradient: widget.isActive
+                  ? const LinearGradient(
+                      colors: [primaryColor, Color(0xFF0056b3)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : null,
+            ),
+            child: Row(
+              children: [
+                Text(
+                  widget.icon,
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: widget.isActive ? Colors.white : Colors.black,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  widget.title,
+                  style: TextStyle(
+                    color: widget.isActive
+                        ? Colors.white
+                        : const Color(0xFF333333),
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
-            )
-          : BoxDecoration(
-              color: const Color(0xFFF8F9FA),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE9ECEF)),
             ),
-      child: ListTile(
-        dense: false, // Increased density
-        leading: Icon(
-          icon,
-          color: isActive ? Colors.white : const Color(0xFF6C757D),
-          size: 22,
-        ), // Larger Icon
-        title: Text(
-          title,
-          style: TextStyle(
-            color: isActive ? Colors.white : const Color(0xFF333333),
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-            fontSize: 16,
           ),
-        ), // Larger Text
-        onTap: () {
-          // Navigate based on menu item
-          switch (title) {
-            case 'Dashboard':
-            case 'School Overview':
-            case 'Students':
-            case 'Teachers':
-            case 'Buses':
-            case 'Attendance':
-            case 'Reports':
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Navigating to $title')),
-              );
-              break;
-          }
-          // Close drawer on mobile
-          if (Scaffold.of(context).hasDrawer) {
-            Navigator.of(context).pop();
-          }
-        },
+        ),
       ),
     );
   }

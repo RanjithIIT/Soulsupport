@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'main.dart' as app;
 import 'dashboard.dart';
 import 'students.dart';
 import 'teachers.dart';
@@ -806,61 +807,12 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
         children: [
           // --- Sidebar ---
           if (isDesktop)
-            Container(
-              width: 250,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 20,
-                    offset: const Offset(2, 0),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 30),
-                  const Text(
-                    "🏫 School Management",
-                    style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 5),
-                  const Text("Admissions", style: TextStyle(color: Colors.white70, fontSize: 14)),
-                  const SizedBox(height: 20),
-                  const Divider(color: Colors.white24),
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 15),
-                      children: [
-                        _buildNavItem("📊 Dashboard", false, () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardPage()))),
-                        _buildNavItem("👥 Students", false, () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const StudentsManagementPage()))),
-                        _buildNavItem("👨‍🏫 Teachers", false, () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const TeachersManagementPage()))),
-                        _buildNavItem("🚌 Buses", false, () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const BusesManagementPage()))),
-                        _buildNavItem("📅 Events", false, () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const EventsManagementPage()))),
-                        _buildNavItem("🔔 Notifications", false, () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const NotificationsManagementPage()))),
-                        _buildNavItem("📚 Activities", false, () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ActivitiesManagementPage()))),
-                        _buildNavItem("🏆 Awards", false, () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AwardsManagementPage()))),
-                        _buildNavItem("📷 Photo Gallery", false, () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PhotoGalleryPage()))),
-                        _buildNavItem("📄 RTI Act", false, () {}),
-                        _buildNavItem("🎓 Admissions", true, () {}), // Active
-                        _buildNavItem("📅 Calendar", false, () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CalendarManagementPage()))),
-                      ],
-                    ),
-                  )
-                ],
-              ),
-            ),
+            _buildSidebar(),
 
           // --- Main Content ---
           Expanded(
             child: Container(
-              color: Colors.white,
+              color: const Color(0xFFF5F6FA),
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: Column(
@@ -959,6 +911,135 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
             ),
           )
         ],
+      ),
+    );
+  }
+
+  Widget _buildSidebar() {
+    final gradient = const LinearGradient(
+      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+
+    // Safe navigation helper for sidebar
+    void _navigateToRoute(String route) {
+      final navigator = app.SchoolManagementApp.navigatorKey.currentState;
+      if (navigator != null) {
+        if (navigator.canPop() || route != '/dashboard') {
+          navigator.pushReplacementNamed(route);
+        } else {
+          navigator.pushNamed(route);
+        }
+      }
+    }
+
+    return Container(
+      width: 280,
+      decoration: BoxDecoration(
+        gradient: gradient,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(2, 0),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.24),
+                  width: 1,
+                ),
+              ),
+              child: const Column(
+                children: [
+                  Text(
+                    '🏫 SMS',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 5),
+                  Text(
+                    'School Management System',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _NavItem(
+                    icon: '📊',
+                    title: 'Overview',
+                    isActive: false,
+                    onTap: () => _navigateToRoute('/dashboard'),
+                  ),
+                  _NavItem(
+                    icon: '👨‍🏫',
+                    title: 'Teachers',
+                    onTap: () => _navigateToRoute('/teachers'),
+                  ),
+                  _NavItem(
+                    icon: '👥',
+                    title: 'Students',
+                    onTap: () => _navigateToRoute('/students'),
+                  ),
+                  _NavItem(
+                    icon: '🚌',
+                    title: 'Buses',
+                    onTap: () => _navigateToRoute('/buses'),
+                  ),
+                  _NavItem(
+                    icon: '🎯',
+                    title: 'Activities',
+                    onTap: () => _navigateToRoute('/activities'),
+                  ),
+                  _NavItem(
+                    icon: '📅',
+                    title: 'Events',
+                    onTap: () => _navigateToRoute('/events'),
+                  ),
+                  _NavItem(
+                    icon: '📆',
+                    title: 'Calendar',
+                    onTap: () => _navigateToRoute('/calendar'),
+                  ),
+                  _NavItem(
+                    icon: '🔔',
+                    title: 'Notifications',
+                    onTap: () => _navigateToRoute('/notifications'),
+                  ),
+                  _NavItem(
+                    icon: '🛣️',
+                    title: 'Bus Routes',
+                    onTap: () => _navigateToRoute('/bus-routes'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1680,6 +1761,51 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
             Navigator.of(context).pop();
           }
         },
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final String icon;
+  final String title;
+  final VoidCallback? onTap;
+  final bool isActive;
+
+  const _NavItem({
+    required this.icon,
+    required this.title,
+    this.onTap,
+    this.isActive = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: isActive
+            ? Colors.white.withValues(alpha: 0.3)
+            : Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        leading: Text(
+          icon,
+          style: const TextStyle(fontSize: 18),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            fontSize: 14,
+          ),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        onTap: onTap,
       ),
     );
   }

@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'main.dart' as app;
+import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
+import 'widgets/school_profile_header.dart';
 
 class EditBusPage extends StatefulWidget {
-  final int? busId;
+  final String? busId; // Changed to String to use bus_number
 
   const EditBusPage({super.key, this.busId});
 
@@ -21,7 +25,8 @@ class _EditBusPageState extends State<EditBusPage> {
   final _driverExperienceController = TextEditingController();
   final _routeNameController = TextEditingController();
   final _routeDistanceController = TextEditingController();
-  final _routeDescriptionController = TextEditingController();
+  final _startLocationController = TextEditingController();
+  final _endLocationController = TextEditingController();
   final _notesController = TextEditingController();
 
   String? _busType;
@@ -34,28 +39,8 @@ class _EditBusPageState extends State<EditBusPage> {
   bool _showSuccess = false;
   bool _showError = false;
   String _errorMessage = '';
-
-  // Mock bus data - in real app, fetch from API based on busId
-  final Map<String, dynamic> _mockBus = {
-    'id': 1,
-    'busNumber': 'BUS001',
-    'busType': 'Standard Bus',
-    'capacity': 45,
-    'registrationNumber': 'REG2024001',
-    'driverName': 'Mr. David Wilson',
-    'driverPhone': '+1-555-0301',
-    'driverLicense': 'DL123456789',
-    'driverExperience': 8,
-    'routeName': 'Route 1 - Downtown',
-    'routeDistance': 12.5,
-    'morningStartTime': '07:00',
-    'morningEndTime': '08:30',
-    'afternoonStartTime': '15:00',
-    'afternoonEndTime': '16:30',
-    'routeDescription':
-        'Main route covering downtown area with multiple stops',
-    'notes': 'Well-maintained bus, experienced driver',
-  };
+  bool _isLoading = false;
+  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
@@ -63,50 +48,86 @@ class _EditBusPageState extends State<EditBusPage> {
     _loadBusData();
   }
 
-  void _loadBusData() {
-    // In real app, fetch bus data based on widget.busId
-    if (widget.busId != null) {
-      _busNumberController.text = _mockBus['busNumber'] ?? '';
-      _busType = _mockBus['busType'];
-      _capacityController.text = _mockBus['capacity']?.toString() ?? '';
-      _registrationNumberController.text =
-          _mockBus['registrationNumber'] ?? '';
-      _driverNameController.text = _mockBus['driverName'] ?? '';
-      _driverPhoneController.text = _mockBus['driverPhone'] ?? '';
-      _driverLicenseController.text = _mockBus['driverLicense'] ?? '';
-      _driverExperienceController.text =
-          _mockBus['driverExperience']?.toString() ?? '';
-      _routeNameController.text = _mockBus['routeName'] ?? '';
-      _routeDistanceController.text =
-          _mockBus['routeDistance']?.toString() ?? '';
-      _routeDescriptionController.text =
-          _mockBus['routeDescription'] ?? '';
-      _notesController.text = _mockBus['notes'] ?? '';
+  Future<void> _loadBusData() async {
+    if (widget.busId == null) return;
 
-      // Parse times
-      if (_mockBus['morningStartTime'] != null) {
-        final timeParts = _mockBus['morningStartTime'].split(':');
-        _morningStartTime = TimeOfDay(
-            hour: int.parse(timeParts[0]),
-            minute: int.parse(timeParts[1]));
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _apiService.initialize();
+      final response = await _apiService.get('${Endpoints.buses}${widget.busId}/');
+
+      if (!response.success || response.data == null) {
+        throw Exception(response.error ?? 'Failed to load bus data');
       }
-      if (_mockBus['morningEndTime'] != null) {
-        final timeParts = _mockBus['morningEndTime'].split(':');
-        _morningEndTime = TimeOfDay(
-            hour: int.parse(timeParts[0]),
-            minute: int.parse(timeParts[1]));
+
+      final busData = response.data as Map<String, dynamic>;
+
+      if (mounted) {
+        setState(() {
+          _busNumberController.text = busData['bus_number'] ?? '';
+          _busType = busData['bus_type'];
+          _capacityController.text = (busData['capacity'] as num?)?.toString() ?? '';
+          _registrationNumberController.text = busData['registration_number'] ?? '';
+          _driverNameController.text = busData['driver_name'] ?? '';
+          _driverPhoneController.text = busData['driver_phone'] ?? '';
+          _driverLicenseController.text = busData['driver_license'] ?? '';
+          _driverExperienceController.text = (busData['driver_experience'] as num?)?.toString() ?? '';
+          _routeNameController.text = busData['route_name'] ?? '';
+          _routeDistanceController.text = (busData['route_distance'] as num?)?.toString() ?? '';
+          _startLocationController.text = busData['start_location'] ?? '';
+          _endLocationController.text = busData['end_location'] ?? '';
+          _notesController.text = busData['notes'] ?? '';
+
+          // Parse times
+          if (busData['morning_start_time'] != null) {
+            final timeStr = busData['morning_start_time'].toString();
+            final timeParts = timeStr.split(':');
+            if (timeParts.length >= 2) {
+              _morningStartTime = TimeOfDay(
+                  hour: int.tryParse(timeParts[0]) ?? 7,
+                  minute: int.tryParse(timeParts[1]) ?? 0);
+            }
+          }
+          if (busData['morning_end_time'] != null) {
+            final timeStr = busData['morning_end_time'].toString();
+            final timeParts = timeStr.split(':');
+            if (timeParts.length >= 2) {
+              _morningEndTime = TimeOfDay(
+                  hour: int.tryParse(timeParts[0]) ?? 8,
+                  minute: int.tryParse(timeParts[1]) ?? 30);
+            }
+          }
+          if (busData['afternoon_start_time'] != null) {
+            final timeStr = busData['afternoon_start_time'].toString();
+            final timeParts = timeStr.split(':');
+            if (timeParts.length >= 2) {
+              _afternoonStartTime = TimeOfDay(
+                  hour: int.tryParse(timeParts[0]) ?? 15,
+                  minute: int.tryParse(timeParts[1]) ?? 0);
+            }
+          }
+          if (busData['afternoon_end_time'] != null) {
+            final timeStr = busData['afternoon_end_time'].toString();
+            final timeParts = timeStr.split(':');
+            if (timeParts.length >= 2) {
+              _afternoonEndTime = TimeOfDay(
+                  hour: int.tryParse(timeParts[0]) ?? 16,
+                  minute: int.tryParse(timeParts[1]) ?? 30);
+            }
+          }
+          _isLoading = false;
+        });
       }
-      if (_mockBus['afternoonStartTime'] != null) {
-        final timeParts = _mockBus['afternoonStartTime'].split(':');
-        _afternoonStartTime = TimeOfDay(
-            hour: int.parse(timeParts[0]),
-            minute: int.parse(timeParts[1]));
-      }
-      if (_mockBus['afternoonEndTime'] != null) {
-        final timeParts = _mockBus['afternoonEndTime'].split(':');
-        _afternoonEndTime = TimeOfDay(
-            hour: int.parse(timeParts[0]),
-            minute: int.parse(timeParts[1]));
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _showError = true;
+          _errorMessage = 'Error loading bus data: ${e.toString()}';
+        });
       }
     }
   }
@@ -122,13 +143,39 @@ class _EditBusPageState extends State<EditBusPage> {
     _driverExperienceController.dispose();
     _routeNameController.dispose();
     _routeDistanceController.dispose();
-    _routeDescriptionController.dispose();
+    _startLocationController.dispose();
+    _endLocationController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // Validate times
+    if (_morningStartTime == null || _morningEndTime == null) {
+      setState(() {
+        _showError = true;
+        _errorMessage = 'Please select morning schedule times';
+      });
+      return;
+    }
+
+    if (_afternoonStartTime == null || _afternoonEndTime == null) {
+      setState(() {
+        _showError = true;
+        _errorMessage = 'Please select afternoon schedule times';
+      });
+      return;
+    }
+
+    if (widget.busId == null) {
+      setState(() {
+        _showError = true;
+        _errorMessage = 'Bus number is required';
+      });
+      return;
+    }
 
     setState(() {
       _isSubmitting = true;
@@ -138,23 +185,79 @@ class _EditBusPageState extends State<EditBusPage> {
     });
 
     try {
-      // Simulate API call
-      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      await _apiService.initialize();
+      
+      // Get school ID from current user's school
+      final schoolResponse = await _apiService.get('/management-admin/schools/current/');
+      String? schoolId;
+      if (schoolResponse.success && schoolResponse.data != null) {
+        final data = schoolResponse.data;
+        if (data is Map) {
+          final schoolData = data['data'] ?? data;
+          if (schoolData is Map) {
+            schoolId = schoolData['school_id']?.toString() ?? 
+                       schoolData['id']?.toString();
+          }
+        }
+      }
+
+      if (schoolId == null) {
+        throw Exception('No school found. Please contact administrator to assign a school to your account.');
+      }
+
+      // Prepare bus data
+      final busData = {
+        'school': schoolId,
+        'bus_number': _busNumberController.text.trim(),
+        'bus_type': _busType ?? 'Standard Bus',
+        'capacity': int.parse(_capacityController.text.trim()),
+        'registration_number': _registrationNumberController.text.trim(),
+        'driver_name': _driverNameController.text.trim(),
+        'driver_phone': _driverPhoneController.text.trim(),
+        'driver_license': _driverLicenseController.text.trim(),
+        'driver_experience': _driverExperienceController.text.trim().isEmpty
+            ? null
+            : int.tryParse(_driverExperienceController.text.trim()),
+        'route_name': _routeNameController.text.trim(),
+        'route_distance': _routeDistanceController.text.trim().isEmpty
+            ? null
+            : double.tryParse(_routeDistanceController.text.trim()),
+        'start_location': _startLocationController.text.trim(),
+        'end_location': _endLocationController.text.trim(),
+        'morning_start_time': '${_morningStartTime!.hour.toString().padLeft(2, '0')}:${_morningStartTime!.minute.toString().padLeft(2, '0')}',
+        'morning_end_time': '${_morningEndTime!.hour.toString().padLeft(2, '0')}:${_morningEndTime!.minute.toString().padLeft(2, '0')}',
+        'afternoon_start_time': '${_afternoonStartTime!.hour.toString().padLeft(2, '0')}:${_afternoonStartTime!.minute.toString().padLeft(2, '0')}',
+        'afternoon_end_time': '${_afternoonEndTime!.hour.toString().padLeft(2, '0')}:${_afternoonEndTime!.minute.toString().padLeft(2, '0')}',
+        'notes': _notesController.text.trim(),
+        'is_active': true,
+      };
+
+      // Update bus using bus_number as the identifier
+      final busResponse = await _apiService.put('${Endpoints.buses}${widget.busId}/', body: busData);
+
+      if (!busResponse.success) {
+        throw Exception(busResponse.error ?? 'Failed to update bus');
+      }
+
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
         _showSuccess = true;
         _showError = false;
       });
+
       await Future<void>.delayed(const Duration(seconds: 2));
       if (!mounted) return;
+      
+      // Navigate back to buses page
+      Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
         _showSuccess = false;
         _showError = true;
-        _errorMessage = 'Error updating bus information. Please try again.';
+        _errorMessage = 'Error updating bus: ${e.toString()}';
       });
     }
   }
@@ -203,10 +306,14 @@ class _EditBusPageState extends State<EditBusPage> {
                   _afternoonStartTime != null && _afternoonEndTime != null
                       ? '${_afternoonStartTime!.format(context)} - ${_afternoonEndTime!.format(context)}'
                       : 'Not provided'),
-              _PreviewItem('Route Description',
-                  _routeDescriptionController.text.isEmpty
+              _PreviewItem('Start Location',
+                  _startLocationController.text.isEmpty
                       ? 'Not provided'
-                      : _routeDescriptionController.text),
+                      : _startLocationController.text),
+              _PreviewItem('End Location',
+                  _endLocationController.text.isEmpty
+                      ? 'Not provided'
+                      : _endLocationController.text),
               _PreviewItem('Notes',
                   _notesController.text.isEmpty
                       ? 'No additional notes'
@@ -240,99 +347,11 @@ class _EditBusPageState extends State<EditBusPage> {
       body: Row(
         children: [
           // Sidebar
-          Container(
-            width: 250,
-            decoration: BoxDecoration(
-              gradient: gradient,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 20,
-                  offset: const Offset(2, 0),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: Column(
-                children: [
-                  Container(
-                    margin: const EdgeInsets.all(20),
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: gradient,
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: const Column(
-                      children: [
-                        Text(
-                          '🏫 SMS',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 5),
-                        Text(
-                          'School Management System',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.all(10),
-                      children: [
-                        _NavItem(
-                          icon: '📊',
-                          title: 'Dashboard',
-                          onTap: () => Navigator.pushReplacementNamed(
-                              context, '/dashboard'),
-                        ),
-                        _NavItem(
-                          icon: '👨‍🏫',
-                          title: 'Teachers',
-                          onTap: () => Navigator.pushReplacementNamed(
-                              context, '/teachers'),
-                        ),
-                        _NavItem(
-                          icon: '👥',
-                          title: 'Students',
-                          onTap: () => Navigator.pushReplacementNamed(
-                              context, '/students'),
-                        ),
-                        _NavItem(
-                          icon: '🚌',
-                          title: 'Buses',
-                          isActive: true,
-                        ),
-                        _NavItem(
-                          icon: '🎯',
-                          title: 'Activities',
-                          onTap: () => Navigator.pushReplacementNamed(
-                              context, '/activities'),
-                        ),
-                        _NavItem(
-                          icon: '📅',
-                          title: 'Events',
-                          onTap: () =>
-                              Navigator.pushReplacementNamed(context, '/events'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          _buildSidebar(),
           // Main Content
           Expanded(
             child: Container(
-              decoration: BoxDecoration(gradient: gradient),
+              color: const Color(0xFFF5F6FA),
               child: SafeArea(
                 child: SingleChildScrollView(
                   child: Column(
@@ -365,42 +384,7 @@ class _EditBusPageState extends State<EditBusPage> {
                             ),
                             Row(
                               children: [
-                                Container(
-                                  width: 45,
-                                  height: 45,
-                                  decoration: BoxDecoration(
-                                    gradient: gradient,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Center(
-                                    child: Text(
-                                      'M',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 15),
-                                const Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      'Management User',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    Text(
-                                      'School Manager',
-                                      style: TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                SchoolProfileHeader(apiService: ApiService()),
                                 const SizedBox(width: 15),
                                 ElevatedButton.icon(
                                   onPressed: () {
@@ -1029,18 +1013,31 @@ class _EditBusPageState extends State<EditBusPage> {
                                 ),
                               const SizedBox(height: 20),
                               TextFormField(
-                                controller: _routeDescriptionController,
+                                controller: _startLocationController,
                                 decoration: InputDecoration(
-                                  labelText: 'Route Description',
-                                  hintText: 'Enter detailed route description',
+                                  labelText: 'Start Location',
+                                  hintText: 'Enter starting location',
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   filled: true,
                                   fillColor: Colors.white,
-                                  prefixIcon: const Icon(Icons.description),
+                                  prefixIcon: const Icon(Icons.location_on),
                                 ),
-                                maxLines: 3,
+                              ),
+                              const SizedBox(height: 20),
+                              TextFormField(
+                                controller: _endLocationController,
+                                decoration: InputDecoration(
+                                  labelText: 'End Location',
+                                  hintText: 'Enter ending location',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  prefixIcon: const Icon(Icons.location_on),
+                                ),
                               ),
                               const SizedBox(height: 20),
                               TextFormField(
@@ -1120,9 +1117,139 @@ class _EditBusPageState extends State<EditBusPage> {
       ),
     );
   }
+
+  Widget _buildSidebar() {
+    final gradient = const LinearGradient(
+      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+
+    // Safe navigation helper for sidebar
+    void _navigateToRoute(String route) {
+      final navigator = app.SchoolManagementApp.navigatorKey.currentState;
+      if (navigator != null) {
+        if (navigator.canPop() || route != '/dashboard') {
+          navigator.pushReplacementNamed(route);
+        } else {
+          navigator.pushNamed(route);
+        }
+      }
+    }
+
+    return Container(
+      width: 280,
+      decoration: BoxDecoration(
+        gradient: gradient,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(2, 0),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.24),
+                  width: 1,
+                ),
+              ),
+              child: const Column(
+                children: [
+                  Text(
+                    '🏫 SMS',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 5),
+                  Text(
+                    'School Management System',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _NavItem(
+                    icon: '📊',
+                    title: 'Overview',
+                    isActive: false,
+                    onTap: () => _navigateToRoute('/dashboard'),
+                  ),
+                  _NavItem(
+                    icon: '👨‍🏫',
+                    title: 'Teachers',
+                    onTap: () => _navigateToRoute('/teachers'),
+                  ),
+                  _NavItem(
+                    icon: '👥',
+                    title: 'Students',
+                    onTap: () => _navigateToRoute('/students'),
+                  ),
+                  _NavItem(
+                    icon: '🚌',
+                    title: 'Buses',
+                    isActive: true,
+                    onTap: () => _navigateToRoute('/buses'),
+                  ),
+                  _NavItem(
+                    icon: '🎯',
+                    title: 'Activities',
+                    onTap: () => _navigateToRoute('/activities'),
+                  ),
+                  _NavItem(
+                    icon: '📅',
+                    title: 'Events',
+                    onTap: () => _navigateToRoute('/events'),
+                  ),
+                  _NavItem(
+                    icon: '📆',
+                    title: 'Calendar',
+                    onTap: () => _navigateToRoute('/calendar'),
+                  ),
+                  _NavItem(
+                    icon: '🔔',
+                    title: 'Notifications',
+                    onTap: () => _navigateToRoute('/notifications'),
+                  ),
+                  _NavItem(
+                    icon: '🛣️',
+                    title: 'Bus Routes',
+                    onTap: () => _navigateToRoute('/bus-routes'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _NavItem extends StatefulWidget {
+class _NavItem extends StatelessWidget {
   final String icon;
   final String title;
   final VoidCallback? onTap;
@@ -1136,57 +1263,32 @@ class _NavItem extends StatefulWidget {
   });
 
   @override
-  State<_NavItem> createState() => _NavItemState();
-}
-
-class _NavItemState extends State<_NavItem> {
-  bool _isHovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: widget.isActive
-              ? Colors.white.withValues(alpha: 0.3)
-              : _isHovered
-                  ? Colors.white.withValues(alpha: 0.25)
-                  : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: _isHovered
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  )
-                ]
-              : null,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: isActive
+            ? Colors.white.withValues(alpha: 0.3)
+            : Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        leading: Text(
+          icon,
+          style: const TextStyle(fontSize: 18),
         ),
-        child: ListTile(
-          leading: Text(widget.icon, style: const TextStyle(fontSize: 20, color: Colors.white)),
-          title: AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 200),
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: widget.isActive || _isHovered
-                  ? FontWeight.bold
-                  : FontWeight.normal,
-              fontSize: widget.isActive || _isHovered ? 15.0 : 14.0,
-            ),
-            child: Text(widget.title),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            fontSize: 14,
           ),
-          selected: widget.isActive,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          onTap: widget.onTap,
         ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        onTap: onTap,
       ),
     );
   }

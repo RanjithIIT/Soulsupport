@@ -1,4 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'main.dart' as main_dashboard;
+import 'admin-schools.dart' as schools;
+import 'admin-revenue.dart' as revenue;
+import 'admin-billing.dart' as billing;
+import 'admin-add-school.dart' as add_school;
 
 void main() {
   runApp(const SchoolApp());
@@ -337,15 +343,15 @@ enum ContentView {
 }
 
 class SchoolDashboard extends StatefulWidget {
-  const SchoolDashboard({super.key});
+  final ContentView? initialView;
+  
+  const SchoolDashboard({super.key, this.initialView});
 
   @override
   State<SchoolDashboard> createState() => _SchoolDashboardState();
 }
 
 class _SchoolDashboardState extends State<SchoolDashboard> {
-  int _currentSidebarIndex = 1; // School Overview is active
-  int? _hoveredSidebarIndex;
   School? _selectedSchool;
   ContentView _currentView = ContentView.overview;
 
@@ -353,6 +359,10 @@ class _SchoolDashboardState extends State<SchoolDashboard> {
   void initState() {
     super.initState();
     _selectedSchool = mockSchools[0]; // Default to first school
+    // Set initial view if provided
+    if (widget.initialView != null) {
+      _currentView = widget.initialView!;
+    }
   }
 
   // Helper functions for status colors
@@ -384,154 +394,6 @@ class _SchoolDashboardState extends State<SchoolDashboard> {
 
   // --- WIDGET BUILDERS ---
 
-  Widget _buildSidebar() {
-    return Container(
-      width: 280,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(right: BorderSide(color: Color(0xffe9ecef), width: 1)),
-        boxShadow: [
-          BoxShadow(
-            color: Color.fromRGBO(0, 0, 0, 0.1),
-            blurRadius: 10,
-            offset: Offset(2, 0),
-          ),
-        ],
-      ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.only(bottom: 30),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xff007bff), Color(0xff0056b3)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: const Column(
-                children: [
-                  Text(
-                    '🏫 SMS',
-                    style: TextStyle(
-                      fontSize: 24,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'School Management System',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white70,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            _buildNavItem('📊', 'Dashboard', 0),
-            _buildNavItem('🏫', 'School Overview', 1),
-            _buildNavItem('👥', 'Students', 2),
-            _buildNavItem('👨‍🏫', 'Teachers', 3),
-            _buildNavItem('🚌', 'Buses', 4),
-            _buildNavItem('📊', 'Attendance', 5),
-            _buildNavItem('📈', 'Reports', 6),
-            _buildNavItem('⚙️', 'Settings', 7),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(String icon, String title, int index) {
-    final bool isActive = _currentSidebarIndex == index;
-    final bool isHovered = _hoveredSidebarIndex == index;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hoveredSidebarIndex = index),
-        onExit: (_) => setState(() => _hoveredSidebarIndex = null),
-        child: InkWell(
-          splashColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          onTap: () {
-            setState(() {
-              _currentSidebarIndex = index;
-              _currentView = ContentView.overview; // Reset view on nav change
-            });
-            // Close drawer on mobile
-            if (Scaffold.of(context).hasDrawer) {
-              Navigator.of(context).pop();
-            }
-            // Show navigation feedback
-            final titles = ['Dashboard', 'School Overview', 'Students', 'Teachers', 'Buses', 'Attendance', 'Reports', 'Settings'];
-            if (index < titles.length) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Navigated to ${titles[index]}'),
-                  duration: const Duration(seconds: 1),
-                ),
-              );
-            }
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
-            transform: Matrix4.identity()
-              ..translate(isHovered ? 5.0 : 0.0, 0.0),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-            decoration: BoxDecoration(
-              color: isActive ? null : const Color(0xfff8f9fa),
-              gradient: isActive || isHovered
-                  ? const LinearGradient(
-                      colors: [Color(0xff007bff), Color(0xff0056b3)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    )
-                  : null,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isActive || isHovered
-                    ? const Color(0xff007bff)
-                    : const Color(0xffe9ecef),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  icon,
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: isActive || isHovered
-                        ? Colors.white
-                        : const Color(0xff333333),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: isActive || isHovered
-                        ? Colors.white
-                        : const Color(0xff333333),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildHeader() {
     return Container(
@@ -620,13 +482,11 @@ class _SchoolDashboardState extends State<SchoolDashboard> {
               ElevatedButton.icon(
                 onPressed: () {
                   // Navigate back to schools list
-                  if (Navigator.of(context).canPop()) {
-                    Navigator.of(context).pop();
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Navigating to Schools List')),
-                    );
-                  }
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => const schools.AdminDashboard(),
+                    ),
+                  );
                 },
                 icon: const Icon(Icons.school, size: 16),
                 label: const Text('Back to Schools'),
@@ -907,6 +767,7 @@ class _SchoolDashboardState extends State<SchoolDashboard> {
           const SizedBox(height: 20),
           Expanded(
             child: ListView.builder(
+              shrinkWrap: true,
               itemCount: items.length < 5
                   ? items.length
                   : 5, // Show max 5 on overview
@@ -1054,43 +915,51 @@ class _SchoolDashboardState extends State<SchoolDashboard> {
   }
 
   Widget _buildManagementSections() {
-    return GridView.count(
-      crossAxisCount: MediaQuery.of(context).size.width >= 1200 ? 2 : 1,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 20,
-      mainAxisSpacing: 20,
-      childAspectRatio: MediaQuery.of(context).size.width >= 1200 ? 1.2 : 1.5,
-      children: [
-        _buildSection(
-          '👥',
-          'Recent Students',
-          mockStudents,
-          (student) => '${(student).grade} • Section ${(student).section}',
-          ContentView.detailStudents,
-        ),
-        _buildSection(
-          '👨‍🏫',
-          'Recent Teachers',
-          mockTeachers,
-          (teacher) => (teacher).subject,
-          ContentView.detailTeachers,
-        ),
-        _buildSection(
-          '🚌',
-          'Bus Routes',
-          mockBuses,
-          (bus) => '${(bus).driver} • ${(bus).route}',
-          ContentView.detailBuses,
-        ),
-        _buildSection(
-          '📊',
-          'Quick Reports',
-          mockReports,
-          (report) => '${(report).type} • ${(report).date}',
-          ContentView.detailReports,
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 1200;
+        final crossAxisCount = isWide ? 2 : 1;
+        final childAspectRatio = isWide ? 1.2 : 1.5;
+        
+        return GridView.count(
+          crossAxisCount: crossAxisCount,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 20,
+          mainAxisSpacing: 20,
+          childAspectRatio: childAspectRatio,
+          children: [
+            _buildSection(
+              '👥',
+              'Recent Students',
+              mockStudents,
+              (student) => '${(student).grade} • Section ${(student).section}',
+              ContentView.detailStudents,
+            ),
+            _buildSection(
+              '👨‍🏫',
+              'Recent Teachers',
+              mockTeachers,
+              (teacher) => (teacher).subject,
+              ContentView.detailTeachers,
+            ),
+            _buildSection(
+              '🚌',
+              'Bus Routes',
+              mockBuses,
+              (bus) => '${(bus).driver} • ${(bus).route}',
+              ContentView.detailBuses,
+            ),
+            _buildSection(
+              '📊',
+              'Quick Reports',
+              mockReports,
+              (report) => '${(report).type} • ${(report).date}',
+              ContentView.detailReports,
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -1199,76 +1068,47 @@ class _SchoolDashboardState extends State<SchoolDashboard> {
 
     Widget currentContent;
 
-    // First check the sidebar index
-    if (_currentSidebarIndex != 1) {
-      switch (_currentSidebarIndex) {
-        case 0:
-          currentContent = _buildPlaceholderContent('Dashboard');
-          break;
-        case 2:
-          currentContent = _buildPlaceholderContent('Students');
-          break;
-        case 3:
-          currentContent = _buildPlaceholderContent('Teachers');
-          break;
-        case 4:
-          currentContent = _buildPlaceholderContent('Buses');
-          break;
-        case 5:
-          currentContent = _buildPlaceholderContent('Attendance');
-          break;
-        case 6:
-          currentContent = _buildPlaceholderContent('Reports');
-          break;
-        case 7:
-          currentContent = _buildPlaceholderContent('Settings');
-          break;
-        default:
-          currentContent = _buildSchoolOverviewContent();
-      }
-    } else {
-      // If sidebar is School Overview, check the sub-view state
-      switch (_currentView) {
-        case ContentView.overview:
-          currentContent = _buildSchoolOverviewContent();
-          break;
-        case ContentView.detailStudents:
-          currentContent = _buildDetailView<Student>(
-            'Students',
-            mockStudents,
-            (s) => '${s.grade} • Section ${s.section}',
-            (s) => s.name,
-            (s) => s.photo,
-          );
-          break;
-        case ContentView.detailTeachers:
-          currentContent = _buildDetailView<Teacher>(
-            'Teachers',
-            mockTeachers,
-            (t) => t.subject,
-            (t) => t.name,
-            (t) => t.photo,
-          );
-          break;
-        case ContentView.detailBuses:
-          currentContent = _buildDetailView<Bus>(
-            'Buses',
-            mockBuses,
-            (b) => '${b.driver} • ${b.route}',
-            (b) => b.number,
-            (b) => b.photo,
-          );
-          break;
-        case ContentView.detailReports:
-          currentContent = _buildDetailView<Report>(
-            'Reports',
-            mockReports,
-            (r) => '${r.type} • ${r.date}',
-            (r) => r.title,
-            (r) => r.photo,
-          );
-          break;
-      }
+    // Check the sub-view state
+    switch (_currentView) {
+      case ContentView.overview:
+        currentContent = _buildSchoolOverviewContent();
+        break;
+      case ContentView.detailStudents:
+        currentContent = _buildDetailView<Student>(
+          'Students',
+          mockStudents,
+          (s) => '${s.grade} • Section ${s.section}',
+          (s) => s.name,
+          (s) => s.photo,
+        );
+        break;
+      case ContentView.detailTeachers:
+        currentContent = _buildDetailView<Teacher>(
+          'Teachers',
+          mockTeachers,
+          (t) => t.subject,
+          (t) => t.name,
+          (t) => t.photo,
+        );
+        break;
+      case ContentView.detailBuses:
+        currentContent = _buildDetailView<Bus>(
+          'Buses',
+          mockBuses,
+          (b) => '${b.driver} • ${b.route}',
+          (b) => b.number,
+          (b) => b.photo,
+        );
+        break;
+      case ContentView.detailReports:
+        currentContent = _buildDetailView<Report>(
+          'Reports',
+          mockReports,
+          (r) => '${r.type} • ${r.date}',
+          (r) => r.title,
+          (r) => r.photo,
+        );
+        break;
     }
 
     Widget mainContent = Padding(
@@ -1291,12 +1131,305 @@ class _SchoolDashboardState extends State<SchoolDashboard> {
       body: isDesktop
           ? Row(
               children: [
-                _buildSidebar(),
+                const UnifiedSidebar(initialActiveSection: 'school_management'),
                 Expanded(child: mainContent),
               ],
             )
           : mainContent,
-      drawer: isDesktop ? null : Drawer(child: _buildSidebar()),
+      drawer: isDesktop ? null : const Drawer(child: UnifiedSidebar(initialActiveSection: 'school_management')),
+    );
+  }
+}
+
+// Unified Sidebar (same as main.dart)
+class UnifiedSidebar extends StatefulWidget {
+  final String initialActiveSection;
+  
+  const UnifiedSidebar({
+    super.key,
+    this.initialActiveSection = 'overview',
+  });
+
+  @override
+  State<UnifiedSidebar> createState() => _UnifiedSidebarState();
+}
+
+class _UnifiedSidebarState extends State<UnifiedSidebar> {
+  late String activeSection;
+  
+  @override
+  void initState() {
+    super.initState();
+    activeSection = widget.initialActiveSection;
+  }
+
+  void navigateTo(String section) {
+    setState(() {
+      activeSection = section;
+    });
+    
+    // Close drawer on mobile
+    if (Scaffold.of(context).hasDrawer) {
+      Navigator.of(context).pop();
+    }
+    
+    // Navigate to the corresponding screen
+    Widget? targetScreen;
+    switch (section) {
+      case 'overview':
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const main_dashboard.AdminDashboardScreen()),
+          (route) => false,
+        );
+        return;
+      case 'schools':
+        targetScreen = const schools.AdminDashboard();
+        break;
+      case 'revenue':
+        targetScreen = const revenue.RevenueDashboard();
+        break;
+      case 'licenses':
+      case 'school_management':
+        targetScreen = const SchoolDashboard();
+        break;
+      case 'billing':
+        targetScreen = const billing.BillingDashboard();
+        break;
+      case 'reports':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Reports page coming soon')),
+        );
+        return;
+      case 'settings':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Settings page coming soon')),
+        );
+        return;
+    }
+    
+    // Navigate to the target screen
+    if (targetScreen != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => targetScreen!),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 280,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(right: BorderSide(color: Color(0xFFe9ecef))),
+        boxShadow: [
+          BoxShadow(
+            color: Color.fromRGBO(0, 0, 0, 0.1),
+            offset: Offset(2, 0),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Logo - Fixed at top
+          Container(
+            margin: const EdgeInsets.only(bottom: 20),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF007bff), Color(0xFF0056b3)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  '🏫 SMS',
+                  style: GoogleFonts.inter(
+                    fontSize: 24,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                const Text(
+                  'School Management System',
+                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          // Nav Menu - Scrollable
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  UnifiedSidebarNavItem(
+                    icon: '📊',
+                    title: 'Overview',
+                    isActive: activeSection == 'overview',
+                    onTap: () => navigateTo('overview'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '🏫',
+                    title: 'Schools',
+                    isActive: activeSection == 'schools',
+                    onTap: () => navigateTo('schools'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '➕',
+                    title: 'Add School',
+                    isActive: activeSection == 'add_school',
+                    onTap: () async {
+                      setState(() {
+                        activeSection = 'add_school';
+                      });
+                      if (Scaffold.of(context).hasDrawer) {
+                        Navigator.of(context).pop();
+                      }
+                      final result = await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const add_school.AddSchoolScreen(),
+                        ),
+                      );
+                      if (result == true) {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(
+                            builder: (context) => const schools.AdminDashboard(refreshOnMount: true),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '📋',
+                    title: 'Licenses',
+                    isActive: activeSection == 'licenses',
+                    onTap: () => navigateTo('licenses'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '💰',
+                    title: 'Revenue',
+                    isActive: activeSection == 'revenue',
+                    onTap: () => navigateTo('revenue'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '💳',
+                    title: 'Billing',
+                    isActive: activeSection == 'billing',
+                    onTap: () => navigateTo('billing'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '📈',
+                    title: 'Reports',
+                    isActive: activeSection == 'reports',
+                    onTap: () => navigateTo('reports'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '⚙️',
+                    title: 'Settings',
+                    isActive: activeSection == 'settings',
+                    onTap: () => navigateTo('settings'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class UnifiedSidebarNavItem extends StatefulWidget {
+  final String icon;
+  final String title;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const UnifiedSidebarNavItem({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  State<UnifiedSidebarNavItem> createState() => _UnifiedSidebarNavItemState();
+}
+
+class _UnifiedSidebarNavItemState extends State<UnifiedSidebarNavItem> {
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    const primaryColor = Color(0xFF007bff);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10.0),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovering = true),
+        onExit: (_) => setState(() => _isHovering = false),
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+            decoration: BoxDecoration(
+              color: widget.isActive
+                  ? primaryColor
+                  : (_isHovering
+                        ? const Color(0xFFe9ecef)
+                        : const Color(0xFFf8f9fa)),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: widget.isActive
+                    ? primaryColor
+                    : (_isHovering
+                          ? const Color(0xFFced4da)
+                          : const Color(0xFFe9ecef)),
+                width: 1,
+              ),
+              gradient: widget.isActive
+                  ? const LinearGradient(
+                      colors: [primaryColor, Color(0xFF0056b3)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : null,
+            ),
+            child: Row(
+              children: [
+                Text(
+                  widget.icon,
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: widget.isActive ? Colors.white : Colors.black,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  widget.title,
+                  style: TextStyle(
+                    color: widget.isActive
+                        ? Colors.white
+                        : const Color(0xFF333333),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

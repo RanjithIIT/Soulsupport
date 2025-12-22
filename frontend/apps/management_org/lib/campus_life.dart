@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:main_login/main.dart' as main_login;
+import 'main.dart' as app;
 import 'dashboard.dart';
 
 void main() {
@@ -557,102 +558,21 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
   @override
   Widget build(BuildContext context) {
     final stats = _getStats();
-    final gradient = const LinearGradient(
-      colors: [primaryColorLight, primaryColorDark],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
 
     return Scaffold(
       body: Row(
         children: [
           // --- SIDEBAR ---
-          Container(
-            width: 250,
-            decoration: BoxDecoration(
-              gradient: gradient,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 20,
-                  offset: const Offset(2, 0),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: Column(
-                children: [
-                  // Logo / Branding Area
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Container(
-                      padding: const EdgeInsets.all(15),
-                      decoration: BoxDecoration(
-                        gradient: gradient,
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: Colors.white24, width: 0.5),
-                      ),
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            'School Management',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          Text(
-                            'Management Portal',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  // Navigation Items
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      children: [
-                        _NavItem(
-                            icon: '📊', title: 'Dashboard', onTap: () => Navigator.pushReplacementNamed(context, '/dashboard')),
-                        _NavItem(
-                            icon: '👨‍🏫', title: 'Teachers', onTap: () => Navigator.pushReplacementNamed(context, '/teachers')),
-                        _NavItem(
-                            icon: '👥', title: 'Students', onTap: () => Navigator.pushReplacementNamed(context, '/students')),
-                        _NavItem(icon: '🚌', title: 'Buses', onTap: () => Navigator.pushReplacementNamed(context, '/buses')),
-                        _NavItem(icon: '🎯', title: 'Activities', onTap: () => Navigator.pushReplacementNamed(context, '/activities')),
-                        _NavItem(icon: '📅', title: 'Events', onTap: () => Navigator.pushReplacementNamed(context, '/events')),
-                        _NavItem(icon: '🏆', title: 'Awards', onTap: () => Navigator.pushReplacementNamed(context, '/awards')),
-                        _NavItem(icon: '📸', title: 'Gallery', onTap: () => Navigator.pushReplacementNamed(context, '/gallery')),
-                        _NavItem(icon: '🎓', title: 'Admissions', onTap: () => Navigator.pushReplacementNamed(context, '/admissions')),
-                        _NavItem(
-                            icon: '🏫',
-                            title: 'Campus Life',
-                            isActive: true,
-                            onTap: () {}),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          _buildSidebar(),
           // --- MAIN CONTENT AREA ---
           Expanded(
-            child: Column(
-              children: [
-                // --- TOP HEADER ---
-                Container(
-                  color: Colors.white,
+            child: Container(
+              color: const Color(0xFFF5F6FA),
+              child: Column(
+                children: [
+                  // --- TOP HEADER ---
+                  Container(
+                    color: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -752,8 +672,138 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
                 ),
               ],
             ),
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSidebar() {
+    final gradient = const LinearGradient(
+      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+
+    // Safe navigation helper for sidebar
+    void _navigateToRoute(String route) {
+      final navigator = app.SchoolManagementApp.navigatorKey.currentState;
+      if (navigator != null) {
+        if (navigator.canPop() || route != '/dashboard') {
+          navigator.pushReplacementNamed(route);
+        } else {
+          navigator.pushNamed(route);
+        }
+      }
+    }
+
+    return Container(
+      width: 280,
+      decoration: BoxDecoration(
+        gradient: gradient,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(2, 0),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.24),
+                  width: 1,
+                ),
+              ),
+              child: const Column(
+                children: [
+                  Text(
+                    '🏫 SMS',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 5),
+                  Text(
+                    'School Management System',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _NavItem(
+                    icon: '📊',
+                    title: 'Overview',
+                    isActive: false,
+                    onTap: () => _navigateToRoute('/dashboard'),
+                  ),
+                  _NavItem(
+                    icon: '👨‍🏫',
+                    title: 'Teachers',
+                    onTap: () => _navigateToRoute('/teachers'),
+                  ),
+                  _NavItem(
+                    icon: '👥',
+                    title: 'Students',
+                    onTap: () => _navigateToRoute('/students'),
+                  ),
+                  _NavItem(
+                    icon: '🚌',
+                    title: 'Buses',
+                    onTap: () => _navigateToRoute('/buses'),
+                  ),
+                  _NavItem(
+                    icon: '🎯',
+                    title: 'Activities',
+                    onTap: () => _navigateToRoute('/activities'),
+                  ),
+                  _NavItem(
+                    icon: '📅',
+                    title: 'Events',
+                    onTap: () => _navigateToRoute('/events'),
+                  ),
+                  _NavItem(
+                    icon: '📆',
+                    title: 'Calendar',
+                    onTap: () => _navigateToRoute('/calendar'),
+                  ),
+                  _NavItem(
+                    icon: '🔔',
+                    title: 'Notifications',
+                    onTap: () => _navigateToRoute('/notifications'),
+                  ),
+                  _NavItem(
+                    icon: '🛣️',
+                    title: 'Bus Routes',
+                    onTap: () => _navigateToRoute('/bus-routes'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -931,7 +981,7 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
 // --- Reusable Component Widgets (Consolidated and Renamed) ---
 
 // Nav Item (from V2)
-class _NavItem extends StatefulWidget {
+class _NavItem extends StatelessWidget {
   final String icon;
   final String title;
   final VoidCallback? onTap;
@@ -945,10 +995,55 @@ class _NavItem extends StatefulWidget {
   });
 
   @override
-  State<_NavItem> createState() => _NavItemState();
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: isActive
+            ? Colors.white.withValues(alpha: 0.3)
+            : Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        leading: Text(
+          icon,
+          style: const TextStyle(fontSize: 18),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            fontSize: 14,
+          ),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        onTap: onTap,
+      ),
+    );
+  }
 }
 
-class _NavItemState extends State<_NavItem> {
+class _NavItemOld extends StatefulWidget {
+  final String icon;
+  final String title;
+  final VoidCallback? onTap;
+  final bool isActive;
+
+  const _NavItemOld({
+    required this.icon,
+    required this.title,
+    this.onTap,
+    this.isActive = false,
+  });
+
+  @override
+  State<_NavItemOld> createState() => _NavItemOldState();
+}
+
+class _NavItemOldState extends State<_NavItemOld> {
   bool _isHovered = false;
 
   @override

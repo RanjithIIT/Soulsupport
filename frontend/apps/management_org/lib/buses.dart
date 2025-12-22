@@ -1,10 +1,15 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'main.dart' as app;
 import 'dashboard.dart';
 import 'widgets/student_list_dialog.dart';
+import 'widgets/school_profile_header.dart';
 import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
+import 'unified_bus_form.dart';
+import 'models/bus_details_model.dart';
+import 'widgets/bus_details_view.dart';
 
 class BusStop {
   final String name;
@@ -19,7 +24,7 @@ class BusStop {
 }
 
 class Bus {
-  final int id;
+  final String id; // Changed to String to store UUID
   final String busNumber;
   final String driverName;
   final String driverPhone;
@@ -58,95 +63,118 @@ class BusesManagementPage extends StatefulWidget {
 }
 
 class _BusesManagementPageState extends State<BusesManagementPage> {
-  final List<Bus> _buses = [
-    Bus(
-      id: 1,
-      busNumber: 'BUS-001',
-      driverName: 'John Smith',
-      driverPhone: '+1-555-0301',
-      route: 'Downtown Route',
-      stops: 8,
-      students: 25,
-      capacity: 45,
-      licensePlate: 'ABC-123',
-      model: '2020 Blue Bird',
-      status: 'Active',
-      routeStops: const [
-        BusStop(name: 'Central Station', time: '07:00 AM', students: 5),
-        BusStop(name: 'Downtown Mall', time: '07:15 AM', students: 8),
-        BusStop(name: 'City Park', time: '07:25 AM', students: 6),
-        BusStop(name: 'Library', time: '07:35 AM', students: 4),
-        BusStop(name: 'School', time: '07:45 AM', students: 2),
-      ],
-      returnStops: const [
-        BusStop(name: 'School', time: '02:30 PM', students: 2),
-        BusStop(name: 'Library', time: '02:40 PM', students: 4),
-        BusStop(name: 'City Park', time: '02:50 PM', students: 6),
-        BusStop(name: 'Downtown Mall', time: '03:00 PM', students: 8),
-        BusStop(name: 'Central Station', time: '03:15 PM', students: 5),
-      ],
-    ),
-    Bus(
-      id: 2,
-      busNumber: 'BUS-002',
-      driverName: 'Mike Johnson',
-      driverPhone: '+1-555-0302',
-      route: 'Northside Route',
-      stops: 6,
-      students: 20,
-      capacity: 40,
-      licensePlate: 'DEF-456',
-      model: '2019 Thomas',
-      status: 'Active',
-      routeStops: const [
-        BusStop(name: 'North Terminal', time: '07:10 AM', students: 4),
-        BusStop(name: 'Shopping Center', time: '07:20 AM', students: 7),
-        BusStop(name: 'Residential Area', time: '07:30 AM', students: 6),
-        BusStop(name: 'School', time: '07:40 AM', students: 3),
-      ],
-      returnStops: const [
-        BusStop(name: 'School', time: '02:30 PM', students: 3),
-        BusStop(name: 'Residential Area', time: '02:40 PM', students: 6),
-        BusStop(name: 'Shopping Center', time: '02:50 PM', students: 7),
-        BusStop(name: 'North Terminal', time: '03:00 PM', students: 4),
-      ],
-    ),
-    Bus(
-      id: 3,
-      busNumber: 'BUS-003',
-      driverName: 'David Wilson',
-      driverPhone: '+1-555-0303',
-      route: 'Eastside Route',
-      stops: 10,
-      students: 30,
-      capacity: 50,
-      licensePlate: 'GHI-789',
-      model: '2021 IC Bus',
-      status: 'Active',
-      routeStops: const [
-        BusStop(name: 'East Station', time: '07:05 AM', students: 6),
-        BusStop(name: 'Industrial Area', time: '07:15 AM', students: 4),
-        BusStop(name: 'Business District', time: '07:25 AM', students: 8),
-        BusStop(name: 'Residential Complex', time: '07:35 AM', students: 7),
-        BusStop(name: 'School', time: '07:45 AM', students: 5),
-      ],
-      returnStops: const [
-        BusStop(name: 'School', time: '02:30 PM', students: 5),
-        BusStop(name: 'Residential Complex', time: '02:40 PM', students: 7),
-        BusStop(name: 'Business District', time: '02:50 PM', students: 8),
-        BusStop(name: 'Industrial Area', time: '03:00 PM', students: 4),
-        BusStop(name: 'East Station', time: '03:10 PM', students: 6),
-      ],
-    ),
-  ];
-
+  List<Bus> _buses = [];
   final TextEditingController _searchController = TextEditingController();
   late List<Bus> _visibleBuses;
+  bool _isLoading = true;
+  String? _errorMessage;
+  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
     super.initState();
-    _visibleBuses = List<Bus>.from(_buses);
+    _visibleBuses = [];
+    _loadBuses();
+  }
+
+  Future<void> _loadBuses() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await _apiService.initialize();
+      final response = await _apiService.get(Endpoints.buses);
+
+      if (!response.success) {
+        throw Exception(response.error ?? 'Failed to load buses');
+      }
+
+      List<dynamic> busesData = [];
+      if (response.data is List) {
+        busesData = response.data as List;
+      } else if (response.data is Map && (response.data as Map)['results'] != null) {
+        busesData = (response.data as Map)['results'] as List;
+      }
+
+      List<Bus> loadedBuses = [];
+      for (var busData in busesData) {
+        final busMap = busData as Map<String, dynamic>;
+        final busId = busMap['bus_number']?.toString() ?? busMap['bus_id']?.toString() ?? busMap['id']?.toString();
+        
+        if (busId == null || busId.isEmpty) continue;
+
+        // Fetch complete bus details with stops and students
+        final detailResponse = await _apiService.get('${Endpoints.buses}$busId/');
+        
+        if (!detailResponse.success || detailResponse.data is! Map) {
+          // Fallback to basic data if detail fetch fails
+          final bus = Bus(
+            id: busId,
+            busNumber: busMap['bus_number'] ?? '',
+            driverName: busMap['driver_name'] ?? '',
+            driverPhone: busMap['driver_phone'] ?? '',
+            route: busMap['route_name'] ?? '',
+            stops: 0,
+            students: 0,
+            capacity: (busMap['capacity'] as num?)?.toInt() ?? 0,
+            licensePlate: busMap['registration_number'] ?? '',
+            model: busMap['bus_type'] ?? '',
+            status: (busMap['is_active'] as bool? ?? false) ? 'Active' : 'Inactive',
+            routeStops: [],
+            returnStops: [],
+          );
+          loadedBuses.add(bus);
+          continue;
+        }
+
+        // Parse complete bus details
+        final busDetails = BusDetails.fromJson(detailResponse.data as Map<String, dynamic>);
+        
+        // Convert to Bus model for compatibility with existing UI
+        final bus = Bus(
+          id: busId,
+          busNumber: busDetails.busNumber,
+          driverName: busDetails.driverName,
+          driverPhone: busDetails.driverPhone,
+          route: busDetails.routeName,
+          stops: busDetails.totalStops,
+          students: busDetails.totalStudents,
+          capacity: busDetails.capacity,
+          licensePlate: busDetails.registrationNumber,
+          model: busDetails.busType,
+          status: busDetails.isActive ? 'Active' : 'Inactive',
+          routeStops: busDetails.morningStops.map((stop) => BusStop(
+            name: stop.stopName,
+            time: stop.stopTime ?? '00:00',
+            students: stop.students.length,
+          )).toList(),
+          returnStops: busDetails.afternoonStops.map((stop) => BusStop(
+            name: stop.stopName,
+            time: stop.stopTime ?? '00:00',
+            students: stop.students.length,
+          )).toList(),
+        );
+        
+        loadedBuses.add(bus);
+      }
+
+      if (mounted) {
+        setState(() {
+          _buses = loadedBuses;
+          _visibleBuses = List<Bus>.from(loadedBuses);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Error loading buses: ${e.toString()}';
+        });
+      }
+    }
   }
 
   @override
@@ -175,142 +203,101 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
     });
   }
 
-  void _viewBus(Bus bus) {
-    showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 900),
-            padding: const EdgeInsets.all(30),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${bus.busNumber} - Bus Details',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF333333),
+  void _viewBus(Bus bus) async {
+    try {
+      await _apiService.initialize();
+      final response = await _apiService.get('${Endpoints.buses}${bus.id}/');
+      
+      if (!response.success || response.data is! Map) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to load bus details')),
+          );
+        }
+        return;
+      }
+
+      final busDetails = BusDetails.fromJson(response.data as Map<String, dynamic>);
+
+      if (mounted) {
+        showDialog<void>(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 1000, maxHeight: 800),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                        ),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(15),
+                          topRight: Radius.circular(15),
                         ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Color(0xFFAAAAAA)),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isCompact = constraints.maxWidth < 600;
-                      if (isCompact) {
-                        return Column(
-                          children: [
-                            _buildProfileImage(bus),
-                            const SizedBox(height: 20),
-                            _buildProfileDetails(bus),
-                            const SizedBox(height: 20),
-                            _buildRouteMap(
-                              'Morning Route (Pickup)',
-                              bus.routeStops,
-                              busId: bus.id.toString(),
-                              routeType: 'morning',
-                            ),
-                            const SizedBox(height: 20),
-                            _buildRouteMap(
-                              'Afternoon Route (Drop-off)',
-                              bus.returnStops,
-                              busId: bus.id.toString(),
-                              routeType: 'afternoon',
-                            ),
-                          ],
-                        );
-                      }
-                      return Column(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          Text(
+                            '${bus.busNumber} - Complete Details',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
                           Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildProfileImage(bus),
-                              const SizedBox(width: 30),
-                              Expanded(child: _buildProfileDetails(bus)),
+                              IconButton(
+                                icon: const Icon(Icons.edit, color: Colors.white),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                  _editBus(bus);
+                                },
+                                tooltip: 'Edit Bus',
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.people, color: Colors.white),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                  _manageStudents(bus);
+                                },
+                                tooltip: 'Manage Students',
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close, color: Colors.white),
+                                onPressed: () => Navigator.of(context).pop(),
+                              ),
                             ],
                           ),
-                          const SizedBox(height: 20),
-                          _buildRouteMap(
-                            'Morning Route (Pickup)',
-                            bus.routeStops,
-                            busId: bus.id.toString(),
-                            routeType: 'morning',
-                          ),
-                          const SizedBox(height: 20),
-                          _buildRouteMap(
-                            'Afternoon Route (Drop-off)',
-                            bus.returnStops,
-                            busId: bus.id.toString(),
-                            routeType: 'afternoon',
-                          ),
                         ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 30),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF667EEA),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 12,
-                          ),
-                        ),
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          _editBus(bus);
-                        },
-                        child: const Text('Edit Bus'),
                       ),
-                      const SizedBox(width: 10),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF6C757D),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 12,
-                          ),
-                        ),
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Close'),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                    Expanded(
+                      child: BusDetailsView(busDetails: busDetails),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
-      },
-    );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading bus details: $e')),
+        );
+      }
+    }
   }
 
   Widget _buildProfileImage(Bus bus) {
@@ -606,8 +593,39 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
     }
   }
 
-  void _editBus(Bus bus) {
-    Navigator.pushNamed(context, '/edit-bus', arguments: bus.id);
+  Future<void> _editBus(Bus bus) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => UnifiedBusFormDialog(
+        bus: bus,
+        onSave: () {
+          _loadBuses();
+        },
+      ),
+    );
+    
+    // Show success message and refresh list after dialog closes
+    if (result == true && mounted) {
+      _loadBuses();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bus updated successfully!'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _manageStudents(Bus bus) async {
+    showDialog(
+      context: context,
+      builder: (context) => _StudentManagementDialog(
+        bus: bus,
+        apiService: _apiService,
+        onRefresh: () => _loadBuses(),
+      ),
+    );
   }
 
   void _deleteBus(Bus bus) {
@@ -623,15 +641,33 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
-                setState(() {
-                  _buses.removeWhere((b) => b.id == bus.id);
-                });
-                _filterBuses(_searchController.text);
+              onPressed: () async {
                 Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Bus deleted successfully!')),
-                );
+                try {
+                  await _apiService.initialize();
+                  final response = await _apiService.delete('${Endpoints.buses}${bus.id}/');
+                  
+                  if (response.success) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Bus deleted successfully!')),
+                      );
+                      _loadBuses(); // Refresh the list
+                    }
+                  } else {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error deleting bus: ${response.error ?? "Unknown error"}')),
+                      );
+                    }
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error deleting bus: ${e.toString()}')),
+                    );
+                  }
+                }
               },
               child: const Text(
                 'Delete',
@@ -644,8 +680,28 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
     );
   }
 
-  void _addBus() {
-    Navigator.pushNamed(context, '/add-new-bus');
+  Future<void> _addBus() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => UnifiedBusFormDialog(
+        bus: null,
+        onSave: () {
+          _loadBuses();
+        },
+      ),
+    );
+    
+    // Show success message and refresh list after dialog closes
+    if (result == true && mounted) {
+      _loadBuses();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bus created successfully!'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
@@ -666,7 +722,12 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
             if (isCompact) {
               return Column(
                 children: [
-                  Expanded(child: _buildMainContent(isMobile: true)),
+                  Expanded(
+                    child: Container(
+                      color: const Color(0xFFF5F6FA),
+                      child: _buildMainContent(isMobile: true),
+                    ),
+                  ),
                 ],
               );
             }
@@ -675,7 +736,12 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(width: 280, child: _buildSidebar()),
-                Expanded(child: _buildMainContent(isMobile: false)),
+                Expanded(
+                  child: Container(
+                    color: const Color(0xFFF5F6FA),
+                    child: _buildMainContent(isMobile: false),
+                  ),
+                ),
               ],
             );
           },
@@ -685,71 +751,131 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
   }
 
   Widget _buildSidebar() {
-    const navItems = [
-      {'icon': '📊', 'label': 'Dashboard'},
-      {'icon': '👨‍🏫', 'label': 'Teachers'},
-      {'icon': '👥', 'label': 'Students'},
-      {'icon': '🚌', 'label': 'Buses'},
-      {'icon': '🎯', 'label': 'Activities'},
-      {'icon': '📅', 'label': 'Events'},
-    ];
+    final gradient = const LinearGradient(
+      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
 
-    return GlassContainer(
-      padding: const EdgeInsets.all(20),
-      drawRightBorder: true,
-      borderRadius: 0,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            margin: const EdgeInsets.only(bottom: 30),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-              ),
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Column(
-              children: const [
-                Text(
-                  '🏫 SMS',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 5),
-                Text(
-                  'School Management System',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-              ],
-            ),
+    // Safe navigation helper for sidebar
+    void _navigateToRoute(String route) {
+      final navigator = app.SchoolManagementApp.navigatorKey.currentState;
+      if (navigator != null) {
+        if (navigator.canPop() || route != '/dashboard') {
+          navigator.pushReplacementNamed(route);
+        } else {
+          navigator.pushNamed(route);
+        }
+      }
+    }
+
+    return Container(
+      width: 280,
+      decoration: BoxDecoration(
+        gradient: gradient,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(2, 0),
           ),
-          for (final item in navItems)
-            _NavTile(
-              icon: item['icon']!,
-              label: item['label']!,
-              isActive: item['label'] == 'Buses',
-              onTap: () {
-                final routeMap = {
-                  'Dashboard': '/dashboard',
-                  'Teachers': '/teachers',
-                  'Students': '/students',
-                  'Buses': '/buses',
-                  'Activities': '/activities',
-                  'Events': '/events',
-                };
-                final route = routeMap[item['label']];
-                if (route != null) {
-                  Navigator.pushReplacementNamed(context, route);
-                }
-              },
-            ),
         ],
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.24),
+                  width: 1,
+                ),
+              ),
+              child: const Column(
+                children: [
+                  Text(
+                    '🏫 SMS',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 5),
+                  Text(
+                    'School Management System',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _NavItem(
+                    icon: '📊',
+                    title: 'Overview',
+                    isActive: false,
+                    onTap: () => _navigateToRoute('/dashboard'),
+                  ),
+                  _NavItem(
+                    icon: '👨‍🏫',
+                    title: 'Teachers',
+                    onTap: () => _navigateToRoute('/teachers'),
+                  ),
+                  _NavItem(
+                    icon: '👥',
+                    title: 'Students',
+                    onTap: () => _navigateToRoute('/students'),
+                  ),
+                  _NavItem(
+                    icon: '🚌',
+                    title: 'Buses',
+                    isActive: true,
+                    onTap: () => _navigateToRoute('/buses'),
+                  ),
+                  _NavItem(
+                    icon: '🎯',
+                    title: 'Activities',
+                    onTap: () => _navigateToRoute('/activities'),
+                  ),
+                  _NavItem(
+                    icon: '📅',
+                    title: 'Events',
+                    onTap: () => _navigateToRoute('/events'),
+                  ),
+                  _NavItem(
+                    icon: '📆',
+                    title: 'Calendar',
+                    onTap: () => _navigateToRoute('/calendar'),
+                  ),
+                  _NavItem(
+                    icon: '🔔',
+                    title: 'Notifications',
+                    onTap: () => _navigateToRoute('/notifications'),
+                  ),
+                  _NavItem(
+                    icon: '🛣️',
+                    title: 'Bus Routes',
+                    onTap: () => _navigateToRoute('/bus-routes'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -789,9 +915,7 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
               margin: const EdgeInsets.only(bottom: 20),
               child: Row(
                 children: [
-                  _buildUserAvatar(),
-                  const SizedBox(width: 15),
-                  Expanded(child: _buildUserLabels()),
+                  Expanded(child: SchoolProfileHeader(apiService: _apiService, isMobile: true)),
                   const Icon(Icons.arrow_back_ios_new, size: 16),
                 ],
               ),
@@ -925,22 +1049,69 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
               ],
             ),
           ),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final spacing = 20.0;
-              final cardWidth = (constraints.maxWidth - spacing) / 2;
-              return Wrap(
-                spacing: spacing,
-                runSpacing: spacing,
-                children: _visibleBuses.map((bus) {
-                  return SizedBox(
-                    width: cardWidth,
-                    child: _buildBusCard(bus),
-                  );
-                }).toList(),
-              );
-            },
-          ),
+          if (_isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(40.0),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (_errorMessage != null)
+            GlassContainer(
+              padding: const EdgeInsets.all(30),
+              child: Column(
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: Colors.red, fontSize: 16),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: _loadBuses,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          else if (_visibleBuses.isEmpty)
+            GlassContainer(
+              padding: const EdgeInsets.all(30),
+              child: Column(
+                children: [
+                  const Icon(Icons.directions_bus_outlined, size: 48, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'No buses found',
+                    style: TextStyle(color: Colors.grey, fontSize: 16),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: _addBus,
+                    child: const Text('Add First Bus'),
+                  ),
+                ],
+              ),
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final spacing = 20.0;
+                final cardWidth = (constraints.maxWidth - spacing) / 2;
+                return Wrap(
+                  spacing: spacing,
+                  runSpacing: spacing,
+                  children: _visibleBuses.map((bus) {
+                    return SizedBox(
+                      width: cardWidth,
+                      child: _buildBusCard(bus),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -956,52 +1127,7 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
   }
 
   Widget _buildUserInfo() {
-    return Row(
-      children: [
-        _buildUserAvatar(),
-        const SizedBox(width: 15),
-        _buildUserLabels(),
-      ],
-    );
-  }
-
-  Widget _buildUserAvatar() {
-    return Container(
-      width: 45,
-      height: 45,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-        ),
-      ),
-      child: const Center(
-        child: Text(
-          'M',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUserLabels() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
-        Text(
-          'Management User',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        Text(
-          'School Manager',
-          style: TextStyle(fontSize: 12, color: Colors.grey),
-        ),
-      ],
-    );
+    return SchoolProfileHeader(apiService: _apiService);
   }
 
   Widget _buildBackButton() {
@@ -1336,51 +1462,46 @@ class GlassContainer extends StatelessWidget {
   }
 }
 
-class _NavTile extends StatelessWidget {
+class _NavItem extends StatelessWidget {
   final String icon;
-  final String label;
+  final String title;
+  final VoidCallback? onTap;
   final bool isActive;
-  final VoidCallback onTap;
 
-  const _NavTile({
+  const _NavItem({
     required this.icon,
-    required this.label,
-    required this.isActive,
-    required this.onTap,
+    required this.title,
+    this.onTap,
+    this.isActive = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        onTap: onTap,
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: isActive
+            ? Colors.white.withValues(alpha: 0.3)
+            : Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            gradient: isActive
-                ? const LinearGradient(
-                    colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                  )
-                : null,
-            color: isActive ? null : Colors.white.withValues(alpha: 0.7),
-          ),
-          child: Row(
-            children: [
-              Text(icon, style: const TextStyle(fontSize: 18)),
-              const SizedBox(width: 12),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isActive ? Colors.white : const Color(0xFF333333),
-                  fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                ),
-              ),
-            ],
+      ),
+      child: ListTile(
+        leading: Text(
+          icon,
+          style: const TextStyle(fontSize: 18),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            fontSize: 14,
           ),
         ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        onTap: onTap,
       ),
     );
   }
@@ -1556,6 +1677,318 @@ class _DetailCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+
+// Student Management Dialog
+class _StudentManagementDialog extends StatefulWidget {
+  final Bus bus;
+  final ApiService apiService;
+  final VoidCallback onRefresh;
+
+  const _StudentManagementDialog({required this.bus, required this.apiService, required this.onRefresh});
+
+  @override
+  State<_StudentManagementDialog> createState() => _StudentManagementDialogState();
+}
+
+class _StudentManagementDialogState extends State<_StudentManagementDialog> {
+  List<Map<String, dynamic>> _morningStops = [];
+  List<Map<String, dynamic>> _afternoonStops = [];
+  bool _isLoading = true;
+  String? _selectedRouteType = 'morning';
+  String? _selectedStopId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStops();
+  }
+
+  Future<void> _loadStops() async {
+    setState(() { _isLoading = true; });
+    try {
+      await widget.apiService.initialize();
+      final response = await widget.apiService.get('${Endpoints.buses}${widget.bus.id}/');
+      if (response.success && response.data is Map) {
+        final busData = response.data as Map<String, dynamic>;
+        setState(() {
+          _morningStops = (busData['morning_stops'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+          _afternoonStops = (busData['afternoon_stops'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+          _isLoading = false;
+        });
+      } else {
+        setState(() { _isLoading = false; });
+      }
+    } catch (e) {
+      setState(() { _isLoading = false; });
+      // Error is handled by the UI state - no need for SnackBar in dialog context
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final stops = _selectedRouteType == 'morning' ? _morningStops : _afternoonStops;
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 800, maxHeight: 700),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Manage Students - ${widget.bus.busNumber}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+              ],
+            ),
+            const Divider(),
+            Row(
+              children: [
+                Expanded(
+                  child: SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'morning', label: Text('Morning Route'), icon: Icon(Icons.wb_sunny)),
+                      ButtonSegment(value: 'afternoon', label: Text('Afternoon Route'), icon: Icon(Icons.nightlight)),
+                    ],
+                    selected: {_selectedRouteType!},
+                    onSelectionChanged: (Set<String> newSelection) {
+                      setState(() {
+                        _selectedRouteType = newSelection.first;
+                        _selectedStopId = null;
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (stops.isNotEmpty)
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(labelText: 'Select Stop', border: OutlineInputBorder()),
+                value: _selectedStopId,
+                items: stops.map((stop) {
+                  final stopId = stop['stop_id']?.toString() ?? '';
+                  final stopName = stop['stop_name'] ?? 'Unknown';
+                  return DropdownMenuItem(value: stopId, child: Text(stopName));
+                }).toList(),
+                onChanged: (value) { setState(() { _selectedStopId = value; }); },
+              ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _selectedStopId == null
+                      ? const Center(child: Text('Please select a stop to manage students'))
+                      : _StudentListForStop(
+                          stopId: _selectedStopId!,
+                          stopName: stops.firstWhere((s) => (s['stop_id']?.toString() ?? '') == _selectedStopId, orElse: () => {'stop_name': 'Unknown'})['stop_name'] ?? 'Unknown',
+                          routeType: _selectedRouteType!,
+                          busId: widget.bus.id,
+                          apiService: widget.apiService,
+                        ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StudentListForStop extends StatefulWidget {
+  final String stopId; final String stopName; final String routeType; final String busId; final ApiService apiService;
+  const _StudentListForStop({required this.stopId, required this.stopName, required this.routeType, required this.busId, required this.apiService});
+  @override
+  State<_StudentListForStop> createState() => _StudentListForStopState();
+}
+
+class _StudentListForStopState extends State<_StudentListForStop> {
+  List<Map<String, dynamic>> _students = []; 
+  bool _isLoading = true;
+  String? _errorMessage;
+  
+  @override
+  void initState() { 
+    super.initState(); 
+    _loadStudents(); 
+  }
+  
+  @override
+  void didUpdateWidget(_StudentListForStop oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reload students if stopId changed
+    if (oldWidget.stopId != widget.stopId) {
+      _loadStudents();
+    }
+  }
+  
+  Future<void> _loadStudents() async {
+    if (widget.stopId.isEmpty) {
+      setState(() { 
+        _isLoading = false; 
+        _errorMessage = 'Invalid stop ID';
+      });
+      return;
+    }
+    
+    setState(() { 
+      _isLoading = true; 
+      _errorMessage = null;
+    });
+    
+    try {
+      await widget.apiService.initialize();
+      final url = '${Endpoints.busStops}${widget.stopId}/students/';
+      final response = await widget.apiService.get(url);
+      
+      if (response.success) {
+        if (response.data is List) {
+          setState(() { 
+            _students = (response.data as List).cast<Map<String, dynamic>>(); 
+            _isLoading = false; 
+          });
+        } else {
+          setState(() { 
+            _isLoading = false; 
+            _errorMessage = 'Unexpected response format';
+            _students = [];
+          });
+        }
+      } else {
+        setState(() { 
+          _isLoading = false; 
+          _errorMessage = response.error ?? 'Failed to load students';
+          _students = [];
+        });
+      }
+    } catch (e) { 
+      setState(() { 
+        _isLoading = false; 
+        _errorMessage = 'Error: $e';
+        _students = [];
+      });
+    }
+  }
+  Future<void> _addStudent() async {
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => StudentListDialog(
+          stopId: widget.stopId, stopName: widget.stopName, routeType: widget.routeType, busId: widget.busId, initialStudents: _students,
+        ),
+      ).then((_) => _loadStudents());
+    }
+  }
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Students at ${widget.stopName}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ElevatedButton.icon(
+              onPressed: _addStudent,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Add Student'),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF51CF66), foregroundColor: Colors.white),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _errorMessage != null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error_outline, color: Colors.red, size: 48),
+                          const SizedBox(height: 16),
+                          Text(
+                            _errorMessage!,
+                            style: const TextStyle(color: Colors.red),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadStudents,
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : _students.isEmpty
+                      ? const Center(child: Text('No students assigned to this stop'))
+                      : ListView.builder(
+                          shrinkWrap: false,
+                          itemCount: _students.length,
+                          itemBuilder: (context, index) {
+                            final student = _students[index];
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: ListTile(
+                                leading: CircleAvatar(child: Text((student['student_name'] ?? '?')[0].toUpperCase())),
+                                title: Text(student['student_name'] ?? 'Unknown'),
+                                subtitle: Text('ID: ${student['student_id_string'] ?? 'N/A'} • Class: ${student['student_class'] ?? 'N/A'}'),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () async {
+                                    try {
+                                      await widget.apiService.initialize();
+                                      final response = await widget.apiService.delete('${Endpoints.busStopStudents}${student['id']}/');
+                                      if (response.success) {
+                                        _loadStudents();
+                                        // Student list will refresh automatically - no need for SnackBar in dialog
+                                      } else {
+                                        // Show error in the UI if needed
+                                        if (mounted) {
+                                          showDialog(
+                                            context: context,
+                                            builder: (context) => AlertDialog(
+                                              title: const Text('Error'),
+                                              content: Text(response.error ?? 'Failed to remove student'),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.pop(context),
+                                                  child: const Text('OK'),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    } catch (e) {
+                                      if (mounted) {
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) => AlertDialog(
+                                            title: const Text('Error'),
+                                            content: Text('Error removing student: $e'),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(context),
+                                                child: const Text('OK'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+        ),
+      ],
     );
   }
 }

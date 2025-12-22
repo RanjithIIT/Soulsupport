@@ -71,7 +71,8 @@ class TeacherSerializer(SchoolIdMixin, serializers.ModelSerializer):
             'joining_date', 'dob', 'gender',
             'blood_group', 'nationality', 'mobile_no', 'email', 'address',
             'primary_room_id', 'class_teacher_section_id', 'subject_specialization',
-            'emergency_contact', 'profile_photo', 'profile_photo_id', 'profile_photo_url', 'is_active',
+            'emergency_contact', 'profile_photo', 'profile_photo_id', 'profile_photo_url', 
+            'is_class_teacher', 'is_active',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['teacher_id', 'created_at', 'updated_at', 'user', 'profile_photo_id', 'profile_photo_url']
@@ -153,6 +154,10 @@ class TeacherSerializer(SchoolIdMixin, serializers.ModelSerializer):
                 if last_name:
                     user.last_name = last_name
                 user.save()
+        
+        # Ensure is_class_teacher has a default value if not provided
+        if 'is_class_teacher' not in validated_data:
+            validated_data['is_class_teacher'] = False
         
         # Create teacher with the user (if created)
         teacher = Teacher.objects.create(user=user, **validated_data)
@@ -269,6 +274,14 @@ class NewAdmissionSerializer(SchoolIdMixin, serializers.ModelSerializer):
         """Validate email - required for creation, optional for updates"""
         if not self.instance and not value:
             raise serializers.ValidationError("Email is required for new admissions.")
+        
+        # Check if email already exists in NewAdmission (for new records only)
+        if not self.instance and value:
+            if NewAdmission.objects.filter(email=value).exists():
+                raise serializers.ValidationError(
+                    f"An admission with email '{value}' already exists. Please use a different email or update the existing admission."
+                )
+        
         return value
     
     def create(self, validated_data):
@@ -276,7 +289,25 @@ class NewAdmissionSerializer(SchoolIdMixin, serializers.ModelSerializer):
         import random
         import string
         import datetime
+        from django.db import IntegrityError
         from main_login.models import User, Role
+        from main_login.utils import get_user_school_id
+        
+        # Auto-populate school_id from logged-in user (from SchoolIdMixin logic)
+        request = None
+        if hasattr(self, 'context') and self.context:
+            request = self.context.get('request')
+        
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            school_id = get_user_school_id(request.user)
+            if school_id:
+                # Only auto-populate if user is not super admin
+                if hasattr(request.user, 'role') and request.user.role:
+                    if request.user.role.name != 'super_admin':
+                        validated_data['school_id'] = school_id
+                else:
+                    # No role means auto-populate
+                    validated_data['school_id'] = school_id
         
         # Generate student_id if not provided
         student_id = validated_data.get('student_id')
@@ -315,24 +346,55 @@ class NewAdmissionSerializer(SchoolIdMixin, serializers.ModelSerializer):
                 defaults={'description': 'Student/Parent role'}
             )
             
-            # Create user
-            user = User.objects.create(
+            # Get or create user - handle case where user already exists
+            user, user_created = User.objects.get_or_create(
                 email=email,
-                username=username,
-                first_name=validated_data.get('student_name', ''),
-                role=role,
-                is_active=True,
-                has_custom_password=False,
+                defaults={
+                    'username': username,
+                    'first_name': validated_data.get('student_name', ''),
+                    'role': role,
+                    'is_active': True,
+                    'has_custom_password': False,
+                }
             )
             
-            # Set password_hash to the generated 8-character password
-            user.password_hash = generated_password
-            user.set_unusable_password()  # This sets password field to unusable
-            user.has_custom_password = False
-            user.save()
+            # If user already existed, update it if needed
+            if not user_created:
+                # Update user details if they changed
+                if user.first_name != validated_data.get('student_name', ''):
+                    user.first_name = validated_data.get('student_name', '')
+                if user.role != role:
+                    user.role = role
+                user.save()
+            
+            # Set password_hash to the generated 8-character password (only if user was just created or doesn't have a password)
+            if user_created or not user.password_hash:
+                user.password_hash = generated_password
+                user.set_unusable_password()  # This sets password field to unusable
+                user.has_custom_password = False
+                user.save()
         
-        # Create admission record
-        admission = NewAdmission.objects.create(**validated_data)
+        # Create admission record - handle IntegrityError for better error messages
+        try:
+            admission = NewAdmission.objects.create(**validated_data)
+        except IntegrityError as e:
+            # Check if it's a unique constraint violation
+            error_str = str(e).lower()
+            if 'unique' in error_str or 'duplicate' in error_str:
+                if 'email' in error_str:
+                    raise serializers.ValidationError({
+                        'email': ["An admission with this email already exists. Please use a different email or update the existing admission."]
+                    })
+                elif 'admission_number' in error_str:
+                    raise serializers.ValidationError({
+                        'admission_number': ["An admission with this admission number already exists. Please use a different admission number."]
+                    })
+                elif 'student_id' in error_str:
+                    raise serializers.ValidationError({
+                        'student_id': ["An admission with this student ID already exists. Please use a different student ID."]
+                    })
+            # Re-raise the original error if we can't handle it
+            raise
         
         # Store generated password in admission for response
         admission.generated_password = generated_password
@@ -449,6 +511,7 @@ class BusStopStudentSerializer(SchoolIdMixin, serializers.ModelSerializer):
         model = BusStopStudent
         fields = [
             'id', 'school_id', 'bus_stop', 'bus_stop_name', 'student', 'student_name',
+            'student_id_string', 'student_class', 'student_grade',
             'pickup_time', 'dropoff_time', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'school_id', 'created_at', 'updated_at']
@@ -461,26 +524,75 @@ class BusStopSerializer(SchoolIdMixin, serializers.ModelSerializer):
     class Meta:
         model = BusStop
         fields = [
-            'id', 'school_id', 'bus', 'bus_name', 'stop_name', 'stop_address',
-            'route_type', 'stop_order', 'latitude', 'longitude',
+            'stop_id', 'school_id', 'bus', 'bus_name', 'stop_name', 'stop_address',
+            'stop_time', 'route_type', 'stop_order', 'latitude', 'longitude',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'school_id', 'created_at', 'updated_at']
+        read_only_fields = ['stop_id', 'school_id', 'created_at', 'updated_at']
 
 
 class BusSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Bus model"""
     school_name = serializers.CharField(source='school.name', read_only=True)
     school_id = serializers.CharField(source='school.school_id', read_only=True, help_text='School ID (read-only)')
+    morning_stops = serializers.SerializerMethodField()
+    afternoon_stops = serializers.SerializerMethodField()
     
     class Meta:
         model = Bus
         fields = [
-            'bus_id', 'school', 'school_id', 'school_name', 'bus_number', 'bus_type',
+            'bus_number', 'school', 'school_id', 'school_name', 'bus_type',
             'capacity', 'registration_number', 'driver_name', 'driver_phone',
             'driver_license', 'driver_experience', 'route_name', 'route_distance',
-            'route_description', 'morning_start_time', 'morning_end_time',
+            'start_location', 'end_location', 'morning_start_time', 'morning_end_time',
             'afternoon_start_time', 'afternoon_end_time', 'notes', 'is_active',
+            'morning_stops', 'afternoon_stops',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['bus_id', 'school_id', 'created_at', 'updated_at']
+        read_only_fields = ['school_id', 'created_at', 'updated_at']
+    
+    def get_morning_stops(self, obj):
+        """Get all morning route stops with their students"""
+        morning_stops = obj.stops.filter(route_type='morning').order_by('stop_order')
+        stops_data = []
+        for stop in morning_stops:
+            stop_data = BusStopSerializer(stop, context=self.context).data
+            # Get students for this stop
+            students = stop.stop_students.all()
+            stop_data['students'] = BusStopStudentSerializer(students, many=True, context=self.context).data
+            stop_data['student_count'] = students.count()
+            stops_data.append(stop_data)
+        return stops_data
+    
+    def get_afternoon_stops(self, obj):
+        """Get all afternoon route stops with their students.
+        Students are always taken from the corresponding morning stop (matched by stop_name),
+        so only the stop order changes, not the student assignments.
+        """
+        afternoon_stops = obj.stops.filter(route_type='afternoon').order_by('stop_order')
+        morning_stops = obj.stops.filter(route_type='morning').order_by('stop_order')
+        
+        # Create a map of morning stops by stop_name for quick lookup
+        morning_stops_map = {stop.stop_name: stop for stop in morning_stops}
+        
+        stops_data = []
+        for stop in afternoon_stops:
+            stop_data = BusStopSerializer(stop, context=self.context).data
+            
+            # Always get students from the corresponding morning stop (matched by stop_name)
+            # This ensures students remain the same, only stop_order changes
+            corresponding_morning_stop = morning_stops_map.get(stop.stop_name)
+            
+            if corresponding_morning_stop:
+                # Get students from corresponding morning stop (same location name)
+                morning_students = corresponding_morning_stop.stop_students.all()
+                stop_data['students'] = BusStopStudentSerializer(morning_students, many=True, context=self.context).data
+                stop_data['student_count'] = morning_students.count()
+            else:
+                # If no corresponding morning stop found, use students directly assigned to afternoon stop
+                students = stop.stop_students.all()
+                stop_data['students'] = BusStopStudentSerializer(students, many=True, context=self.context).data
+                stop_data['student_count'] = students.count()
+            
+            stops_data.append(stop_data)
+        return stops_data

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:core/api/api_service.dart';
+import 'main.dart' as app;
 import 'dashboard.dart';
+import 'widgets/school_profile_dialog.dart';
 
 void main() {
   runApp(const SchoolManagementApp());
@@ -320,7 +323,7 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
           if (isDesktop) _buildSidebar(),
           Expanded(
             child: Container(
-              color: Colors.white, // Main Content Background
+              color: const Color(0xFFF5F6FA), // Main Content Background
               child: Column(
                 children: [
                   Expanded(
@@ -384,14 +387,28 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
   }
 
   Widget _buildSidebar() {
+    final gradient = const LinearGradient(
+      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+
+    // Safe navigation helper for sidebar
+    void _navigateToRoute(String route) {
+      final navigator = app.SchoolManagementApp.navigatorKey.currentState;
+      if (navigator != null) {
+        if (navigator.canPop() || route != '/dashboard') {
+          navigator.pushReplacementNamed(route);
+        } else {
+          navigator.pushNamed(route);
+        }
+      }
+    }
+
     return Container(
-      width: 250,
+      width: 280,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [gradientStart, gradientEnd],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: gradient,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.1),
@@ -400,49 +417,103 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
           ),
         ],
       ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 30),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.2))),
-            ),
-            child: const Center(
-              child: Column(
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.24),
+                  width: 1,
+                ),
+              ),
+              child: const Column(
                 children: [
-                  Text("🏫 School Management", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(
+                    '🏫 SMS',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   SizedBox(height: 5),
-                  Text("Calendar", style: TextStyle(color: Colors.white70, fontSize: 14)),
+                  Text(
+                    'School Management System',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                _navItem("📊 Dashboard", false),
-                _navItem("👥 Students", false),
-                _navItem("👨‍🏫 Teachers", false),
-                _navItem("🚌 Buses", false),
-                _navItem("📅 Events", false),
-                _navItem("🔔 Notifications", false),
-                _navItem("📚 Activities", false),
-                _navItem("🏆 Awards", false),
-                _navItem("📸 Photo Gallery", false),
-                _navItem("📋 RTI Act", false),
-                _navItem("🎓 Admissions", false),
-                _navItem("📅 Calendar", true), // Active
-              ],
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _NavItem(
+                    icon: '📊',
+                    title: 'Overview',
+                    isActive: false,
+                    onTap: () => _navigateToRoute('/dashboard'),
+                  ),
+                  _NavItem(
+                    icon: '👨‍🏫',
+                    title: 'Teachers',
+                    onTap: () => _navigateToRoute('/teachers'),
+                  ),
+                  _NavItem(
+                    icon: '👥',
+                    title: 'Students',
+                    onTap: () => _navigateToRoute('/students'),
+                  ),
+                  _NavItem(
+                    icon: '🚌',
+                    title: 'Buses',
+                    onTap: () => _navigateToRoute('/buses'),
+                  ),
+                  _NavItem(
+                    icon: '🎯',
+                    title: 'Activities',
+                    onTap: () => _navigateToRoute('/activities'),
+                  ),
+                  _NavItem(
+                    icon: '📅',
+                    title: 'Events',
+                    onTap: () => _navigateToRoute('/events'),
+                  ),
+                  _NavItem(
+                    icon: '📆',
+                    title: 'Calendar',
+                    isActive: true,
+                    onTap: () => _navigateToRoute('/calendar'),
+                  ),
+                  _NavItem(
+                    icon: '🔔',
+                    title: 'Notifications',
+                    onTap: () => _navigateToRoute('/notifications'),
+                  ),
+                  _NavItem(
+                    icon: '🛣️',
+                    title: 'Bus Routes',
+                    onTap: () => _navigateToRoute('/bus-routes'),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
-  }
-
-  Widget _navItem(String title, bool isActive) {
-    return _NavItemWidget(title: title, isActive: isActive);
   }
 
   Widget _buildHeader() {
@@ -470,6 +541,9 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
                 icon: const Icon(Icons.download, color: Colors.white),
                 tooltip: "Export CSV",
               ),
+              const SizedBox(width: 10),
+              // School Profile Header with white text for gradient background
+              _WhiteSchoolProfileHeader(apiService: ApiService()),
               const SizedBox(width: 10),
               ElevatedButton.icon(
                 onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardPage())), 
@@ -1033,84 +1107,46 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
 // SIDEBAR NAVIGATION ITEM WITH HOVER
 // ==========================================
 
-class _NavItemWidget extends StatefulWidget {
+class _NavItem extends StatelessWidget {
+  final String icon;
   final String title;
+  final VoidCallback? onTap;
   final bool isActive;
 
-  const _NavItemWidget({
+  const _NavItem({
+    required this.icon,
     required this.title,
-    required this.isActive,
+    this.onTap,
+    this.isActive = false,
   });
 
   @override
-  State<_NavItemWidget> createState() => _NavItemWidgetState();
-}
-
-class _NavItemWidgetState extends State<_NavItemWidget> {
-  bool _isHovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: widget.isActive
-              ? Colors.white.withValues(alpha: 0.3)
-              : _isHovered
-                  ? Colors.white.withValues(alpha: 0.25)
-                  : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: _isHovered
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  )
-                ]
-              : null,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: isActive
+            ? Colors.white.withValues(alpha: 0.3)
+            : Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        leading: Text(
+          icon,
+          style: const TextStyle(fontSize: 18),
         ),
-        child: ListTile(
-          title: AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 200),
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: widget.isActive || _isHovered
-                  ? FontWeight.bold
-                  : FontWeight.normal,
-              fontSize: widget.isActive || _isHovered ? 15.0 : 14.0,
-            ),
-            child: Text(widget.title),
-          ),
-          onTap: () {
-            final routeMap = {
-              '📊 Dashboard': '/dashboard',
-              '👥 Students': '/students',
-              '👨‍🏫 Teachers': '/teachers',
-              '🚌 Buses': '/buses',
-              '📅 Events': '/events',
-              '🔔 Notifications': '/notifications',
-              '📚 Activities': '/activities',
-              '🏆 Awards': '/awards',
-              '📸 Photo Gallery': '/gallery',
-              '📋 RTI Act': null,
-              '🎓 Admissions': '/admissions',
-              '📅 Calendar': '/calendar',
-            };
-            final route = routeMap[widget.title];
-            if (route != null && !widget.isActive) {
-              Navigator.pushReplacementNamed(context, route);
-            }
-          },
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            fontSize: 14,
           ),
         ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        onTap: onTap,
       ),
     );
   }
@@ -1374,6 +1410,149 @@ class _DayEventsDialog extends StatelessWidget {
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text("Close"))
       ],
+    );
+  }
+}
+
+// Custom school profile header with white text for gradient background
+class _WhiteSchoolProfileHeader extends StatefulWidget {
+  final ApiService apiService;
+
+  const _WhiteSchoolProfileHeader({required this.apiService});
+
+  @override
+  State<_WhiteSchoolProfileHeader> createState() => _WhiteSchoolProfileHeaderState();
+}
+
+class _WhiteSchoolProfileHeaderState extends State<_WhiteSchoolProfileHeader> {
+  String? _schoolName;
+  String? _schoolId;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSchoolData();
+  }
+
+  Future<void> _loadSchoolData() async {
+    try {
+      await widget.apiService.initialize();
+      final response = await widget.apiService.get('/management-admin/schools/current/');
+      
+      if (response.success && response.data != null) {
+        final data = response.data;
+        if (data is Map) {
+          final schoolData = data['data'] ?? data;
+          if (schoolData is Map) {
+            setState(() {
+              _schoolName = schoolData['name']?.toString() ?? 'School';
+              _schoolId = schoolData['school_id']?.toString() ?? 
+                         schoolData['id']?.toString();
+              _isLoading = false;
+            });
+            return;
+          }
+        }
+      }
+      
+      setState(() {
+        _schoolName = 'School';
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _schoolName = 'School';
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _showSchoolProfile() {
+    if (_schoolId != null) {
+      showDialog(
+        context: context,
+        builder: (context) => SchoolProfileDialog(
+          schoolId: _schoolId!,
+          apiService: widget.apiService,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = _schoolName?.isNotEmpty == true 
+        ? _schoolName![0].toUpperCase() 
+        : 'S';
+    
+    return InkWell(
+      onTap: _showSchoolProfile,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.3),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 1),
+              ),
+              child: Center(
+                child: Text(
+                  initial,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            _isLoading
+                ? const SizedBox(
+                    width: 100,
+                    height: 16,
+                    child: LinearProgressIndicator(
+                      backgroundColor: Colors.white30,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+                    ),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _schoolName ?? 'School',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Colors.white,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const Text(
+                        'School Profile',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+          ],
+        ),
+      ),
     );
   }
 }

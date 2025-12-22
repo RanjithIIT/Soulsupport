@@ -156,6 +156,7 @@ class Teacher(models.Model):
         db_column='profile_photo_id',
         help_text='Profile photo file (2-4MB)'
     )
+    is_class_teacher = models.BooleanField(default=False, null=False, help_text='Whether the teacher is a class teacher')
     is_active = models.BooleanField(default=True, null=False)
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
@@ -698,11 +699,9 @@ class Bus(models.Model):
         ('AC Bus', 'AC Bus'),
     ]
     
-    bus_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, db_column='bus_id')
+    bus_number = models.CharField(max_length=100, primary_key=True, help_text='Unique bus number/identifier (Primary Key)')
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='buses')
     # Note: Django automatically creates 'school_id' field for ForeignKey which can be used for filtering
-    
-    bus_number = models.CharField(max_length=100, unique=True, help_text='Unique bus number/identifier')
     bus_type = models.CharField(max_length=50, choices=BUS_TYPE_CHOICES, help_text='Type of bus')
     capacity = models.IntegerField(validators=[MinValueValidator(1)], help_text='Passenger capacity of the bus')
     registration_number = models.CharField(max_length=100, unique=True, help_text='Vehicle registration number')
@@ -712,7 +711,8 @@ class Bus(models.Model):
     driver_experience = models.IntegerField(blank=True, null=True, validators=[MinValueValidator(0)], help_text='Years of driving experience')
     route_name = models.CharField(max_length=255, help_text='Name of the bus route')
     route_distance = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, validators=[MinValueValidator(0)], help_text='Route distance in kilometers')
-    route_description = models.TextField(blank=True, help_text='Detailed description of the route')
+    start_location = models.CharField(max_length=255, blank=True, help_text='Starting location of the route')
+    end_location = models.CharField(max_length=255, blank=True, help_text='Ending location of the route')
     morning_start_time = models.TimeField(help_text='Morning pickup start time')
     morning_end_time = models.TimeField(help_text='Morning pickup end time')
     afternoon_start_time = models.TimeField(help_text='Afternoon drop-off start time')
@@ -737,11 +737,12 @@ class Bus(models.Model):
 
 class BusStop(models.Model):
     """Bus Stop model"""
-    stop_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    bus = models.ForeignKey(Bus, on_delete=models.CASCADE, related_name='stops')
+    stop_id = models.CharField(max_length=255, primary_key=True, editable=False, help_text='Stop ID in format: busnumber_routeprefix_stopnumber')
+    bus = models.ForeignKey(Bus, on_delete=models.CASCADE, related_name='stops', db_column='bus_number')
     school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
     stop_name = models.CharField(max_length=255, help_text='Name of the bus stop')
     stop_address = models.TextField(blank=True, help_text='Address of the bus stop')
+    stop_time = models.TimeField(blank=True, null=True, help_text='Time when bus arrives at this stop')
     route_type = models.CharField(
         max_length=20,
         choices=[('morning', 'Morning Route (Pick-up)'), ('afternoon', 'Afternoon Route (Drop-off)')],
@@ -754,7 +755,13 @@ class BusStop(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def save(self, *args, **kwargs):
-        """Auto-populate school_id from bus's school"""
+        """Auto-generate stop_id and populate school_id from bus's school"""
+        # Generate stop_id in format: busnumber_routeprefix_stopnumber (e.g., BUS001_mor_1)
+        if not self.stop_id and self.bus and self.stop_order and self.route_type:
+            route_prefix = self.route_type[:3] if len(self.route_type) >= 3 else self.route_type
+            self.stop_id = f"{self.bus.bus_number}_{route_prefix}_{self.stop_order}"
+        
+        # Auto-populate school_id from bus's school
         if self.bus and self.bus.school:
             self.school_id = self.bus.school.school_id
         super().save(*args, **kwargs)
@@ -773,7 +780,7 @@ class BusStop(models.Model):
 class BusStopStudent(models.Model):
     """Bus Stop Student model - links students to bus stops"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    bus_stop = models.ForeignKey(BusStop, on_delete=models.CASCADE, related_name='stop_students')
+    bus_stop = models.ForeignKey(BusStop, on_delete=models.CASCADE, related_name='stop_students', db_column='stop_id')
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='bus_stops')
     school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
     student_id_string = models.CharField(max_length=100, blank=True, help_text='Student ID as string (cached from student table)')

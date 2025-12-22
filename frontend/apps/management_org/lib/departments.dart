@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'main.dart' as app;
 import 'dashboard.dart';
 
 class Department {
@@ -282,129 +283,11 @@ class _DepartmentsManagementPageState extends State<DepartmentsManagementPage> {
       body: Row(
         children: [
           // Sidebar
-          Container(
-            width: 250,
-            decoration: BoxDecoration(
-              gradient: gradient,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 20,
-                  offset: const Offset(2, 0),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const Text(
-                          '🏫 School Management',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Departments',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(color: Colors.white24),
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.all(10),
-                      children: [
-                        _NavItem(
-                          icon: '📊',
-                          title: 'Dashboard',
-                          onTap: () => Navigator.pushReplacementNamed(
-                              context, '/dashboard'),
-                        ),
-                        _NavItem(
-                          icon: '👨‍🏫',
-                          title: 'Teachers',
-                          onTap: () => Navigator.pushReplacementNamed(
-                              context, '/teachers'),
-                        ),
-                        _NavItem(
-                          icon: '👥',
-                          title: 'Students',
-                          onTap: () => Navigator.pushReplacementNamed(
-                              context, '/students'),
-                        ),
-                        _NavItem(
-                          icon: '🚌',
-                          title: 'Buses',
-                          onTap: () =>
-                              Navigator.pushReplacementNamed(context, '/buses'),
-                        ),
-                        _NavItem(
-                          icon: '📅',
-                          title: 'Events',
-                          onTap: () =>
-                              Navigator.pushReplacementNamed(context, '/events'),
-                        ),
-                        _NavItem(
-                          icon: '📚',
-                          title: 'Activities',
-                          onTap: () => Navigator.pushReplacementNamed(
-                              context, '/activities'),
-                        ),
-                        _NavItem(
-                          icon: '🏆',
-                          title: 'Awards',
-                          onTap: () => Navigator.pushReplacementNamed(
-                              context, '/awards'),
-                        ),
-                        _NavItem(
-                          icon: '🎓',
-                          title: 'Admissions',
-                          onTap: () => Navigator.pushReplacementNamed(
-                              context, '/admissions'),
-                        ),
-                        _NavItem(
-                          icon: '📅',
-                          title: 'Calendar',
-                          onTap: () => Navigator.pushReplacementNamed(
-                              context, '/calendar'),
-                        ),
-                        _NavItem(
-                          icon: '🏫',
-                          title: 'Campus Life',
-                          onTap: () => Navigator.pushReplacementNamed(
-                              context, '/campus-life'),
-                        ),
-                        _NavItem(
-                          icon: '🏢',
-                          title: 'Departments',
-                          isActive: true,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          _buildSidebar(),
           // Main Content
           Expanded(
             child: Container(
-              color: Colors.grey[50],
+              color: const Color(0xFFF5F6FA),
               child: SafeArea(
                 child: SingleChildScrollView(
                   child: Column(
@@ -744,6 +627,135 @@ class _DepartmentsManagementPageState extends State<DepartmentsManagementPage> {
     );
   }
 
+  Widget _buildSidebar() {
+    final gradient = const LinearGradient(
+      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+
+    // Safe navigation helper for sidebar
+    void _navigateToRoute(String route) {
+      final navigator = app.SchoolManagementApp.navigatorKey.currentState;
+      if (navigator != null) {
+        if (navigator.canPop() || route != '/dashboard') {
+          navigator.pushReplacementNamed(route);
+        } else {
+          navigator.pushNamed(route);
+        }
+      }
+    }
+
+    return Container(
+      width: 280,
+      decoration: BoxDecoration(
+        gradient: gradient,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(2, 0),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.24),
+                  width: 1,
+                ),
+              ),
+              child: const Column(
+                children: [
+                  Text(
+                    '🏫 SMS',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 5),
+                  Text(
+                    'School Management System',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _NavItem(
+                    icon: '📊',
+                    title: 'Overview',
+                    isActive: false,
+                    onTap: () => _navigateToRoute('/dashboard'),
+                  ),
+                  _NavItem(
+                    icon: '👨‍🏫',
+                    title: 'Teachers',
+                    onTap: () => _navigateToRoute('/teachers'),
+                  ),
+                  _NavItem(
+                    icon: '👥',
+                    title: 'Students',
+                    onTap: () => _navigateToRoute('/students'),
+                  ),
+                  _NavItem(
+                    icon: '🚌',
+                    title: 'Buses',
+                    onTap: () => _navigateToRoute('/buses'),
+                  ),
+                  _NavItem(
+                    icon: '🎯',
+                    title: 'Activities',
+                    onTap: () => _navigateToRoute('/activities'),
+                  ),
+                  _NavItem(
+                    icon: '📅',
+                    title: 'Events',
+                    onTap: () => _navigateToRoute('/events'),
+                  ),
+                  _NavItem(
+                    icon: '📆',
+                    title: 'Calendar',
+                    onTap: () => _navigateToRoute('/calendar'),
+                  ),
+                  _NavItem(
+                    icon: '🔔',
+                    title: 'Notifications',
+                    onTap: () => _navigateToRoute('/notifications'),
+                  ),
+                  _NavItem(
+                    icon: '🛣️',
+                    title: 'Bus Routes',
+                    onTap: () => _navigateToRoute('/bus-routes'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _viewDepartment(BuildContext context, Department department) {
     showDialog(
       context: context,
@@ -838,7 +850,7 @@ class _DepartmentsManagementPageState extends State<DepartmentsManagementPage> {
   }
 }
 
-class _NavItem extends StatefulWidget {
+class _NavItem extends StatelessWidget {
   final String icon;
   final String title;
   final VoidCallback? onTap;
@@ -852,57 +864,32 @@ class _NavItem extends StatefulWidget {
   });
 
   @override
-  State<_NavItem> createState() => _NavItemState();
-}
-
-class _NavItemState extends State<_NavItem> {
-  bool _isHovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: widget.isActive
-              ? Colors.white.withValues(alpha: 0.3)
-              : _isHovered
-                  ? Colors.white.withValues(alpha: 0.25)
-                  : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: _isHovered
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  )
-                ]
-              : null,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: isActive
+            ? Colors.white.withValues(alpha: 0.3)
+            : Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        leading: Text(
+          icon,
+          style: const TextStyle(fontSize: 18),
         ),
-        child: ListTile(
-          leading: Text(widget.icon, style: const TextStyle(fontSize: 20)),
-          title: AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 200),
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: widget.isActive || _isHovered
-                  ? FontWeight.bold
-                  : FontWeight.normal,
-              fontSize: widget.isActive || _isHovered ? 15.0 : 14.0,
-            ),
-            child: Text(widget.title),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            fontSize: 14,
           ),
-          selected: widget.isActive,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          onTap: widget.onTap,
         ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        onTap: onTap,
       ),
     );
   }

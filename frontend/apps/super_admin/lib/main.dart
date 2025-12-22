@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:core/api/api_service.dart';
-import 'package:main_login/main.dart' as main_login;
 import 'admin-schools.dart' as schools;
 import 'admin-revenue.dart' as revenue;
 import 'admin-billing.dart' as billing;
@@ -324,8 +323,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                 Expanded(
                   child: SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.all(30.0),
+                    padding: EdgeInsets.all(isLargeScreen ? 30.0 : 15.0),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: MediaQuery.of(context).size.height - 200,
+                      ),
                       child: _buildCurrentBody(isLargeScreen),
                     ),
                   ),
@@ -371,14 +373,25 @@ class OverviewBody extends StatelessWidget {
 // --- Sidebar Widget ---
 
 class Sidebar extends StatefulWidget {
-  const Sidebar({super.key});
+  final String initialActiveSection;
+  
+  const Sidebar({
+    super.key,
+    this.initialActiveSection = 'overview',
+  });
 
   @override
   State<Sidebar> createState() => _SidebarState();
 }
 
 class _SidebarState extends State<Sidebar> {
-  String activeSection = 'overview';
+  late String activeSection;
+  
+  @override
+  void initState() {
+    super.initState();
+    activeSection = widget.initialActiveSection;
+  }
 
   void navigateTo(String section) {
     setState(() {
@@ -455,9 +468,9 @@ class _SidebarState extends State<Sidebar> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Logo
+          // Logo - Fixed at top
           Container(
-            margin: const EdgeInsets.only(bottom: 30),
+            margin: const EdgeInsets.only(bottom: 20),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
@@ -485,76 +498,85 @@ class _SidebarState extends State<Sidebar> {
               ],
             ),
           ),
-          // Nav Menu
-          SidebarNavItem(
-            icon: '📊',
-            title: 'Overview',
-            isActive: activeSection == 'overview',
-            onTap: () => navigateTo('overview'),
-          ),
-          SidebarNavItem(
-            icon: '🏫',
-            title: 'Schools',
-            isActive: activeSection == 'schools',
-            onTap: () => navigateTo('schools'),
-          ),
-          SidebarNavItem(
-            icon: '➕',
-            title: 'Add School',
-            isActive: activeSection == 'add_school',
-            onTap: () async {
-              setState(() {
-                activeSection = 'add_school';
-              });
-              if (Scaffold.of(context).hasDrawer) {
-                Navigator.of(context).pop();
-              }
-              // Navigate and wait for result
-              final result = await Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const add_school.AddSchoolScreen(),
-                ),
-              );
-              // If school was added successfully, navigate to schools list with refresh flag
-              if (result == true) {
-                // Navigate to schools list and refresh
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (context) => const schools.AdminDashboard(refreshOnMount: true),
+          // Nav Menu - Scrollable
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SidebarNavItem(
+                    icon: '📊',
+                    title: 'Overview',
+                    isActive: activeSection == 'overview',
+                    onTap: () => navigateTo('overview'),
                   ),
-                );
-              }
-            },
-          ),
-          SidebarNavItem(
-            icon: '📋',
-            title: 'Licenses',
-            isActive: activeSection == 'licenses',
-            onTap: () => navigateTo('licenses'),
-          ),
-          SidebarNavItem(
-            icon: '💰',
-            title: 'Revenue',
-            isActive: activeSection == 'revenue',
-            onTap: () => navigateTo('revenue'),
-          ),
-          SidebarNavItem(
-            icon: '💳',
-            title: 'Billing',
-            isActive: activeSection == 'billing',
-            onTap: () => navigateTo('billing'),
-          ),
-          SidebarNavItem(
-            icon: '📈',
-            title: 'Reports',
-            isActive: activeSection == 'reports',
-            onTap: () => navigateTo('reports'),
-          ),
-          SidebarNavItem(
-            icon: '⚙️',
-            title: 'Settings',
-            isActive: activeSection == 'settings',
-            onTap: () => navigateTo('settings'),
+                  SidebarNavItem(
+                    icon: '🏫',
+                    title: 'Schools',
+                    isActive: activeSection == 'schools',
+                    onTap: () => navigateTo('schools'),
+                  ),
+                  SidebarNavItem(
+                    icon: '➕',
+                    title: 'Add School',
+                    isActive: activeSection == 'add_school',
+                    onTap: () async {
+                      setState(() {
+                        activeSection = 'add_school';
+                      });
+                      if (Scaffold.of(context).hasDrawer) {
+                        Navigator.of(context).pop();
+                      }
+                      // Navigate and wait for result
+                      final result = await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const add_school.AddSchoolScreen(),
+                        ),
+                      );
+                      // If school was added successfully, navigate to schools list with refresh flag
+                      if (result == true) {
+                        // Navigate to schools list and refresh
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(
+                            builder: (context) => const schools.AdminDashboard(refreshOnMount: true),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                  SidebarNavItem(
+                    icon: '📋',
+                    title: 'Licenses',
+                    isActive: activeSection == 'licenses',
+                    onTap: () => navigateTo('licenses'),
+                  ),
+                  SidebarNavItem(
+                    icon: '💰',
+                    title: 'Revenue',
+                    isActive: activeSection == 'revenue',
+                    onTap: () => navigateTo('revenue'),
+                  ),
+                  SidebarNavItem(
+                    icon: '💳',
+                    title: 'Billing',
+                    isActive: activeSection == 'billing',
+                    onTap: () => navigateTo('billing'),
+                  ),
+                  SidebarNavItem(
+                    icon: '📈',
+                    title: 'Reports',
+                    isActive: activeSection == 'reports',
+                    onTap: () => navigateTo('reports'),
+                  ),
+                  SidebarNavItem(
+                    icon: '⚙️',
+                    title: 'Settings',
+                    isActive: activeSection == 'settings',
+                    onTap: () => navigateTo('settings'),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -689,62 +711,26 @@ class Header extends StatelessWidget {
           ),
           Row(
             children: [
-              if (isDetailView)
-                Padding(
-                  padding: const EdgeInsets.only(right: 15.0),
-                  child: ElevatedButton.icon(
-                    onPressed: onBack,
-                    icon: const Icon(Icons.arrow_back, size: 18),
-                    label: const Text('Back to Overview'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6c757d),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      elevation: 0,
-                    ),
-                  ),
-                ),
               const UserInfo(),
               const SizedBox(width: 15),
-              LogoutButton(
-                onPressed: () {
-                  // Show logout confirmation dialog
-                  showDialog(
-                    context: context,
-                    builder: (BuildContext dialogContext) {
-                      return AlertDialog(
-                        title: const Text('Logout'),
-                        content: const Text('Are you sure you want to logout?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(dialogContext).pop(),
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(dialogContext).pop();
-                              Navigator.pushAndRemoveUntil(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const main_login.LoginScreen(),
-                                ),
-                                (route) => false,
-                              );
-                            },
-                            child: const Text('Logout', style: TextStyle(color: Colors.red)),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
-              ),
+              if (isDetailView)
+                ElevatedButton.icon(
+                  onPressed: onBack,
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: const Text('Back to Overview'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6c757d),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
             ],
           ),
         ],
@@ -805,36 +791,24 @@ class MobileHeader extends StatelessWidget {
               color: Color(0xFF333333),
             ),
           ),
-          LogoutButton(
-            onPressed: () {
-              // Show logout confirmation dialog
-              showDialog(
-                context: context,
-                builder: (BuildContext dialogContext) {
-                  return AlertDialog(
-                    title: const Text('Logout'),
-                    content: const Text('Are you sure you want to logout?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(dialogContext).pop();
-                          // In a real app, you would clear user session and navigate to login
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Logged out successfully')),
-                          );
-                        },
-                        child: const Text('Logout'),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-          ),
+          if (isDetailView)
+            ElevatedButton.icon(
+              onPressed: onBack,
+              icon: const Icon(Icons.arrow_back, size: 18),
+              label: const Text('Back to Overview'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6c757d),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                elevation: 0,
+              ),
+            ),
         ],
       ),
     );
@@ -885,46 +859,6 @@ class UserInfo extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-class LogoutButton extends StatelessWidget {
-  final VoidCallback onPressed;
-  const LogoutButton({super.key, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      style:
-          ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            backgroundColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            elevation: 0,
-            visualDensity: VisualDensity.compact,
-          ).copyWith(
-            backgroundColor: WidgetStateProperty.resolveWith<Color>((
-              Set<WidgetState> states,
-            ) {
-              return const Color(0xFFdc3545);
-            }),
-            shadowColor: WidgetStateProperty.resolveWith<Color>((
-              Set<WidgetState> states,
-            ) {
-              if (states.contains(WidgetState.hovered)) {
-                return const Color.fromRGBO(220, 53, 69, 0.3);
-              }
-              return Colors.transparent;
-            }),
-          ),
-      icon: const Icon(Icons.logout, size: 18),
-      label: const Text('Logout'),
     );
   }
 }
@@ -988,17 +922,37 @@ class StatsGrid extends StatelessWidget {
     ];
 
     // FIX APPLIED HERE: childAspectRatio changed from 1.25 to 1.15
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 250, // Smaller card width limit
-        childAspectRatio: 1.15, // Adjusted for more vertical space (was 1.25)
-        crossAxisSpacing: 18,
-        mainAxisSpacing: 18,
-      ),
-      itemCount: statsData.length,
-      itemBuilder: (context, index) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = constraints.maxWidth;
+        int crossAxisCount;
+        double childAspectRatio;
+        
+        if (screenWidth > 1200) {
+          crossAxisCount = 6;
+          childAspectRatio = 1.15;
+        } else if (screenWidth > 900) {
+          crossAxisCount = 4;
+          childAspectRatio = 1.15;
+        } else if (screenWidth > 600) {
+          crossAxisCount = 3;
+          childAspectRatio = 1.2;
+        } else {
+          crossAxisCount = 2;
+          childAspectRatio = 1.3;
+        }
+        
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            childAspectRatio: childAspectRatio,
+            crossAxisSpacing: 18,
+            mainAxisSpacing: 18,
+          ),
+          itemCount: statsData.length,
+          itemBuilder: (context, index) {
         final stat = statsData[index];
         return StatCard(
           label: stat['label'],
@@ -1016,18 +970,55 @@ class StatsGrid extends StatelessWidget {
                   state._navigateTo(DashboardView.schoolsList);
                   break;
                 case 'students':
+                  // Navigate to school management page with students view
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const school_management.SchoolDashboard(
+                        initialView: school_management.ContentView.detailStudents,
+                      ),
+                    ),
+                  );
+                  break;
                 case 'teachers':
+                  // Navigate to school management page with teachers view
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const school_management.SchoolDashboard(
+                        initialView: school_management.ContentView.detailTeachers,
+                      ),
+                    ),
+                  );
+                  break;
                 case 'buses':
+                  // Navigate to school management page with buses view
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const school_management.SchoolDashboard(
+                        initialView: school_management.ContentView.detailBuses,
+                      ),
+                    ),
+                  );
+                  break;
                 case 'revenue':
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const revenue.RevenueDashboard(),
+                    ),
+                  );
+                  break;
                 case 'licenses':
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${section.capitalize()} section coming soon')),
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const school_management.SchoolDashboard(),
+                    ),
                   );
                   break;
               }
             }
           },
         );
+      },
+    );
       },
     );
   }
@@ -1189,88 +1180,169 @@ class _LicensedSchoolsSectionState extends State<LicensedSchoolsSection> {
     return SectionCard(
       title: '🏫 Licensed Schools',
       // The actions row now holds the Add School, Status Filter, and View All buttons
-      actions: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 1. Add School Button
-          ElevatedButton.icon(
-            onPressed: () {
-              // Navigate to Add School page
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const add_school.AddSchoolScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Add School'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF28a745),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              elevation: 0,
-            ),
-          ),
-          const SizedBox(width: 15),
-          // 2. Status Filter Dropdown
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: const Color(0xFFf8f9fa),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFe9ecef)),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedStatus,
-                items: const ['All', 'Active', 'Pending', 'Expired']
-                    .map(
-                      (status) => DropdownMenuItem(
-                        value: status,
-                        child: Text(
-                          status,
-                          style: const TextStyle(fontSize: 14),
-                        ),
+      actions: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 600;
+          
+          if (isMobile) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const add_school.AddSchoolScreen(),
                       ),
-                    )
-                    .toList(),
-                onChanged: (String? newValue) {
-                  if (newValue != null) {
-                    setState(() {
-                      _selectedStatus = newValue;
-                    });
-                  }
-                },
-                icon: const Icon(
-                  Icons.filter_list,
-                  size: 16,
-                  color: Color(0xFF007bff),
+                    );
+                  },
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add School'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF28a745),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 0,
+                  ),
                 ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 15),
-
-          // 3. View All Button
-          ElevatedButton.icon(
-            onPressed:
-                widget.onViewAll, // Triggers state change to SchoolsListView
-            icon: const Text('View All'),
-            label: const Icon(Icons.arrow_forward, size: 16),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF007bff),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              elevation: 0,
-            ),
-          ),
-        ],
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFf8f9fa),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFe9ecef)),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedStatus,
+                      isExpanded: true,
+                      items: const ['All', 'Active', 'Pending', 'Expired']
+                          .map(
+                            (status) => DropdownMenuItem(
+                              value: status,
+                              child: Text(
+                                status,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          setState(() {
+                            _selectedStatus = newValue;
+                          });
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.filter_list,
+                        size: 16,
+                        color: Color(0xFF007bff),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton.icon(
+                  onPressed: widget.onViewAll,
+                  icon: const Text('View All'),
+                  label: const Icon(Icons.arrow_forward, size: 16),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF007bff),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ],
+            );
+          } else {
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const add_school.AddSchoolScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add School'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF28a745),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+                const SizedBox(width: 15),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFf8f9fa),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFe9ecef)),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedStatus,
+                      items: const ['All', 'Active', 'Pending', 'Expired']
+                          .map(
+                            (status) => DropdownMenuItem(
+                              value: status,
+                              child: Text(
+                                status,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          setState(() {
+                            _selectedStatus = newValue;
+                          });
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.filter_list,
+                        size: 16,
+                        color: Color(0xFF007bff),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 15),
+                ElevatedButton.icon(
+                  onPressed: widget.onViewAll,
+                  icon: const Text('View All'),
+                  label: const Icon(Icons.arrow_forward, size: 16),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF007bff),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ],
+            );
+          }
+        },
       ),
       child: Column(
         children: [

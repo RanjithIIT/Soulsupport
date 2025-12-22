@@ -1,7 +1,10 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:core/api/api_service.dart';
+import 'main.dart' as app;
 import 'dashboard.dart';
+import 'widgets/school_profile_header.dart';
 
 class Activity {
   final int id;
@@ -230,7 +233,12 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
             if (isCompact) {
               return Column(
                 children: [
-                  Expanded(child: _buildMainContent(isMobile: true)),
+                  Expanded(
+                    child: Container(
+                      color: const Color(0xFFF5F6FA),
+                      child: _buildMainContent(isMobile: true),
+                    ),
+                  ),
                 ],
               );
             }
@@ -239,7 +247,12 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(width: 280, child: _buildSidebar()),
-                Expanded(child: _buildMainContent(isMobile: false)),
+                Expanded(
+                  child: Container(
+                    color: const Color(0xFFF5F6FA),
+                    child: _buildMainContent(isMobile: false),
+                  ),
+                ),
               ],
             );
           },
@@ -249,71 +262,131 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
   }
 
   Widget _buildSidebar() {
-    const navItems = [
-      {'icon': '📊', 'label': 'Dashboard'},
-      {'icon': '👨‍🏫', 'label': 'Teachers'},
-      {'icon': '👥', 'label': 'Students'},
-      {'icon': '🚌', 'label': 'Buses'},
-      {'icon': '🎯', 'label': 'Activities'},
-      {'icon': '📅', 'label': 'Events'},
-    ];
+    final gradient = const LinearGradient(
+      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
 
-    return GlassContainer(
-      padding: const EdgeInsets.all(20),
-      drawRightBorder: true,
-      borderRadius: 0,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            margin: const EdgeInsets.only(bottom: 30),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-              ),
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Column(
-              children: const [
-                Text(
-                  '🏫 SMS',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 5),
-                Text(
-                  'School Management System',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-              ],
-            ),
+    // Safe navigation helper for sidebar
+    void _navigateToRoute(String route) {
+      final navigator = app.SchoolManagementApp.navigatorKey.currentState;
+      if (navigator != null) {
+        if (navigator.canPop() || route != '/dashboard') {
+          navigator.pushReplacementNamed(route);
+        } else {
+          navigator.pushNamed(route);
+        }
+      }
+    }
+
+    return Container(
+      width: 280,
+      decoration: BoxDecoration(
+        gradient: gradient,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(2, 0),
           ),
-          for (final item in navItems)
-            _NavTile(
-              icon: item['icon']!,
-              label: item['label']!,
-              isActive: item['label'] == 'Activities',
-              onTap: () {
-                final routeMap = {
-                  'Dashboard': '/dashboard',
-                  'Teachers': '/teachers',
-                  'Students': '/students',
-                  'Buses': '/buses',
-                  'Activities': '/activities',
-                  'Events': '/events',
-                };
-                final route = routeMap[item['label']];
-                if (route != null) {
-                  Navigator.pushReplacementNamed(context, route);
-                }
-              },
-            ),
         ],
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.24),
+                  width: 1,
+                ),
+              ),
+              child: const Column(
+                children: [
+                  Text(
+                    '🏫 SMS',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 5),
+                  Text(
+                    'School Management System',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _NavItem(
+                    icon: '📊',
+                    title: 'Overview',
+                    isActive: false,
+                    onTap: () => _navigateToRoute('/dashboard'),
+                  ),
+                  _NavItem(
+                    icon: '👨‍🏫',
+                    title: 'Teachers',
+                    onTap: () => _navigateToRoute('/teachers'),
+                  ),
+                  _NavItem(
+                    icon: '👥',
+                    title: 'Students',
+                    onTap: () => _navigateToRoute('/students'),
+                  ),
+                  _NavItem(
+                    icon: '🚌',
+                    title: 'Buses',
+                    onTap: () => _navigateToRoute('/buses'),
+                  ),
+                  _NavItem(
+                    icon: '🎯',
+                    title: 'Activities',
+                    isActive: true,
+                    onTap: () => _navigateToRoute('/activities'),
+                  ),
+                  _NavItem(
+                    icon: '📅',
+                    title: 'Events',
+                    onTap: () => _navigateToRoute('/events'),
+                  ),
+                  _NavItem(
+                    icon: '📆',
+                    title: 'Calendar',
+                    onTap: () => _navigateToRoute('/calendar'),
+                  ),
+                  _NavItem(
+                    icon: '🔔',
+                    title: 'Notifications',
+                    onTap: () => _navigateToRoute('/notifications'),
+                  ),
+                  _NavItem(
+                    icon: '🛣️',
+                    title: 'Bus Routes',
+                    onTap: () => _navigateToRoute('/bus-routes'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -353,9 +426,7 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
               margin: const EdgeInsets.only(bottom: 20),
               child: Row(
                 children: [
-                  _buildUserAvatar(),
-                  const SizedBox(width: 15),
-                  Expanded(child: _buildUserLabels()),
+                  Expanded(child: SchoolProfileHeader(apiService: ApiService(), isMobile: true)),
                   const Icon(Icons.arrow_back_ios_new, size: 16),
                 ],
               ),
@@ -523,52 +594,7 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
   }
 
   Widget _buildUserInfo() {
-    return Row(
-      children: [
-        _buildUserAvatar(),
-        const SizedBox(width: 15),
-        _buildUserLabels(),
-      ],
-    );
-  }
-
-  Widget _buildUserAvatar() {
-    return Container(
-      width: 45,
-      height: 45,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-        ),
-      ),
-      child: const Center(
-        child: Text(
-          'M',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUserLabels() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
-        Text(
-          'Management User',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        Text(
-          'School Manager',
-          style: TextStyle(fontSize: 12, color: Colors.grey),
-        ),
-      ],
-    );
+    return SchoolProfileHeader(apiService: ApiService());
   }
 
   Widget _buildBackButton() {
@@ -822,51 +848,46 @@ class GlassContainer extends StatelessWidget {
   }
 }
 
-class _NavTile extends StatelessWidget {
+class _NavItem extends StatelessWidget {
   final String icon;
-  final String label;
+  final String title;
+  final VoidCallback? onTap;
   final bool isActive;
-  final VoidCallback onTap;
 
-  const _NavTile({
+  const _NavItem({
     required this.icon,
-    required this.label,
-    required this.isActive,
-    required this.onTap,
+    required this.title,
+    this.onTap,
+    this.isActive = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        onTap: onTap,
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: isActive
+            ? Colors.white.withValues(alpha: 0.3)
+            : Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            gradient: isActive
-                ? const LinearGradient(
-                    colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                  )
-                : null,
-            color: isActive ? null : Colors.white.withValues(alpha: 0.7),
-          ),
-          child: Row(
-            children: [
-              Text(icon, style: const TextStyle(fontSize: 18)),
-              const SizedBox(width: 12),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isActive ? Colors.white : const Color(0xFF333333),
-                  fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                ),
-              ),
-            ],
+      ),
+      child: ListTile(
+        leading: Text(
+          icon,
+          style: const TextStyle(fontSize: 18),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            fontSize: 14,
           ),
         ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        onTap: onTap,
       ),
     );
   }

@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'main.dart' as main_dashboard;
+import 'admin-schools.dart' as schools;
+import 'admin-revenue.dart' as revenue;
+import 'admin-add-school.dart' as add_school;
+import 'admin-school-management.dart' as school_management;
 
 void main() {
   // Ensure we can use NumberFormat, especially for locales.
@@ -165,119 +171,6 @@ class _BillingDashboardState extends State<BillingDashboard> {
 
   // --- Widgets for Reusability ---
 
-  Widget _buildSidebar() {
-    return Container(
-      width: 280,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(right: BorderSide(color: Color(0xffe9ecef), width: 1)),
-        boxShadow: [
-          BoxShadow(
-            color: Color.fromRGBO(0, 0, 0, 0.1),
-            blurRadius: 10,
-            offset: Offset(2, 0),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          // Logo
-          Container(
-            margin: const EdgeInsets.only(bottom: 30),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xffdc3545), Color(0xffc82333)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: const Column(
-              children: [
-                Text(
-                  '📋 Billing',
-                  style: TextStyle(
-                    fontSize: 24,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  'Management System',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white70,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Nav Menu
-          _buildNavItem('📊', 'Dashboard', false),
-          _buildNavItem('🏫', 'Schools', false),
-          _buildNavItem('💰', 'Revenue', false),
-          _buildNavItem('📋', 'Billing', true),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavItem(String icon, String title, bool isActive) {
-    final Color primaryColor = const Color(0xffdc3545);
-    final Color textColor = isActive ? Colors.white : const Color(0xff333333);
-    final Decoration decoration = BoxDecoration(
-      color: isActive ? null : const Color(0xfff8f9fa),
-      gradient: isActive
-          ? const LinearGradient(
-              colors: [Color(0xffdc3545), Color(0xffc82333)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            )
-          : null,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(
-        color: isActive ? primaryColor : const Color(0xffe9ecef),
-        width: 1,
-      ),
-    );
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        onTap: () {
-          // Navigate based on menu item
-          switch (title) {
-            case 'Dashboard':
-            case 'Schools':
-            case 'Revenue':
-            case 'Billing':
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Navigating to $title')),
-              );
-              break;
-          }
-          // Close drawer on mobile
-          if (Scaffold.of(context).hasDrawer) {
-            Navigator.of(context).pop();
-          }
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          decoration: decoration,
-          child: Row(
-            children: [
-              Text(icon, style: TextStyle(fontSize: 18, color: textColor)),
-              const SizedBox(width: 12),
-              Text(title, style: TextStyle(color: textColor)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildOverviewCard(
     String icon,
@@ -299,57 +192,60 @@ class _BillingDashboardState extends State<BillingDashboard> {
         border: Border.all(color: const Color(0xffe9ecef), width: 1),
       ),
       padding: const EdgeInsets.all(25),
-      child: Column(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(30),
-              gradient: const LinearGradient(
-                colors: [Color(0xffdc3545), Color(0xffc82333)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                gradient: const LinearGradient(
+                  colors: [Color(0xffdc3545), Color(0xffc82333)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  icon,
+                  style: const TextStyle(fontSize: 24, color: Colors.white),
+                ),
               ),
             ),
-            child: Center(
-              child: Text(
-                icon,
-                style: const TextStyle(fontSize: 24, color: Colors.white),
-              ),
-            ),
-          ),
-          const SizedBox(height: 15),
-          Text(
-            number,
-            style: const TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: Color(0xffdc3545),
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 14, color: Color(0xff666666)),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color.fromRGBO(40, 167, 69, 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              change,
+            const SizedBox(height: 15),
+            Text(
+              number,
               style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Color(0xff28a745),
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Color(0xffdc3545),
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 5),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 14, color: Color(0xff666666)),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color.fromRGBO(40, 167, 69, 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                change,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xff28a745),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -663,8 +559,8 @@ class _BillingDashboardState extends State<BillingDashboard> {
         // Schools Grid
         LayoutBuilder(
           builder: (context, constraints) {
-            // FIX 1: Increased mainAxisExtent to a safer height (470) to provide a better buffer and fix overflow.
-            final double cardHeight = 470;
+            // FIX 1: Increased mainAxisExtent to 532 (from 520) to fix 12px overflow.
+            final double cardHeight = 540;
 
             return GridView.builder(
               shrinkWrap: true,
@@ -705,9 +601,11 @@ class _BillingDashboardState extends State<BillingDashboard> {
         border: Border.all(color: const Color(0xffe9ecef), width: 1),
       ),
       padding: const EdgeInsets.all(25),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
           Row(
             children: [
               Container(
@@ -758,8 +656,8 @@ class _BillingDashboardState extends State<BillingDashboard> {
           // School Stats - Implemented as a 2x2 grid (4 items total)
           GridView.count(
             crossAxisCount: 2,
-            // FIX 2: Increased childAspectRatio to 3.0 (from 2.8) to make stat items shorter, providing more vertical space for the main card content.
-            childAspectRatio: 3.0,
+            // FIX 2: Adjusted childAspectRatio to 2.9 (from 3.0) to provide more vertical space and fix 0.667px overflow.
+            childAspectRatio: 2.9,
             crossAxisSpacing: 15,
             mainAxisSpacing: 15,
             shrinkWrap: true,
@@ -799,7 +697,7 @@ class _BillingDashboardState extends State<BillingDashboard> {
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 15),
           // Action Buttons
           Row(
             children: [
@@ -840,7 +738,8 @@ class _BillingDashboardState extends State<BillingDashboard> {
               ),
             ],
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -851,9 +750,10 @@ class _BillingDashboardState extends State<BillingDashboard> {
         color: const Color(0xfff8f9fa),
         borderRadius: BorderRadius.circular(8),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // Reduced vertical padding from 5 to 4
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min, // Added to prevent overflow
         children: [
           Text(
             number,
@@ -863,14 +763,13 @@ class _BillingDashboardState extends State<BillingDashboard> {
               color: Color(0xffdc3545),
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 4), // Reduced from 5 to 4
           Text(
             label,
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 11,
               color: Color(0xff666666),
-              textBaseline: TextBaseline.ideographic,
             ),
           ),
         ],
@@ -1024,13 +923,12 @@ class _BillingDashboardState extends State<BillingDashboard> {
                         ElevatedButton(
                           onPressed: () {
                             // Navigate back to dashboard
-                            if (Navigator.of(context).canPop()) {
-                              Navigator.of(context).pop();
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Navigating to Dashboard')),
-                              );
-                            }
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(
+                                builder: (context) => const main_dashboard.AdminDashboardScreen(),
+                              ),
+                              (route) => false,
+                            );
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(
@@ -1063,7 +961,7 @@ class _BillingDashboardState extends State<BillingDashboard> {
             // Billing Overview
             GridView.count(
               crossAxisCount: isDesktop ? 4 : 2,
-              childAspectRatio: 1.0,
+              childAspectRatio: 0.85, // Changed from 1.0 to 0.85 to provide more vertical space
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: 20,
@@ -1141,11 +1039,12 @@ class _BillingDashboardState extends State<BillingDashboard> {
     );
 
     return Scaffold(
+      drawer: !isDesktop ? const Drawer(child: UnifiedSidebar(initialActiveSection: 'billing')) : null,
       body: isDesktop
           ? Row(
               children: [
                 // Sidebar (Fixed Width)
-                _buildSidebar(),
+                const UnifiedSidebar(initialActiveSection: 'billing'),
                 // Main Content (Flexible)
                 Expanded(child: mainContent),
               ],
@@ -1198,6 +1097,299 @@ class _BillingDashboardState extends State<BillingDashboard> {
                 ),
               ],
             ),
+    );
+  }
+}
+
+// Unified Sidebar (same as main.dart)
+class UnifiedSidebar extends StatefulWidget {
+  final String initialActiveSection;
+  
+  const UnifiedSidebar({
+    super.key,
+    this.initialActiveSection = 'overview',
+  });
+
+  @override
+  State<UnifiedSidebar> createState() => _UnifiedSidebarState();
+}
+
+class _UnifiedSidebarState extends State<UnifiedSidebar> {
+  late String activeSection;
+  
+  @override
+  void initState() {
+    super.initState();
+    activeSection = widget.initialActiveSection;
+  }
+
+  void navigateTo(String section) {
+    setState(() {
+      activeSection = section;
+    });
+    
+    // Close drawer on mobile
+    if (Scaffold.of(context).hasDrawer) {
+      Navigator.of(context).pop();
+    }
+    
+    // Navigate to the corresponding screen
+    Widget? targetScreen;
+    switch (section) {
+      case 'overview':
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const main_dashboard.AdminDashboardScreen()),
+          (route) => false,
+        );
+        return;
+      case 'schools':
+        targetScreen = const schools.AdminDashboard();
+        break;
+      case 'revenue':
+        targetScreen = const revenue.RevenueDashboard();
+        break;
+      case 'licenses':
+      case 'school_management':
+        targetScreen = const school_management.SchoolDashboard();
+        break;
+      case 'billing':
+        targetScreen = const BillingDashboard();
+        break;
+      case 'reports':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Reports page coming soon')),
+        );
+        return;
+      case 'settings':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Settings page coming soon')),
+        );
+        return;
+    }
+    
+    // Navigate to the target screen
+    if (targetScreen != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => targetScreen!),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 280,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(right: BorderSide(color: Color(0xFFe9ecef))),
+        boxShadow: [
+          BoxShadow(
+            color: Color.fromRGBO(0, 0, 0, 0.1),
+            offset: Offset(2, 0),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Logo - Fixed at top
+          Container(
+            margin: const EdgeInsets.only(bottom: 20),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF007bff), Color(0xFF0056b3)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  '🏫 SMS',
+                  style: GoogleFonts.inter(
+                    fontSize: 24,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                const Text(
+                  'School Management System',
+                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          // Nav Menu - Scrollable
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  UnifiedSidebarNavItem(
+                    icon: '📊',
+                    title: 'Overview',
+                    isActive: activeSection == 'overview',
+                    onTap: () => navigateTo('overview'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '🏫',
+                    title: 'Schools',
+                    isActive: activeSection == 'schools',
+                    onTap: () => navigateTo('schools'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '➕',
+                    title: 'Add School',
+                    isActive: activeSection == 'add_school',
+                    onTap: () async {
+                      setState(() {
+                        activeSection = 'add_school';
+                      });
+                      if (Scaffold.of(context).hasDrawer) {
+                        Navigator.of(context).pop();
+                      }
+                      final result = await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const add_school.AddSchoolScreen(),
+                        ),
+                      );
+                      if (result == true) {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(
+                            builder: (context) => const schools.AdminDashboard(refreshOnMount: true),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '📋',
+                    title: 'Licenses',
+                    isActive: activeSection == 'licenses',
+                    onTap: () => navigateTo('licenses'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '💰',
+                    title: 'Revenue',
+                    isActive: activeSection == 'revenue',
+                    onTap: () => navigateTo('revenue'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '💳',
+                    title: 'Billing',
+                    isActive: activeSection == 'billing',
+                    onTap: () => navigateTo('billing'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '📈',
+                    title: 'Reports',
+                    isActive: activeSection == 'reports',
+                    onTap: () => navigateTo('reports'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '⚙️',
+                    title: 'Settings',
+                    isActive: activeSection == 'settings',
+                    onTap: () => navigateTo('settings'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class UnifiedSidebarNavItem extends StatefulWidget {
+  final String icon;
+  final String title;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const UnifiedSidebarNavItem({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  State<UnifiedSidebarNavItem> createState() => _UnifiedSidebarNavItemState();
+}
+
+class _UnifiedSidebarNavItemState extends State<UnifiedSidebarNavItem> {
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    const primaryColor = Color(0xFF007bff);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10.0),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovering = true),
+        onExit: (_) => setState(() => _isHovering = false),
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+            decoration: BoxDecoration(
+              color: widget.isActive
+                  ? primaryColor
+                  : (_isHovering
+                        ? const Color(0xFFe9ecef)
+                        : const Color(0xFFf8f9fa)),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: widget.isActive
+                    ? primaryColor
+                    : (_isHovering
+                          ? const Color(0xFFced4da)
+                          : const Color(0xFFe9ecef)),
+                width: 1,
+              ),
+              gradient: widget.isActive
+                  ? const LinearGradient(
+                      colors: [primaryColor, Color(0xFF0056b3)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : null,
+            ),
+            child: Row(
+              children: [
+                Text(
+                  widget.icon,
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: widget.isActive ? Colors.white : Colors.black,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  widget.title,
+                  style: TextStyle(
+                    color: widget.isActive
+                        ? Colors.white
+                        : const Color(0xFF333333),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

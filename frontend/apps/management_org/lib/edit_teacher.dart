@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
+import 'widgets/school_profile_header.dart';
 
 class EditTeacherPage extends StatefulWidget {
   final int? teacherId;
@@ -358,7 +359,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
           _Sidebar(gradient: gradient),
           Expanded(
             child: Container(
-              decoration: BoxDecoration(gradient: gradient),
+              color: const Color(0xFFF5F6FA),
               child: SafeArea(
                 child: SingleChildScrollView(
                   child: Column(
@@ -436,7 +437,7 @@ class _Sidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 250,
+      width: 280,
       decoration: BoxDecoration(
         gradient: gradient,
         boxShadow: [
@@ -454,8 +455,16 @@ class _Sidebar extends StatelessWidget {
               margin: const EdgeInsets.all(20),
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: gradient,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
                 borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.24),
+                  width: 1,
+                ),
               ),
               child: const Column(
                 children: [
@@ -471,7 +480,7 @@ class _Sidebar extends StatelessWidget {
                   Text(
                     'School Management System',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Colors.white70,
                       fontSize: 12,
                     ),
                   ),
@@ -480,11 +489,11 @@ class _Sidebar extends StatelessWidget {
             ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.all(10),
+                padding: EdgeInsets.zero,
                 children: [
                   _NavItem(
                     icon: '📊',
-                    title: 'Dashboard',
+                    title: 'Overview',
                     onTap: () =>
                         Navigator.pushReplacementNamed(context, '/dashboard'),
                   ),
@@ -516,6 +525,24 @@ class _Sidebar extends StatelessWidget {
                     title: 'Events',
                     onTap: () =>
                         Navigator.pushReplacementNamed(context, '/events'),
+                  ),
+                  _NavItem(
+                    icon: '📆',
+                    title: 'Calendar',
+                    onTap: () =>
+                        Navigator.pushReplacementNamed(context, '/calendar'),
+                  ),
+                  _NavItem(
+                    icon: '🔔',
+                    title: 'Notifications',
+                    onTap: () =>
+                        Navigator.pushReplacementNamed(context, '/notifications'),
+                  ),
+                  _NavItem(
+                    icon: '🛣️',
+                    title: 'Bus Routes',
+                    onTap: () =>
+                        Navigator.pushReplacementNamed(context, '/bus-routes'),
                   ),
                 ],
               ),
@@ -561,42 +588,7 @@ class _Header extends StatelessWidget {
           ),
           Row(
             children: [
-              Container(
-                width: 45,
-                height: 45,
-                decoration: BoxDecoration(
-                  gradient: gradient,
-                  shape: BoxShape.circle,
-                ),
-                child: const Center(
-                  child: Text(
-                    'M',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 15),
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    'Management User',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    'School Manager',
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
+              SchoolProfileHeader(apiService: ApiService()),
               const SizedBox(width: 15),
               ElevatedButton.icon(
                 onPressed: () {
@@ -1209,7 +1201,7 @@ class _FormCard extends StatelessWidget {
   }
 }
 
-class _NavItem extends StatefulWidget {
+class _NavItem extends StatelessWidget {
   final String icon;
   final String title;
   final VoidCallback? onTap;
@@ -1223,57 +1215,32 @@ class _NavItem extends StatefulWidget {
   });
 
   @override
-  State<_NavItem> createState() => _NavItemState();
-}
-
-class _NavItemState extends State<_NavItem> {
-  bool _isHovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: widget.isActive
-              ? Colors.white.withValues(alpha: 0.3)
-              : _isHovered
-                  ? Colors.white.withValues(alpha: 0.25)
-                  : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: _isHovered
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  )
-                ]
-              : null,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: isActive
+            ? Colors.white.withValues(alpha: 0.3)
+            : Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        leading: Text(
+          icon,
+          style: const TextStyle(fontSize: 18),
         ),
-        child: ListTile(
-          leading: Text(widget.icon, style: const TextStyle(fontSize: 20, color: Colors.white)),
-          title: AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 200),
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: widget.isActive || _isHovered
-                  ? FontWeight.bold
-                  : FontWeight.normal,
-              fontSize: widget.isActive || _isHovered ? 15.0 : 14.0,
-            ),
-            child: Text(widget.title),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            fontSize: 14,
           ),
-          selected: widget.isActive,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          onTap: widget.onTap,
         ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        onTap: onTap,
       ),
     );
   }

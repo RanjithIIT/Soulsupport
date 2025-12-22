@@ -839,12 +839,22 @@ class BusViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     queryset = Bus.objects.all()
     serializer_class = BusSerializer
     permission_classes = [IsAuthenticated, IsManagementAdmin]
-    lookup_field = 'bus_id'  # Explicitly set lookup field to bus_id (UUID)
+    lookup_field = 'bus_number'  # Use bus_number as primary key for lookups
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['school', 'bus_type', 'is_active']
     search_fields = ['bus_number', 'driver_name', 'route_name', 'registration_number']
     ordering_fields = ['bus_number', 'created_at']
     ordering = ['-created_at']
+    
+    def get_queryset(self):
+        """Optimize queryset with prefetch_related for stops and students"""
+        queryset = super().get_queryset()
+        # Prefetch stops and their students to avoid N+1 queries
+        queryset = queryset.prefetch_related(
+            'stops__stop_students__student',
+            'stops__bus'
+        ).select_related('school')
+        return queryset
     
     def create(self, request, *args, **kwargs):
         """Override create to automatically get school from logged-in user if not provided"""
@@ -890,18 +900,56 @@ class BusStopViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     queryset = BusStop.objects.all()
     serializer_class = BusStopSerializer
     permission_classes = [IsAuthenticated, IsManagementAdmin]
-    lookup_field = 'stop_id'  # Explicitly set lookup field to stop_id (UUID)
+    lookup_field = 'stop_id'  # Explicitly set lookup field to stop_id (CharField: busnumber_stopnumber)
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['bus', 'route_type']
+    filterset_fields = ['route_type']  # Removed 'bus' from here, will handle manually
     search_fields = ['stop_name']
     ordering_fields = ['stop_order', 'stop_time']
     ordering = ['bus', 'route_type', 'stop_order']
     
+    def get_queryset(self):
+        """Override to handle bus filter by bus_number instead of bus_id"""
+        queryset = super().get_queryset()
+        
+        # Handle bus filter - if bus parameter is provided, filter by bus__bus_number
+        bus_param = self.request.query_params.get('bus')
+        if bus_param:
+            queryset = queryset.filter(bus__bus_number=bus_param)
+        
+        return queryset
+    
     @action(detail=True, methods=['get'])
-    def students(self, request, pk=None):
-        """Get all students for a specific stop"""
+    def students(self, request, *args, **kwargs):
+        """Get all students for a specific stop.
+        For afternoon stops, returns students from the corresponding morning stop (matched by stop_name).
+        """
+        # get_object() automatically uses the lookup_field (stop_id) to find the object
+        # Using *args, **kwargs to avoid parameter name conflicts with custom lookup_field
         stop = self.get_object()
-        students = stop.stop_students.all()
+        
+        # If this is an afternoon stop, get students from corresponding morning stop
+        if stop.route_type == 'afternoon':
+            # Find corresponding morning stop with same stop_name
+            try:
+                corresponding_morning_stop = BusStop.objects.filter(
+                    bus=stop.bus,
+                    route_type='morning',
+                    stop_name=stop.stop_name
+                ).first()
+                
+                if corresponding_morning_stop:
+                    # Return students from corresponding morning stop
+                    students = corresponding_morning_stop.stop_students.all()
+                else:
+                    # Fallback to afternoon stop's own students if no corresponding morning stop
+                    students = stop.stop_students.all()
+            except Exception:
+                # Fallback to afternoon stop's own students on error
+                students = stop.stop_students.all()
+        else:
+            # For morning stops, return students directly assigned to this stop
+            students = stop.stop_students.all()
+        
         serializer = BusStopStudentSerializer(students, many=True)
         return Response(serializer.data)
     
@@ -943,10 +991,10 @@ class BusStopStudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     serializer_class = BusStopStudentSerializer
     permission_classes = [IsAuthenticated, IsManagementAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['stop', 'student']
+    filterset_fields = ['bus_stop', 'student']
     search_fields = ['student_name', 'student_id_string', 'student__student_id', 'student__student_name']
     ordering_fields = ['created_at']
-    ordering = ['stop', 'student_name']
+    ordering = ['bus_stop', 'student_name']
     
     def create(self, request, *args, **kwargs):
         """Override create to fetch student by student_id and validate school match"""
@@ -1010,15 +1058,32 @@ class BusStopStudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
             )
         
         # Check if student is already assigned to this stop
-        if BusStopStudent.objects.filter(stop=stop, student=student).exists():
+        if BusStopStudent.objects.filter(bus_stop=stop, student=student).exists():
             return Response(
                 {'error': 'Student is already assigned to this stop'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Check if student is already assigned to any other stop of the same bus
+        existing_assignment = BusStopStudent.objects.filter(
+            bus_stop__bus=bus,
+            student=student
+        ).select_related('bus_stop').first()
+        
+        if existing_assignment:
+            return Response(
+                {
+                    'error': f'Student is already assigned to another stop: {existing_assignment.bus_stop.stop_name} (Stop {existing_assignment.bus_stop.stop_order}, {existing_assignment.bus_stop.get_route_type_display()})',
+                    'existing_stop_name': existing_assignment.bus_stop.stop_name,
+                    'existing_stop_order': existing_assignment.bus_stop.stop_order,
+                    'existing_route_type': existing_assignment.bus_stop.route_type,
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         # Create the BusStopStudent
         bus_stop_student = BusStopStudent.objects.create(
-            stop=stop,
+            bus_stop=stop,
             student=student
         )
         

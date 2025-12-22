@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:main_login/main.dart' as main_login;
+import 'package:core/api/api_service.dart';
 import 'main.dart' as app;
 import 'activities.dart';
+import 'widgets/school_profile_header.dart';
 import 'add_teacher.dart';
 import 'admissions.dart';
 import 'awards.dart';
-import 'bus_routes.dart';
 import 'buses.dart';
 import 'calendar.dart';
 import 'campus_life.dart';
@@ -390,7 +391,7 @@ class _DashboardPageState extends State<DashboardPage> {
               if (showSidebar) _Sidebar(gradient: gradient),
               Expanded(
                 child: Container(
-                  color: Colors.white,
+                  color: const Color(0xFFF5F6FA),
                   child: SafeArea(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.all(24),
@@ -625,7 +626,7 @@ class _Sidebar extends StatelessWidget {
                   _NavItem(
                     icon: '🛣️',
                     title: 'Bus Routes',
-                    onTap: () => _navigateToRoute(context, '/bus-routes'),
+                    onTap: () => _navigateToRoute(context, '/buses'),
                   ),
                 ],
               ),
@@ -730,39 +731,7 @@ class _Header extends StatelessWidget {
           ),
           Row(
             children: [
-              Container(
-                width: 45,
-                height: 45,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                  ),
-                ),
-                child: const Center(
-                  child: Text(
-                    'M',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 15),
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    'Management User',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  Text(
-                    'School Manager',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                ],
-              ),
+              SchoolProfileHeader(apiService: ApiService()),
               const SizedBox(width: 15),
               ElevatedButton.icon(
                 onPressed: () {
@@ -887,7 +856,7 @@ class _StatsGrid extends StatelessWidget {
         'label': 'Bus Routes',
         'description': 'Transportation network',
         'color': const Color(0xFFFFECD2),
-        'route': 'bus-routes',
+        'route': 'buses',
       },
       {
         'icon': '📅',

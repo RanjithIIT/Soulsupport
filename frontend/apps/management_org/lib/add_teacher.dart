@@ -397,66 +397,183 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isCompact = size.width < 768;
+    final gradient = const LinearGradient(
+      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-          ),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 820),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.95),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 40,
-                      offset: const Offset(0, 20),
-                    ),
-                  ],
+      body: Row(
+        children: [
+          // Sidebar
+          Container(
+            width: 280,
+            decoration: BoxDecoration(
+              gradient: gradient,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 20,
+                  offset: const Offset(2, 0),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildHeader(),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardPage())),
-                        style: TextButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(alpha: 0.2),
-                          foregroundColor: Colors.white,
-                          side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.3),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.arrow_back, size: 16),
-                            SizedBox(width: 6),
-                            Text('Back to Dashboard'),
-                          ],
-                        ),
+              ],
+            ),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.24),
+                        width: 1,
                       ),
                     ),
-                    Padding(
-                      padding: EdgeInsets.all(isCompact ? 20 : 40),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          children: [
+                    child: const Column(
+                      children: [
+                        Text(
+                          '🏫 SMS',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 5),
+                        Text(
+                          'School Management System',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      padding: EdgeInsets.zero,
+                      children: [
+                        _NavItem(
+                          icon: '📊',
+                          title: 'Overview',
+                          onTap: () => Navigator.pushReplacementNamed(
+                              context, '/dashboard'),
+                        ),
+                        _NavItem(
+                          icon: '👨‍🏫',
+                          title: 'Teachers',
+                          isActive: true,
+                        ),
+                        _NavItem(
+                          icon: '👥',
+                          title: 'Students',
+                          onTap: () => Navigator.pushReplacementNamed(
+                              context, '/students'),
+                        ),
+                        _NavItem(
+                          icon: '🚌',
+                          title: 'Buses',
+                          onTap: () =>
+                              Navigator.pushReplacementNamed(context, '/buses'),
+                        ),
+                        _NavItem(
+                          icon: '🎯',
+                          title: 'Activities',
+                          onTap: () =>
+                              Navigator.pushReplacementNamed(context, '/activities'),
+                        ),
+                        _NavItem(
+                          icon: '📅',
+                          title: 'Events',
+                          onTap: () =>
+                              Navigator.pushReplacementNamed(context, '/events'),
+                        ),
+                        _NavItem(
+                          icon: '📆',
+                          title: 'Calendar',
+                          onTap: () =>
+                              Navigator.pushReplacementNamed(context, '/calendar'),
+                        ),
+                        _NavItem(
+                          icon: '🔔',
+                          title: 'Notifications',
+                          onTap: () =>
+                              Navigator.pushReplacementNamed(context, '/notifications'),
+                        ),
+                        _NavItem(
+                          icon: '🛣️',
+                          title: 'Bus Routes',
+                          onTap: () =>
+                              Navigator.pushReplacementNamed(context, '/bus-routes'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Main Content
+          Expanded(
+            child: Container(
+              color: const Color(0xFFF5F6FA),
+              child: SafeArea(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 820),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.95),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 40,
+                            offset: const Offset(0, 20),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildHeader(),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardPage())),
+                              style: TextButton.styleFrom(
+                                backgroundColor: Colors.white.withValues(alpha: 0.2),
+                                foregroundColor: Colors.white,
+                                side: BorderSide(
+                                  color: Colors.white.withValues(alpha: 0.3),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.arrow_back, size: 16),
+                                  SizedBox(width: 6),
+                                  Text('Back to Dashboard'),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: EdgeInsets.all(isCompact ? 20 : 40),
+                            child: Form(
+                              key: _formKey,
+                              child: Column(
+                                children: [
                             if (_showSuccess)
                               const _MessageBanner.success(
                                 message:
@@ -873,9 +990,12 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
           ),
         ),
       ),
+    ),
+    ],
+     ),
     );
-  }
-
+}
+}
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
@@ -940,7 +1060,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
   }
-}
+
 
 class _LabeledField extends StatelessWidget {
   final String label;
@@ -1193,4 +1313,49 @@ class TeacherPreviewData {
     required this.qualification,
     required this.subjectSpecialization,
   });
+}
+
+class _NavItem extends StatelessWidget {
+  final String icon;
+  final String title;
+  final VoidCallback? onTap;
+  final bool isActive;
+
+  const _NavItem({
+    required this.icon,
+    required this.title,
+    this.onTap,
+    this.isActive = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: isActive
+            ? Colors.white.withValues(alpha: 0.3)
+            : Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        leading: Text(
+          icon,
+          style: const TextStyle(fontSize: 18),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            fontSize: 14,
+          ),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        onTap: onTap,
+      ),
+    );
+  }
 }

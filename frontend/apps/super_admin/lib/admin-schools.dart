@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
+import 'main.dart' as main_dashboard;
+import 'admin-add-school.dart' as add_school;
+import 'admin-school-details.dart' as school_details;
+import 'admin-revenue.dart' as revenue;
+import 'admin-billing.dart' as billing;
+import 'admin-school-management.dart' as school_management;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -256,9 +263,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   void _viewSchoolDetails(School school) {
-    // Navigation/dialog removed — show brief info instead
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Details view disabled for ${school.name}')),
+    // Navigate to school details page
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const school_details.SchoolDetailsScreen(),
+      ),
     );
   }
 
@@ -283,12 +292,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                 )
               : null,
-          drawer: !isDesktop ? const Drawer(child: SidebarContent()) : null,
+          drawer: !isDesktop ? const Drawer(child: UnifiedSidebar(initialActiveSection: 'schools')) : null,
           body: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (isDesktop)
-                const SizedBox(width: 250, child: SidebarContent()),
+                const UnifiedSidebar(initialActiveSection: 'schools'),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(15),
@@ -316,7 +325,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                           gridDelegate:
                                               const SliverGridDelegateWithMaxCrossAxisExtent(
                                                 maxCrossAxisExtent: 400,
-                                                mainAxisExtent: 245,
+                                                mainAxisExtent: 257, // Increased from 245 to fix 12px overflow
                                                 crossAxisSpacing: 12,
                                                 mainAxisSpacing: 12,
                                                 childAspectRatio: 1.0,
@@ -329,13 +338,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                                 _filteredSchools[index].id,
                                               ),
                                               onEdit: () {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text(
-                                                      "Edit ${_filteredSchools[index].name}",
-                                                    ),
+                                                // Navigate to add school page with edit mode
+                                                Navigator.of(context).push(
+                                                  MaterialPageRoute(
+                                                    builder: (context) => const add_school.AddSchoolScreen(),
                                                   ),
                                                 );
                                               },
@@ -386,6 +392,31 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           Row(
             children: [
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (context) => main_dashboard.AdminDashboardScreen(),
+                    ),
+                    (route) => false,
+                  );
+                },
+                icon: const Icon(Icons.arrow_back, size: 18),
+                label: const Text('Back to Dashboard'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6c757d),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+              const SizedBox(width: 15),
               Container(
                 width: 40,
                 height: 40,
@@ -418,117 +449,217 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildSearchAndFilter() {
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE9ECEF)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 5,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: SizedBox(
-              height: 45,
-              child: TextField(
-                controller: _searchController,
-                onChanged: (val) {
-                  _searchQuery = val;
-                  _filterSchools();
-                },
-                style: const TextStyle(fontSize: 15),
-                textAlignVertical: TextAlignVertical.center,
-                decoration: InputDecoration(
-                  hintText: "Search schools...",
-                  prefixIcon: const Icon(
-                    Icons.search,
-                    color: Colors.grey,
-                    size: 20,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFE9ECEF)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFE9ECEF)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF007BFF),
-                      width: 1,
-                    ),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                  contentPadding: EdgeInsets.zero,
-                  isDense: true,
-                ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
+        
+        return Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE9ECEF)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 5,
+                offset: const Offset(0, 1),
               ),
-            ),
+            ],
           ),
-          const SizedBox(width: 15),
-          Expanded(
-            flex: 1,
-            child: Container(
-              height: 45,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFFE9ECEF), width: 1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _statusFilter.isEmpty ? null : _statusFilter,
-                  hint: const Text(
-                    "All Status",
-                    style: TextStyle(fontSize: 14),
-                  ),
-                  isExpanded: true,
-                  icon: const Icon(
-                    Icons.arrow_drop_down,
-                    color: Colors.grey,
-                    size: 24,
-                  ),
-                  items: const [
-                    DropdownMenuItem(
-                      value: null,
-                      child: Text("All Status", style: TextStyle(fontSize: 14)),
+          child: isMobile
+              ? Column(
+                  children: [
+                    SizedBox(
+                      height: 45,
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (val) {
+                          _searchQuery = val;
+                          _filterSchools();
+                        },
+                        style: const TextStyle(fontSize: 15),
+                        textAlignVertical: TextAlignVertical.center,
+                        decoration: InputDecoration(
+                          hintText: "Search schools...",
+                          prefixIcon: const Icon(
+                            Icons.search,
+                            color: Colors.grey,
+                            size: 20,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Color(0xFFE9ECEF)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Color(0xFFE9ECEF)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF007BFF),
+                              width: 1,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: EdgeInsets.zero,
+                          isDense: true,
+                        ),
+                      ),
                     ),
-                    DropdownMenuItem(
-                      value: "active",
-                      child: Text("Active", style: TextStyle(fontSize: 14)),
-                    ),
-                    DropdownMenuItem(
-                      value: "pending",
-                      child: Text("Pending", style: TextStyle(fontSize: 14)),
-                    ),
-                    DropdownMenuItem(
-                      value: "expired",
-                      child: Text("Expired", style: TextStyle(fontSize: 14)),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 45,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFFE9ECEF), width: 1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _statusFilter.isEmpty ? null : _statusFilter,
+                            hint: const Text(
+                              "All Status",
+                              style: TextStyle(fontSize: 14),
+                            ),
+                            isExpanded: true,
+                            icon: const Icon(
+                              Icons.arrow_drop_down,
+                              color: Colors.grey,
+                              size: 24,
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: null,
+                                child: Text("All Status", style: TextStyle(fontSize: 14)),
+                              ),
+                              DropdownMenuItem(
+                                value: "active",
+                                child: Text("Active", style: TextStyle(fontSize: 14)),
+                              ),
+                              DropdownMenuItem(
+                                value: "pending",
+                                child: Text("Pending", style: TextStyle(fontSize: 14)),
+                              ),
+                              DropdownMenuItem(
+                                value: "expired",
+                                child: Text("Expired", style: TextStyle(fontSize: 14)),
+                              ),
+                            ],
+                            onChanged: (val) {
+                              setState(() {
+                                _statusFilter = val ?? "";
+                                _filterSchools();
+                              });
+                            },
+                          ),
+                        ),
+                      ),
                     ),
                   ],
-                  onChanged: (val) {
-                    setState(() {
-                      _statusFilter = val ?? "";
-                      _filterSchools();
-                    });
-                  },
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: SizedBox(
+                        height: 45,
+                        child: TextField(
+                          controller: _searchController,
+                          onChanged: (val) {
+                            _searchQuery = val;
+                            _filterSchools();
+                          },
+                          style: const TextStyle(fontSize: 15),
+                          textAlignVertical: TextAlignVertical.center,
+                          decoration: InputDecoration(
+                            hintText: "Search schools...",
+                            prefixIcon: const Icon(
+                              Icons.search,
+                              color: Colors.grey,
+                              size: 20,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: Color(0xFFE9ECEF)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: Color(0xFFE9ECEF)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF007BFF),
+                                width: 1,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: EdgeInsets.zero,
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      flex: 1,
+                      child: Container(
+                        height: 45,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFFE9ECEF), width: 1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _statusFilter.isEmpty ? null : _statusFilter,
+                            hint: const Text(
+                              "All Status",
+                              style: TextStyle(fontSize: 14),
+                            ),
+                            isExpanded: true,
+                            icon: const Icon(
+                              Icons.arrow_drop_down,
+                              color: Colors.grey,
+                              size: 24,
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: null,
+                                child: Text("All Status", style: TextStyle(fontSize: 14)),
+                              ),
+                              DropdownMenuItem(
+                                value: "active",
+                                child: Text("Active", style: TextStyle(fontSize: 14)),
+                              ),
+                              DropdownMenuItem(
+                                value: "pending",
+                                child: Text("Pending", style: TextStyle(fontSize: 14)),
+                              ),
+                              DropdownMenuItem(
+                                value: "expired",
+                                child: Text("Expired", style: TextStyle(fontSize: 14)),
+                              ),
+                            ],
+                            onChanged: (val) {
+                              setState(() {
+                                _statusFilter = val ?? "";
+                                _filterSchools();
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -583,55 +714,204 @@ class _AdminDashboardState extends State<AdminDashboard> {
 }
 
 // --- 3. SIDEBAR COMPONENT ---
-class SidebarContent extends StatelessWidget {
-  const SidebarContent({super.key});
+// Unified Sidebar (same as main.dart)
+class UnifiedSidebar extends StatefulWidget {
+  final String initialActiveSection;
+  
+  const UnifiedSidebar({
+    super.key,
+    this.initialActiveSection = 'overview',
+  });
+
+  @override
+  State<UnifiedSidebar> createState() => _UnifiedSidebarState();
+}
+
+class _UnifiedSidebarState extends State<UnifiedSidebar> {
+  late String activeSection;
+  
+  @override
+  void initState() {
+    super.initState();
+    activeSection = widget.initialActiveSection;
+  }
+
+  void navigateTo(String section) {
+    setState(() {
+      activeSection = section;
+    });
+    
+    // Close drawer on mobile
+    if (Scaffold.of(context).hasDrawer) {
+      Navigator.of(context).pop();
+    }
+    
+    // Navigate to the corresponding screen
+    Widget? targetScreen;
+    switch (section) {
+      case 'overview':
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const main_dashboard.AdminDashboardScreen()),
+          (route) => false,
+        );
+        return;
+      case 'schools':
+        targetScreen = const AdminDashboard();
+        break;
+      case 'revenue':
+        targetScreen = const revenue.RevenueDashboard();
+        break;
+      case 'licenses':
+      case 'school_management':
+        targetScreen = const school_management.SchoolDashboard();
+        break;
+      case 'billing':
+        targetScreen = const billing.BillingDashboard();
+        break;
+      case 'reports':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Reports page coming soon')),
+        );
+        return;
+      case 'settings':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Settings page coming soon')),
+        );
+        return;
+    }
+    
+    // Navigate to the target screen
+    if (targetScreen != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => targetScreen!),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white,
+      width: 280,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(right: BorderSide(color: Color(0xFFe9ecef))),
+        boxShadow: [
+          BoxShadow(
+            color: Color.fromRGBO(0, 0, 0, 0.1),
+            offset: Offset(2, 0),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Logo - Fixed at top
           Container(
-            margin: const EdgeInsets.all(15),
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
-            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 20),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF007BFF), Color(0xFF0056B3)],
+                colors: [Color(0xFF007bff), Color(0xFF0056b3)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(15),
             ),
             child: Column(
-              children: const [
+              children: [
                 Text(
-                  "School Management",
-                  style: TextStyle(
+                  '🏫 SMS',
+                  style: GoogleFonts.inter(
+                    fontSize: 24,
                     color: Colors.white,
-                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
-                  textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 5),
-                Text(
-                  "Admin Dashboard",
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                const SizedBox(height: 5),
+                const Text(
+                  'School Management System',
+                  style: TextStyle(fontSize: 12, color: Colors.white70),
                 ),
               ],
             ),
           ),
+          // Nav Menu - Scrollable
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              children: const [
-                NavItem(icon: "📊", title: "Dashboard", isActive: false),
-                NavItem(icon: "🏫", title: "Schools", isActive: true),
-                NavItem(icon: "➕", title: "Add School", isActive: false),
-                NavItem(icon: "👥", title: "Users", isActive: false),
-                NavItem(icon: "📈", title: "Reports", isActive: false),
-                NavItem(icon: "⚙️", title: "Settings", isActive: false),
-              ],
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  UnifiedSidebarNavItem(
+                    icon: '📊',
+                    title: 'Overview',
+                    isActive: activeSection == 'overview',
+                    onTap: () => navigateTo('overview'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '🏫',
+                    title: 'Schools',
+                    isActive: activeSection == 'schools',
+                    onTap: () => navigateTo('schools'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '➕',
+                    title: 'Add School',
+                    isActive: activeSection == 'add_school',
+                    onTap: () async {
+                      setState(() {
+                        activeSection = 'add_school';
+                      });
+                      if (Scaffold.of(context).hasDrawer) {
+                        Navigator.of(context).pop();
+                      }
+                      final result = await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const add_school.AddSchoolScreen(),
+                        ),
+                      );
+                      if (result == true) {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(
+                            builder: (context) => const AdminDashboard(refreshOnMount: true),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '📋',
+                    title: 'Licenses',
+                    isActive: activeSection == 'licenses',
+                    onTap: () => navigateTo('licenses'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '💰',
+                    title: 'Revenue',
+                    isActive: activeSection == 'revenue',
+                    onTap: () => navigateTo('revenue'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '💳',
+                    title: 'Billing',
+                    isActive: activeSection == 'billing',
+                    onTap: () => navigateTo('billing'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '📈',
+                    title: 'Reports',
+                    isActive: activeSection == 'reports',
+                    onTap: () => navigateTo('reports'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '⚙️',
+                    title: 'Settings',
+                    isActive: activeSection == 'settings',
+                    onTap: () => navigateTo('settings'),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -640,91 +920,88 @@ class SidebarContent extends StatelessWidget {
   }
 }
 
-class NavItem extends StatelessWidget {
+class UnifiedSidebarNavItem extends StatefulWidget {
   final String icon;
   final String title;
   final bool isActive;
+  final VoidCallback onTap;
 
-  const NavItem({
+  const UnifiedSidebarNavItem({
     super.key,
     required this.icon,
     required this.title,
     required this.isActive,
+    required this.onTap,
   });
 
   @override
+  State<UnifiedSidebarNavItem> createState() => _UnifiedSidebarNavItemState();
+}
+
+class _UnifiedSidebarNavItemState extends State<UnifiedSidebarNavItem> {
+  bool _isHovering = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: isActive
-          ? BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF007BFF), Color(0xFF0056B3)],
+    const primaryColor = Color(0xFF007bff);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10.0),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovering = true),
+        onExit: (_) => setState(() => _isHovering = false),
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+            decoration: BoxDecoration(
+              color: widget.isActive
+                  ? primaryColor
+                  : (_isHovering
+                        ? const Color(0xFFe9ecef)
+                        : const Color(0xFFf8f9fa)),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: widget.isActive
+                    ? primaryColor
+                    : (_isHovering
+                          ? const Color(0xFFced4da)
+                          : const Color(0xFFe9ecef)),
+                width: 1,
               ),
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF007BFF).withValues(alpha: 0.3),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+              gradient: widget.isActive
+                  ? const LinearGradient(
+                      colors: [primaryColor, Color(0xFF0056b3)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : null,
+            ),
+            child: Row(
+              children: [
+                Text(
+                  widget.icon,
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: widget.isActive ? Colors.white : Colors.black,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  widget.title,
+                  style: TextStyle(
+                    color: widget.isActive
+                        ? Colors.white
+                        : const Color(0xFF333333),
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
-            )
-          : BoxDecoration(
-              color: const Color(0xFFF8F9FA),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE9ECEF)),
             ),
-      child: ListTile(
-        dense: true,
-        visualDensity: VisualDensity.standard,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 0),
-        leading: Text(icon, style: const TextStyle(fontSize: 20)),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: isActive ? Colors.white : const Color(0xFF333333),
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-            fontSize: 15,
           ),
         ),
-        onTap: () {
-          // Navigate based on menu item
-          switch (title) {
-            case 'Dashboard':
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Navigating to Dashboard')),
-              );
-              break;
-            case 'Schools':
-              // Already on schools page
-              break;
-            case 'Add School':
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Navigating to Add School')),
-              );
-              break;
-            case 'Users':
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Navigating to Users')),
-              );
-              break;
-            case 'Reports':
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Navigating to Reports')),
-              );
-              break;
-            case 'Settings':
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Navigating to Settings')),
-              );
-              break;
-          }
-          // Close drawer on mobile
-          if (Scaffold.of(context).hasDrawer) {
-            Navigator.of(context).pop();
-          }
-        },
       ),
     );
   }
@@ -815,70 +1092,62 @@ class _SchoolCardState extends State<SchoolCard> {
 
                 // Main Card Content
                 Expanded(
-                  child: Padding(
-                    // ZERO Bottom Padding
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                    child: Column(
-                      children: [
-                        // Header
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 45,
-                              height: 45,
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Color(0xFF007BFF),
-                                    Color(0xFF0056B3),
-                                  ],
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      // ZERO Bottom Padding
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Header
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 45,
+                                height: 45,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Color(0xFF007BFF),
+                                      Color(0xFF0056B3),
+                                    ],
+                                  ),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  widget.school.name.isNotEmpty
+                                      ? widget.school.name[0]
+                                      : "?",
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                widget.school.name.isNotEmpty
-                                    ? widget.school.name[0]
-                                    : "?",
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // SCHOOL NAME
-                                  Text(
-                                    widget.school.name,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF333333),
-                                      height: 1.2,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  // DETAILS
-                                  Text(
-                                    "📍 ${widget.school.location}",
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Color(0xFF666666),
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (widget.school.principal != null)
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // SCHOOL NAME
                                     Text(
-                                      "👨‍💼 ${widget.school.principal}",
+                                      widget.school.name,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF333333),
+                                        height: 1.2,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    // DETAILS
+                                    Text(
+                                      "📍 ${widget.school.location}",
                                       style: const TextStyle(
                                         fontSize: 13,
                                         color: Color(0xFF666666),
@@ -886,92 +1155,103 @@ class _SchoolCardState extends State<SchoolCard> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                                ],
+                                    if (widget.school.principal != null)
+                                      Text(
+                                        "👨‍💼 ${widget.school.principal}",
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF666666),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Status Badge
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _getStatusBg(widget.school.status),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              widget.school.status.toUpperCase(),
-                              style: TextStyle(
-                                color: _getStatusColor(widget.school.status),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 8),
-
-                        // Stats Box
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF8F9FA),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              _buildStatItem(
-                                "${widget.school.students}",
-                                "Students",
-                              ),
-                              _buildStatItem(
-                                "${widget.school.teachers}",
-                                "Teachers",
-                              ),
-                              _buildStatItem("${widget.school.buses}", "Buses"),
                             ],
                           ),
-                        ),
+                          const SizedBox(height: 6),
 
-                        const SizedBox(height: 8),
+                          // Status Badge
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _getStatusBg(widget.school.status),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                widget.school.status.toUpperCase(),
+                                style: TextStyle(
+                                  color: _getStatusColor(widget.school.status),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ),
 
-                        // Buttons
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildActionBtn(
-                                "View Details",
-                                const Color(0xFF007BFF),
-                                widget.onView,
-                              ),
+                          const SizedBox(height: 6),
+
+                          // Stats Box
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8F9FA),
+                              borderRadius: BorderRadius.circular(6),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _buildActionBtn(
-                                "Edit",
-                                const Color(0xFFFFC107),
-                                widget.onEdit,
-                              ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                _buildStatItem(
+                                  "${widget.school.students}",
+                                  "Students",
+                                ),
+                                _buildStatItem(
+                                  "${widget.school.teachers}",
+                                  "Teachers",
+                                ),
+                                _buildStatItem("${widget.school.buses}", "Buses"),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _buildActionBtn(
-                                "Delete",
-                                const Color(0xFFDC3545),
-                                widget.onDelete,
+                          ),
+
+                          const SizedBox(height: 6),
+
+                          // Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildActionBtn(
+                                  "View Details",
+                                  const Color(0xFF007BFF),
+                                  widget.onView,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _buildActionBtn(
+                                  "Edit",
+                                  const Color(0xFFFFC107),
+                                  widget.onEdit,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _buildActionBtn(
+                                  "Delete",
+                                  const Color(0xFFDC3545),
+                                  widget.onDelete,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

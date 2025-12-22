@@ -17,7 +17,6 @@ import 'fees.dart';
 import 'admissions.dart';
 import 'departments.dart';
 import 'awards.dart';
-import 'bus_routes.dart';
 import 'campus_life.dart';
 import 'add_teacher.dart';
 import 'edit_student.dart';
@@ -42,7 +41,6 @@ class ManagementRoutePages {
     ManagementRoutes.admissions: (_) => const AdmissionsManagementPage(),
     ManagementRoutes.departments: (_) => const DepartmentsManagementPage(),
     ManagementRoutes.awards: (_) => const AwardsManagementPage(),
-    ManagementRoutes.busRoutes: (_) => const BusRoutesManagementPage(),
     ManagementRoutes.campusLife: (_) => const CampusLifeManagementPage(),
     ManagementRoutes.addTeacher: (_) => const AddTeacherPage(),
     ManagementRoutes.editStudent: (context) {
@@ -57,7 +55,7 @@ class ManagementRoutePages {
     },
     ManagementRoutes.editBus: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
-      final busId = args is int ? args : null;
+      final busId = args is String ? args : (args is int ? args.toString() : null);
       return EditBusPage(busId: busId);
     },
     ManagementRoutes.editActivity: (context) {

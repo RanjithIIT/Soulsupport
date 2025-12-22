@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'dart:math';
+import 'main.dart' as main_dashboard;
+import 'admin-schools.dart' as schools;
+import 'admin-billing.dart' as billing;
+import 'admin-add-school.dart' as add_school;
+import 'admin-school-management.dart' as school_management;
 
 void main() {
   runApp(const RevenueApp());
@@ -397,9 +403,7 @@ class RevenueDashboard extends StatefulWidget {
 
 class _RevenueDashboardState extends State<RevenueDashboard> {
   // Set default tab to 2 (Revenue)
-  int _currentSidebarIndex = 2; // For the fixed sidebar navigation
   int _currentChartPeriodIndex = 0; // For chart period selection
-  int? _hoveredSidebarIndex; // Track which sidebar item is hovered
 
   final List<String> _periodKeys = [
     'Monthly',
@@ -851,14 +855,12 @@ class _RevenueDashboardState extends State<RevenueDashboard> {
                 const Color(0xff6c757d),
                 () {
                   // Navigate back to dashboard
-                  if (Navigator.of(context).canPop()) {
-                    Navigator.of(context).pop();
-                  } else {
-                    setState(() => _currentSidebarIndex = 0);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Navigated to Dashboard')),
-                    );
-                  }
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (context) => const main_dashboard.AdminDashboardScreen(),
+                    ),
+                    (route) => false,
+                  );
                 },
               ),
             ],
@@ -874,14 +876,18 @@ class _RevenueDashboardState extends State<RevenueDashboard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 1. Revenue Overview Cards
-        GridView.count(
-          crossAxisCount: MediaQuery.of(context).size.width >= 1200 ? 4 : 2,
-          childAspectRatio: 1.0,
-          crossAxisSpacing: 20,
-          mainAxisSpacing: 20,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final crossAxisCount = constraints.maxWidth >= 1200 ? 4 : (constraints.maxWidth >= 600 ? 2 : 1);
+            
+            return GridView.count(
+              crossAxisCount: crossAxisCount,
+              childAspectRatio: 1.0,
+              crossAxisSpacing: 20,
+              mainAxisSpacing: 20,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
             _buildOverviewCard(
               '💰',
               formatCurrency(totalRevenue),
@@ -910,7 +916,9 @@ class _RevenueDashboardState extends State<RevenueDashboard> {
               expectedRevenueChangePercent,
               true,
             ),
-          ],
+              ],
+            );
+          },
         ),
         const SizedBox(height: 30),
 
@@ -988,186 +996,14 @@ class _RevenueDashboardState extends State<RevenueDashboard> {
     );
   }
 
-  // --- Sidebar Content ---
-  Widget _buildSidebar() {
-    return SingleChildScrollView(
-      child: Container(
-        width: 280,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(right: BorderSide(color: Color(0xffe9ecef), width: 1)),
-          boxShadow: [
-            BoxShadow(
-              color: Color.fromRGBO(0, 0, 0, 0.1),
-              blurRadius: 10,
-              offset: Offset(2, 0),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.only(bottom: 30),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xff28a745), Color(0xff20c997)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: const Column(
-                children: [
-                  Text(
-                    '💰 Revenue',
-                    style: TextStyle(
-                      fontSize: 24,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'Management System',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white70,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Sidebar items
-            _buildNavItem('📊', 'Dashboard', 0),
-            _buildNavItem('🏫', 'Schools', 1),
-            _buildNavItem('💰', 'Revenue', 2),
-            _buildNavItem('📋', 'Billing', 3),
-            _buildNavItem('📈', 'Reports', 4),
-            _buildNavItem('⚙️', 'Settings', 5),
-
-            const SizedBox(height: 30),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Sidebar/Tab Item Builder
-  Widget _buildNavItem(String icon, String title, int index) {
-    final bool isActive = _currentSidebarIndex == index;
-    final bool isHovered = _hoveredSidebarIndex == index;
-    final Color primaryColor = const Color(0xff28a745);
-    final Color textColor = isActive ? Colors.white : const Color(0xff333333);
-    final BoxDecoration decoration = BoxDecoration(
-      color: isActive ? null : const Color(0xfff8f9fa),
-      gradient: isActive
-          ? const LinearGradient(
-              colors: [Color(0xff28a745), Color(0xff20c997)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            )
-          : null,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(
-        color: isActive
-            ? primaryColor
-            : isHovered
-            ? primaryColor.withValues(alpha: 0.6)
-            : const Color(0xffe9ecef),
-        width: 1,
-      ),
-      boxShadow: isHovered
-          ? [
-              BoxShadow(
-                color: isActive
-                    ? const Color(0xff20c997).withValues(alpha: 0.45)
-                    : const Color(0xff28a745).withValues(alpha: 0.2),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
-              ),
-            ]
-          : [],
-    );
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hoveredSidebarIndex = index),
-        onExit: (_) => setState(() => _hoveredSidebarIndex = null),
-        child: InkWell(
-          splashColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          onTap: () {
-            setState(() => _currentSidebarIndex = index);
-            // Close drawer on mobile
-            if (Scaffold.of(context).hasDrawer) {
-              Navigator.of(context).pop();
-            }
-            // Show navigation feedback
-            final titles = ['Dashboard', 'Schools', 'Revenue', 'Billing', 'Reports', 'Settings'];
-            if (index < titles.length) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Navigated to ${titles[index]}'),
-                  duration: const Duration(seconds: 1),
-                ),
-              );
-            }
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            transform: Matrix4.identity()
-              ..translate(0.0, isHovered ? -2.0 : 0.0),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-            decoration: decoration,
-            child: Row(
-              children: [
-                Text(icon, style: TextStyle(fontSize: 18, color: textColor)),
-                const SizedBox(width: 12),
-                Text(title, style: TextStyle(color: textColor)),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   // --- Final Build Method ---
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 768;
 
-    Widget currentTabContent;
-    // Map tab index to content widget
-    switch (_currentSidebarIndex) {
-      case 2:
-        currentTabContent = _buildRevenueOverviewTab();
-        break;
-      case 0:
-        currentTabContent = _buildPlaceholderTab('Dashboard');
-        break;
-      case 1:
-        currentTabContent = _buildPlaceholderTab('Schools');
-        break;
-      case 3:
-        currentTabContent = _buildPlaceholderTab('Billing');
-        break;
-      case 4:
-        currentTabContent = _buildPlaceholderTab('Reports');
-        break;
-      case 5:
-        currentTabContent = _buildPlaceholderTab('Settings');
-        break;
-      default:
-        currentTabContent = _buildRevenueOverviewTab();
-        break;
-    }
+    // Always show revenue overview tab
+    Widget currentTabContent = _buildRevenueOverviewTab();
 
     Widget mainContent = Padding(
       padding: EdgeInsets.all(isDesktop ? 30 : 15),
@@ -1205,18 +1041,27 @@ class _RevenueDashboardState extends State<RevenueDashboard> {
     final Widget? bottomNav = isDesktop
         ? null
         : BottomNavigationBar(
-            // Logic to map internal indices (0-5) to external indices (0-2)
-            currentIndex: _currentSidebarIndex < 3 ? _currentSidebarIndex : 2,
+            currentIndex: 2, // Revenue is always selected
             onTap: (idx) {
-              int newIndex;
-              if (idx == 0) {
-                newIndex = 0; // Dashboard
-              } else if (idx == 1) {
-                newIndex = 1; // Schools
-              } else {
-                newIndex = 2; // Revenue
+              switch (idx) {
+                case 0: // Dashboard
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (context) => const main_dashboard.AdminDashboardScreen(),
+                    ),
+                    (route) => false,
+                  );
+                  break;
+                case 1: // Schools
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => const schools.AdminDashboard(),
+                    ),
+                  );
+                  break;
+                case 2: // Revenue - already here
+                  break;
               }
-              setState(() => _currentSidebarIndex = newIndex);
             },
             selectedItemColor: const Color(0xff28a745),
             unselectedItemColor: Colors.grey,
@@ -1248,13 +1093,306 @@ class _RevenueDashboardState extends State<RevenueDashboard> {
       body: isDesktop
           ? Row(
               children: [
-                _buildSidebar(),
+                const UnifiedSidebar(initialActiveSection: 'revenue'),
                 Expanded(child: mainContent),
               ],
             )
           : mainContent,
-      drawer: isDesktop ? null : Drawer(child: _buildSidebar()),
+      drawer: isDesktop ? null : const Drawer(child: UnifiedSidebar(initialActiveSection: 'revenue')),
       bottomNavigationBar: bottomNav,
+    );
+  }
+}
+
+// Unified Sidebar (same as main.dart)
+class UnifiedSidebar extends StatefulWidget {
+  final String initialActiveSection;
+  
+  const UnifiedSidebar({
+    super.key,
+    this.initialActiveSection = 'overview',
+  });
+
+  @override
+  State<UnifiedSidebar> createState() => _UnifiedSidebarState();
+}
+
+class _UnifiedSidebarState extends State<UnifiedSidebar> {
+  late String activeSection;
+  
+  @override
+  void initState() {
+    super.initState();
+    activeSection = widget.initialActiveSection;
+  }
+
+  void navigateTo(String section) {
+    setState(() {
+      activeSection = section;
+    });
+    
+    // Close drawer on mobile
+    if (Scaffold.of(context).hasDrawer) {
+      Navigator.of(context).pop();
+    }
+    
+    // Navigate to the corresponding screen
+    Widget? targetScreen;
+    switch (section) {
+      case 'overview':
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const main_dashboard.AdminDashboardScreen()),
+          (route) => false,
+        );
+        return;
+      case 'schools':
+        targetScreen = const schools.AdminDashboard();
+        break;
+      case 'revenue':
+        targetScreen = const RevenueDashboard();
+        break;
+      case 'licenses':
+      case 'school_management':
+        targetScreen = const school_management.SchoolDashboard();
+        break;
+      case 'billing':
+        targetScreen = const billing.BillingDashboard();
+        break;
+      case 'reports':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Reports page coming soon')),
+        );
+        return;
+      case 'settings':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Settings page coming soon')),
+        );
+        return;
+    }
+    
+    // Navigate to the target screen
+    if (targetScreen != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => targetScreen!),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 280,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(right: BorderSide(color: Color(0xFFe9ecef))),
+        boxShadow: [
+          BoxShadow(
+            color: Color.fromRGBO(0, 0, 0, 0.1),
+            offset: Offset(2, 0),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Logo - Fixed at top
+          Container(
+            margin: const EdgeInsets.only(bottom: 20),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF007bff), Color(0xFF0056b3)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  '🏫 SMS',
+                  style: GoogleFonts.inter(
+                    fontSize: 24,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                const Text(
+                  'School Management System',
+                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          // Nav Menu - Scrollable
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  UnifiedSidebarNavItem(
+                    icon: '📊',
+                    title: 'Overview',
+                    isActive: activeSection == 'overview',
+                    onTap: () => navigateTo('overview'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '🏫',
+                    title: 'Schools',
+                    isActive: activeSection == 'schools',
+                    onTap: () => navigateTo('schools'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '➕',
+                    title: 'Add School',
+                    isActive: activeSection == 'add_school',
+                    onTap: () async {
+                      setState(() {
+                        activeSection = 'add_school';
+                      });
+                      if (Scaffold.of(context).hasDrawer) {
+                        Navigator.of(context).pop();
+                      }
+                      final result = await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const add_school.AddSchoolScreen(),
+                        ),
+                      );
+                      if (result == true) {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(
+                            builder: (context) => const schools.AdminDashboard(refreshOnMount: true),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '📋',
+                    title: 'Licenses',
+                    isActive: activeSection == 'licenses',
+                    onTap: () => navigateTo('licenses'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '💰',
+                    title: 'Revenue',
+                    isActive: activeSection == 'revenue',
+                    onTap: () => navigateTo('revenue'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '💳',
+                    title: 'Billing',
+                    isActive: activeSection == 'billing',
+                    onTap: () => navigateTo('billing'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '📈',
+                    title: 'Reports',
+                    isActive: activeSection == 'reports',
+                    onTap: () => navigateTo('reports'),
+                  ),
+                  UnifiedSidebarNavItem(
+                    icon: '⚙️',
+                    title: 'Settings',
+                    isActive: activeSection == 'settings',
+                    onTap: () => navigateTo('settings'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class UnifiedSidebarNavItem extends StatefulWidget {
+  final String icon;
+  final String title;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const UnifiedSidebarNavItem({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  State<UnifiedSidebarNavItem> createState() => _UnifiedSidebarNavItemState();
+}
+
+class _UnifiedSidebarNavItemState extends State<UnifiedSidebarNavItem> {
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    const primaryColor = Color(0xFF007bff);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10.0),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovering = true),
+        onExit: (_) => setState(() => _isHovering = false),
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+            decoration: BoxDecoration(
+              color: widget.isActive
+                  ? primaryColor
+                  : (_isHovering
+                        ? const Color(0xFFe9ecef)
+                        : const Color(0xFFf8f9fa)),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: widget.isActive
+                    ? primaryColor
+                    : (_isHovering
+                          ? const Color(0xFFced4da)
+                          : const Color(0xFFe9ecef)),
+                width: 1,
+              ),
+              gradient: widget.isActive
+                  ? const LinearGradient(
+                      colors: [primaryColor, Color(0xFF0056b3)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : null,
+            ),
+            child: Row(
+              children: [
+                Text(
+                  widget.icon,
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: widget.isActive ? Colors.white : Colors.black,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  widget.title,
+                  style: TextStyle(
+                    color: widget.isActive
+                        ? Colors.white
+                        : const Color(0xFF333333),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

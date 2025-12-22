@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
-import 'widgets/bus_stop_manager.dart';
+import 'widgets/school_profile_header.dart';
 
 class AddNewBusPage extends StatefulWidget {
   const AddNewBusPage({super.key});
@@ -22,7 +22,8 @@ class _AddNewBusPageState extends State<AddNewBusPage> {
   final _driverExperienceController = TextEditingController();
   final _routeNameController = TextEditingController();
   final _routeDistanceController = TextEditingController();
-  final _routeDescriptionController = TextEditingController();
+  final _startLocationController = TextEditingController();
+  final _endLocationController = TextEditingController();
   final _notesController = TextEditingController();
 
   String? _busType;
@@ -35,47 +36,8 @@ class _AddNewBusPageState extends State<AddNewBusPage> {
   bool _showSuccess = false;
   bool _showError = false;
   String _errorMessage = '';
-
-  // Bus stops
-  List<BusStopModel> _morningStops = [];
-  List<BusStopModel> _afternoonStops = [];
   
   final ApiService _apiService = ApiService();
-
-  // Update afternoon stops based on morning stops
-  void _updateAfternoonStops() {
-    if (_morningStops.isEmpty) {
-      setState(() {
-        _afternoonStops = [];
-      });
-      return;
-    }
-
-    // First morning stop becomes last dropoff stop
-    // Reverse the order: last morning stop becomes first dropoff stop
-    List<BusStopModel> newAfternoonStops = [];
-    
-    // If there's at least one morning stop, reverse the order for dropoff
-    if (_morningStops.isNotEmpty) {
-      // Create dropoff stops in reverse order
-      for (int i = _morningStops.length - 1; i >= 0; i--) {
-        final morningStop = _morningStops[i];
-        final dropoffOrder = _morningStops.length - i; // Reverse order
-        
-        newAfternoonStops.add(BusStopModel(
-          stopName: morningStop.stopName,
-          stopTime: morningStop.stopTime, // Use same time or adjust as needed
-          stopOrder: dropoffOrder,
-          routeType: 'afternoon',
-          studentCount: 0,
-        ));
-      }
-    }
-    
-    setState(() {
-      _afternoonStops = newAfternoonStops;
-    });
-  }
 
   @override
   void dispose() {
@@ -88,7 +50,8 @@ class _AddNewBusPageState extends State<AddNewBusPage> {
     _driverExperienceController.dispose();
     _routeNameController.dispose();
     _routeDistanceController.dispose();
-    _routeDescriptionController.dispose();
+    _startLocationController.dispose();
+    _endLocationController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -160,7 +123,8 @@ class _AddNewBusPageState extends State<AddNewBusPage> {
         'route_distance': _routeDistanceController.text.trim().isEmpty
             ? null
             : double.tryParse(_routeDistanceController.text.trim()),
-        'route_description': _routeDescriptionController.text.trim(),
+        'start_location': _startLocationController.text.trim(),
+        'end_location': _endLocationController.text.trim(),
         'morning_start_time': '${_morningStartTime!.hour.toString().padLeft(2, '0')}:${_morningStartTime!.minute.toString().padLeft(2, '0')}',
         'morning_end_time': '${_morningEndTime!.hour.toString().padLeft(2, '0')}:${_morningEndTime!.minute.toString().padLeft(2, '0')}',
         'afternoon_start_time': '${_afternoonStartTime!.hour.toString().padLeft(2, '0')}:${_afternoonStartTime!.minute.toString().padLeft(2, '0')}',
@@ -174,36 +138,6 @@ class _AddNewBusPageState extends State<AddNewBusPage> {
 
       if (!busResponse.success) {
         throw Exception(busResponse.error ?? 'Failed to create bus');
-      }
-
-      final busId = busResponse.data['bus_id']?.toString() ?? busResponse.data['id']?.toString();
-
-      if (busId == null) {
-        throw Exception('Bus created but ID not returned');
-      }
-
-      // Create morning stops
-      for (var stop in _morningStops) {
-        final stopData = {
-          'bus': busId,
-          'stop_name': stop.stopName,
-          'stop_time': '${stop.stopTime.hour.toString().padLeft(2, '0')}:${stop.stopTime.minute.toString().padLeft(2, '0')}',
-          'route_type': 'morning',
-          'stop_order': stop.stopOrder,
-        };
-        await _apiService.post(Endpoints.busStops, body: stopData);
-      }
-
-      // Create afternoon stops
-      for (var stop in _afternoonStops) {
-        final stopData = {
-          'bus': busId,
-          'stop_name': stop.stopName,
-          'stop_time': '${stop.stopTime.hour.toString().padLeft(2, '0')}:${stop.stopTime.minute.toString().padLeft(2, '0')}',
-          'route_type': 'afternoon',
-          'stop_order': stop.stopOrder,
-        };
-        await _apiService.post(Endpoints.busStops, body: stopData);
       }
 
       if (!mounted) return;
@@ -273,10 +207,14 @@ class _AddNewBusPageState extends State<AddNewBusPage> {
                   _afternoonStartTime != null && _afternoonEndTime != null
                       ? '${_afternoonStartTime!.format(context)} - ${_afternoonEndTime!.format(context)}'
                       : 'Not provided'),
-              _PreviewItem('Route Description',
-                  _routeDescriptionController.text.isEmpty
+              _PreviewItem('Start Location',
+                  _startLocationController.text.isEmpty
                       ? 'Not provided'
-                      : _routeDescriptionController.text),
+                      : _startLocationController.text),
+              _PreviewItem('End Location',
+                  _endLocationController.text.isEmpty
+                      ? 'Not provided'
+                      : _endLocationController.text),
               _PreviewItem('Notes',
                   _notesController.text.isEmpty
                       ? 'No additional notes'
@@ -311,7 +249,7 @@ class _AddNewBusPageState extends State<AddNewBusPage> {
         children: [
           // Sidebar
           Container(
-            width: 250,
+            width: 280,
             decoration: BoxDecoration(
               gradient: gradient,
               boxShadow: [
@@ -329,8 +267,16 @@ class _AddNewBusPageState extends State<AddNewBusPage> {
                     margin: const EdgeInsets.all(20),
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      gradient: gradient,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                       borderRadius: BorderRadius.circular(15),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.24),
+                        width: 1,
+                      ),
                     ),
                     child: const Column(
                       children: [
@@ -346,7 +292,7 @@ class _AddNewBusPageState extends State<AddNewBusPage> {
                         Text(
                           'School Management System',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: Colors.white70,
                             fontSize: 12,
                           ),
                         ),
@@ -355,11 +301,11 @@ class _AddNewBusPageState extends State<AddNewBusPage> {
                   ),
                   Expanded(
                     child: ListView(
-                      padding: const EdgeInsets.all(10),
+                      padding: EdgeInsets.zero,
                       children: [
                         _NavItem(
                           icon: '📊',
-                          title: 'Dashboard',
+                          title: 'Overview',
                           onTap: () => Navigator.pushReplacementNamed(
                               context, '/dashboard'),
                         ),
@@ -392,6 +338,24 @@ class _AddNewBusPageState extends State<AddNewBusPage> {
                           onTap: () =>
                               Navigator.pushReplacementNamed(context, '/events'),
                         ),
+                        _NavItem(
+                          icon: '📆',
+                          title: 'Calendar',
+                          onTap: () =>
+                              Navigator.pushReplacementNamed(context, '/calendar'),
+                        ),
+                        _NavItem(
+                          icon: '🔔',
+                          title: 'Notifications',
+                          onTap: () =>
+                              Navigator.pushReplacementNamed(context, '/notifications'),
+                        ),
+                        _NavItem(
+                          icon: '🛣️',
+                          title: 'Bus Routes',
+                          onTap: () =>
+                              Navigator.pushReplacementNamed(context, '/bus-routes'),
+                        ),
                       ],
                     ),
                   ),
@@ -402,7 +366,7 @@ class _AddNewBusPageState extends State<AddNewBusPage> {
           // Main Content
           Expanded(
             child: Container(
-              decoration: BoxDecoration(gradient: gradient),
+              color: const Color(0xFFF5F6FA),
               child: SafeArea(
                 child: SingleChildScrollView(
                   child: Column(
@@ -435,42 +399,7 @@ class _AddNewBusPageState extends State<AddNewBusPage> {
                             ),
                             Row(
                               children: [
-                                Container(
-                                  width: 45,
-                                  height: 45,
-                                  decoration: BoxDecoration(
-                                    gradient: gradient,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Center(
-                                    child: Text(
-                                      'M',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 15),
-                                const Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      'Management User',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    Text(
-                                      'School Manager',
-                                      style: TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                SchoolProfileHeader(apiService: ApiService()),
                                 const SizedBox(width: 15),
                                 ElevatedButton.icon(
                                   onPressed: () {
@@ -1099,68 +1028,32 @@ class _AddNewBusPageState extends State<AddNewBusPage> {
                                 ),
                               const SizedBox(height: 20),
                               TextFormField(
-                                controller: _routeDescriptionController,
+                                controller: _startLocationController,
                                 decoration: InputDecoration(
-                                  labelText: 'Route Description',
-                                  hintText: 'Enter detailed route description',
+                                  labelText: 'Start Location',
+                                  hintText: 'Enter starting location',
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   filled: true,
                                   fillColor: Colors.white,
-                                  prefixIcon: const Icon(Icons.description),
-                                ),
-                                maxLines: 3,
-                              ),
-                              const SizedBox(height: 30),
-                              // Bus Stops Management
-                              const Text(
-                                'Bus Stops',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                                  prefixIcon: const Icon(Icons.location_on),
                                 ),
                               ),
-                              const SizedBox(height: 15),
-                              // Morning Route Stops
-                              BusStopManager(
-                                routeType: 'morning',
-                                routeTitle: 'Morning Route (Pick-up) Stops',
-                                initialStops: _morningStops,
-                                onStopsChanged: (stops) {
-                                  setState(() {
-                                    _morningStops = stops;
-                                  });
-                                  // Auto-update afternoon stops when morning stops change
-                                  _updateAfternoonStops();
-                                },
-                              ),
-                              const SizedBox(height: 30),
-                              // Afternoon Route Stops (View-only, auto-populated from morning stops)
-                              BusStopManager(
-                                routeType: 'afternoon',
-                                routeTitle: 'Afternoon Route (Drop-off) Stops (Auto-generated from Morning Route)',
-                                initialStops: _afternoonStops,
-                                onStopsChanged: (stops) {
-                                  // This shouldn't be called since it's view-only, but keep for safety
-                                  setState(() {
-                                    _afternoonStops = stops;
-                                  });
-                                },
-                                isReadOnly: true,
-                              ),
-                              if (_morningStops.isEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 8.0),
-                                  child: Text(
-                                    'Note: Drop-off stops will be automatically generated from morning stops (first stop becomes last drop-off stop)',
-                                    style: TextStyle(
-                                      color: Colors.blue[700],
-                                      fontSize: 12,
-                                      fontStyle: FontStyle.italic,
-                                    ),
+                              const SizedBox(height: 20),
+                              TextFormField(
+                                controller: _endLocationController,
+                                decoration: InputDecoration(
+                                  labelText: 'End Location',
+                                  hintText: 'Enter ending location',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  prefixIcon: const Icon(Icons.location_on),
                                 ),
+                              ),
                               const SizedBox(height: 20),
                               TextFormField(
                                 controller: _notesController,
@@ -1241,7 +1134,7 @@ class _AddNewBusPageState extends State<AddNewBusPage> {
   }
 }
 
-class _NavItem extends StatefulWidget {
+class _NavItem extends StatelessWidget {
   final String icon;
   final String title;
   final VoidCallback? onTap;
@@ -1255,57 +1148,32 @@ class _NavItem extends StatefulWidget {
   });
 
   @override
-  State<_NavItem> createState() => _NavItemState();
-}
-
-class _NavItemState extends State<_NavItem> {
-  bool _isHovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: widget.isActive
-              ? Colors.white.withValues(alpha: 0.3)
-              : _isHovered
-                  ? Colors.white.withValues(alpha: 0.25)
-                  : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: _isHovered
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  )
-                ]
-              : null,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: isActive
+            ? Colors.white.withValues(alpha: 0.3)
+            : Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        leading: Text(
+          icon,
+          style: const TextStyle(fontSize: 18),
         ),
-        child: ListTile(
-          leading: Text(widget.icon, style: const TextStyle(fontSize: 20, color: Colors.white)),
-          title: AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 200),
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: widget.isActive || _isHovered
-                  ? FontWeight.bold
-                  : FontWeight.normal,
-              fontSize: widget.isActive || _isHovered ? 15.0 : 14.0,
-            ),
-            child: Text(widget.title),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            fontSize: 14,
           ),
-          selected: widget.isActive,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          onTap: widget.onTap,
         ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        onTap: onTap,
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:main_login/main.dart' as main_login;
+import 'main.dart' as app;
 import 'dashboard.dart';
 
 class PhotoEntry {
@@ -563,7 +564,7 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
               if (showSidebar) _Sidebar(gradient: gradient),
               Expanded(
                 child: Container(
-                  color: Colors.white,
+                  color: const Color(0xFFF5F6FA),
                   child: SafeArea(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.all(24),
@@ -700,6 +701,18 @@ class _Sidebar extends StatelessWidget {
 
   const _Sidebar({required this.gradient});
 
+  // Safe navigation helper for sidebar
+  void _navigateToRoute(BuildContext context, String route) {
+    final navigator = app.SchoolManagementApp.navigatorKey.currentState;
+    if (navigator != null) {
+      if (navigator.canPop() || route != '/dashboard') {
+        navigator.pushReplacementNamed(route);
+      } else {
+        navigator.pushNamed(route);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -721,30 +734,34 @@ class _Sidebar extends StatelessWidget {
               margin: const EdgeInsets.all(20),
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: gradient,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
                 borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.24),
+                  width: 1,
+                ),
               ),
               child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
-                    '🏫 School Management',
+                    '🏫 SMS',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 20,
+                      fontSize: 24,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.center,
                   ),
                   SizedBox(height: 5),
                   Text(
-                    'Photo Gallery',
+                    'School Management System',
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: 12,
                     ),
-                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
@@ -755,66 +772,49 @@ class _Sidebar extends StatelessWidget {
                 children: [
                   _NavItem(
                     icon: '📊',
-                    title: 'Dashboard',
-                    onTap: () => Navigator.pushReplacementNamed(context, '/dashboard'),
-                  ),
-                  _NavItem(
-                    icon: '👥',
-                    title: 'Students',
-                    onTap: () => Navigator.pushReplacementNamed(context, '/students'),
+                    title: 'Overview',
+                    isActive: false,
+                    onTap: () => _navigateToRoute(context, '/dashboard'),
                   ),
                   _NavItem(
                     icon: '👨‍🏫',
                     title: 'Teachers',
-                    onTap: () => Navigator.pushReplacementNamed(context, '/teachers'),
+                    onTap: () => _navigateToRoute(context, '/teachers'),
+                  ),
+                  _NavItem(
+                    icon: '👥',
+                    title: 'Students',
+                    onTap: () => _navigateToRoute(context, '/students'),
                   ),
                   _NavItem(
                     icon: '🚌',
                     title: 'Buses',
-                    onTap: () => Navigator.pushReplacementNamed(context, '/buses'),
+                    onTap: () => _navigateToRoute(context, '/buses'),
+                  ),
+                  _NavItem(
+                    icon: '🎯',
+                    title: 'Activities',
+                    onTap: () => _navigateToRoute(context, '/activities'),
                   ),
                   _NavItem(
                     icon: '📅',
                     title: 'Events',
-                    onTap: () => Navigator.pushReplacementNamed(context, '/events'),
+                    onTap: () => _navigateToRoute(context, '/events'),
+                  ),
+                  _NavItem(
+                    icon: '📆',
+                    title: 'Calendar',
+                    onTap: () => _navigateToRoute(context, '/calendar'),
                   ),
                   _NavItem(
                     icon: '🔔',
                     title: 'Notifications',
-                    onTap: () => Navigator.pushReplacementNamed(context, '/notifications'),
+                    onTap: () => _navigateToRoute(context, '/notifications'),
                   ),
                   _NavItem(
-                    icon: '📚',
-                    title: 'Activities',
-                    onTap: () => Navigator.pushReplacementNamed(context, '/activities'),
-                  ),
-                  _NavItem(
-                    icon: '🏆',
-                    title: 'Awards',
-                    onTap: () => Navigator.pushReplacementNamed(context, '/awards'),
-                  ),
-                  _NavItem(
-                    icon: '📸',
-                    title: 'Photo Gallery',
-                    isActive: true,
-                    onTap: () {},
-                  ),
-                  _NavItem(
-                    icon: '🎓',
-                    title: 'Admissions',
-                    onTap: () => Navigator.pushReplacementNamed(context, '/admissions'),
-                  ),
-                  _NavItem(
-                    icon: '📅',
-                    title: 'Calendar',
-                    onTap: () => Navigator.pushReplacementNamed(context, '/calendar'),
-                  ),
-                  _NavItem(
-                    icon: '📋',
-                    title: 'RTI Act',
-                    onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('RTI Act tapped')),
-                    ),
+                    icon: '🛣️',
+                    title: 'Bus Routes',
+                    onTap: () => _navigateToRoute(context, '/bus-routes'),
                   ),
                 ],
               ),
@@ -826,7 +826,7 @@ class _Sidebar extends StatelessWidget {
   }
 }
 
-class _NavItem extends StatefulWidget {
+class _NavItem extends StatelessWidget {
   final String icon;
   final String title;
   final VoidCallback? onTap;
@@ -840,57 +840,32 @@ class _NavItem extends StatefulWidget {
   });
 
   @override
-  State<_NavItem> createState() => _NavItemState();
-}
-
-class _NavItemState extends State<_NavItem> {
-  bool _isHovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: widget.isActive
-              ? Colors.white.withValues(alpha: 0.3)
-              : _isHovered
-                  ? Colors.white.withValues(alpha: 0.25)
-                  : Colors.transparent,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: isActive
+            ? Colors.white.withValues(alpha: 0.3)
+            : Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        leading: Text(
+          icon,
+          style: const TextStyle(fontSize: 18),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            fontSize: 14,
+          ),
+        ),
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          boxShadow: _isHovered
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  )
-                ]
-              : null,
         ),
-        child: ListTile(
-          leading: Text(widget.icon, style: const TextStyle(fontSize: 18, color: Colors.white)),
-          title: AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 200),
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: widget.isActive || _isHovered
-                  ? FontWeight.bold
-                  : FontWeight.normal,
-              fontSize: widget.isActive || _isHovered ? 15.0 : 14.0,
-            ),
-            child: Text(widget.title),
-          ),
-          selected: widget.isActive,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          onTap: widget.onTap,
-        ),
+        onTap: onTap,
       ),
     );
   }
