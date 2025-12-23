@@ -12,17 +12,21 @@ class Parent(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='parent_profile')
     students = models.ManyToManyField(Student, related_name='parents')
     school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
     phone = models.CharField(max_length=20)
     address = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     def save(self, *args, **kwargs):
-        """Auto-populate school_id from first student's school"""
-        if not self.school_id and self.students.exists():
+        """Auto-populate school_id and school_name from first student's school"""
+        if self.students.exists():
             first_student = self.students.first()
             if first_student and first_student.school:
-                self.school_id = first_student.school.school_id
+                if not self.school_id or self.school_id != first_student.school.school_id:
+                    self.school_id = first_student.school.school_id
+                if not self.school_name or self.school_name != first_student.school.name:
+                    self.school_name = first_student.school.name
         super().save(*args, **kwargs)
     
     def __str__(self):

@@ -16,7 +16,7 @@ class ParentSerializer(SchoolIdMixin, serializers.ModelSerializer):
     class Meta:
         model = Parent
         fields = [
-            'id', 'school_id', 'user', 'students', 'phone', 'address',
+            'id', 'school_id', 'school_name', 'user', 'students', 'phone', 'address',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']

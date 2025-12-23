@@ -66,7 +66,7 @@ class TeacherSerializer(SchoolIdMixin, serializers.ModelSerializer):
     class Meta:
         model = Teacher
         fields = [
-            'teacher_id', 'school_id', 'user', 'department', 'department_name',
+            'teacher_id', 'school_id', 'school_name', 'user', 'department', 'department_name',
             'employee_no', 'first_name', 'last_name', 'qualification',
             'joining_date', 'dob', 'gender',
             'blood_group', 'nationality', 'mobile_no', 'email', 'address',

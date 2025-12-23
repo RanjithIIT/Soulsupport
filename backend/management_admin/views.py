@@ -71,9 +71,12 @@ class TeacherViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     ordering = ['-created_at']
 
     def get_permissions(self):
-        """Allow read/create/delete without auth to match frontend behavior"""
-        if self.action in ['list', 'retrieve', 'create', 'destroy']:
-            return [AllowAny()]
+        """Require authentication for list/retrieve to ensure school filtering works"""
+        # Changed: Require authentication for list/retrieve to enable school filtering
+        if self.action in ['list', 'retrieve']:
+            return [IsAuthenticated()]  # Changed from AllowAny() to ensure school filtering
+        if self.action in ['create', 'destroy']:
+            return [AllowAny()]  # Keep AllowAny for create/destroy if needed
         return [IsAuthenticated(), IsManagementAdmin()]
     
     def perform_create(self, serializer):
@@ -165,12 +168,15 @@ class TeacherViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Override to filter by school_id using SchoolFilterMixin logic.
+        Now all list/retrieve requests are authenticated, so filtering will always work.
         """
         # Call SchoolFilterMixin's get_queryset to get proper filtering
         queryset = super(SchoolFilterMixin, self).get_queryset()
         
-        # Get school_id for filtering
-        school_id = self.get_school_id()
+        # All requests should be authenticated now (due to permission change above)
+        # But keep the check for safety
+        if not self.request.user.is_authenticated:
+            return queryset.none()  # Changed: Return empty instead of all teachers
         
         # Check if user is super admin
         if hasattr(self.request.user, 'role') and self.request.user.role:
@@ -178,17 +184,16 @@ class TeacherViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                 # Super admin can see all teachers
                 return queryset
         
+        # Get school_id for filtering
+        school_id = self.get_school_id()
+        
         # For non-super-admin users, filter by school_id
         if school_id:
             # Filter by school_id
             queryset = queryset.filter(school_id=school_id)
         else:
-            # If no school_id found and user is authenticated, return empty queryset
-            # This prevents users without school access from seeing any data
-            if self.request.user.is_authenticated:
-                return queryset.none()
-            # For unauthenticated users (AllowAny), return all (but this shouldn't happen in production)
-            return queryset
+            # If no school_id found for authenticated user, return empty queryset
+            return queryset.none()
         
         return queryset
 
@@ -204,10 +209,42 @@ class StudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     ordering = ['-created_at']
 
     def get_permissions(self):
-        """Allow read/create/delete without auth to match frontend behavior"""
-        if self.action in ['list', 'retrieve', 'create', 'destroy']:
-            return [AllowAny()]
+        """Require authentication for list/retrieve to ensure school filtering works"""
+        # Changed: Require authentication for list/retrieve to enable school filtering
+        if self.action in ['list', 'retrieve']:
+            return [IsAuthenticated()]  # Changed from AllowAny() to ensure school filtering
+        if self.action in ['create', 'destroy']:
+            return [AllowAny()]  # Keep AllowAny for create/destroy if needed
         return [IsAuthenticated(), IsManagementAdmin()]
+    
+    def get_queryset(self):
+        """
+        Override to ensure school_id filtering is applied when user is authenticated.
+        Now all list/retrieve requests are authenticated, so filtering will always work.
+        """
+        # Get base queryset
+        queryset = super(SchoolFilterMixin, self).get_queryset()
+        
+        # All requests should be authenticated now (due to permission change above)
+        # But keep the check for safety
+        if not self.request.user.is_authenticated:
+            return queryset.none()  # Changed: Return empty instead of all students
+        
+        # For authenticated users, apply school filtering via SchoolFilterMixin
+        # Check if user is super admin (should see all data)
+        if hasattr(self.request.user, 'role') and self.request.user.role:
+            if self.request.user.role.name == 'super_admin':
+                return queryset
+        
+        # Get school_id for current user
+        school_id = self.get_school_id()
+        
+        if not school_id:
+            # If no school_id found for authenticated user, return empty queryset
+            return queryset.none()
+        
+        # Filter by school_id (Student model has 'school' ForeignKey)
+        return queryset.filter(school__school_id=school_id)
     
     def perform_create(self, serializer):
         """Override to ensure school is set correctly when creating students"""
@@ -252,7 +289,20 @@ class StudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         
         # If user is not authenticated, try to use school from serializer if provided
         # Otherwise, let parent handle it (might fail validation)
-        super().perform_create(serializer)
+        student = serializer.save()
+        
+        # Auto-link user if email matches and user exists
+        if student.email:
+            from main_login.models import User
+            try:
+                user = User.objects.get(email=student.email)
+                if not student.user:
+                    student.user = user
+                    student.save()
+            except User.DoesNotExist:
+                pass
+        
+        return student
 
 
 class NewAdmissionViewSet(SchoolFilterMixin, viewsets.ModelViewSet):

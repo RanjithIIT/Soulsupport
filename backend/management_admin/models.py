@@ -35,6 +35,7 @@ class File(models.Model):
     file_type = models.CharField(max_length=50)
     file_size = models.IntegerField(help_text='File size in bytes')
     school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only)')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
     uploaded_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -56,12 +57,16 @@ class File(models.Model):
         if self.file and not self.file_size:
             self.file_size = self.file.size
         
-        # Auto-populate school_id from uploaded_by user if available
+        # Auto-populate school_id and school_name from uploaded_by user if available
         if self.uploaded_by and not self.school_id:
-            from main_login.utils import get_user_school_id
+            from main_login.utils import get_user_school_id, get_user_school
             school_id = get_user_school_id(self.uploaded_by)
             if school_id:
                 self.school_id = school_id
+                # Get school name
+                school = get_user_school(self.uploaded_by)
+                if school:
+                    self.school_name = school.name
         
         super().save(*args, **kwargs)
     
@@ -103,6 +108,7 @@ class Teacher(models.Model):
     """Teacher model"""
     teacher_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
     user = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -162,15 +168,25 @@ class Teacher(models.Model):
     updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
     
     def save(self, *args, **kwargs):
-        """Auto-populate school_id from department's school and sync profile_photo_id"""
-        # Get school_id from department's school ForeignKey
+        """Auto-populate school_id and school_name from department's school and sync profile_photo_id"""
+        # Get school_id and school_name from department's school ForeignKey
         if self.department and self.department.school:
             department_school_id = self.department.school.school_id
+            department_school_name = self.department.school.name
             if not self.school_id or self.school_id != department_school_id:
                 self.school_id = department_school_id
+            if not self.school_name or self.school_name != department_school_name:
+                self.school_name = department_school_name
         
         # profile_photo_id is now the ForeignKey field itself (db_column='profile_photo_id')
         super().save(*args, **kwargs)
+        
+        # Update user's school_id if user is linked (signal will also handle this, but doing it here ensures it's immediate)
+        if self.user:
+            from main_login.utils import get_user_school_id
+            school_id = get_user_school_id(self.user)
+            if school_id and self.user.school_id != school_id:
+                User.objects.filter(user_id=self.user.user_id).update(school_id=school_id)
     
     def __str__(self):
         name = f"{self.first_name} {self.last_name}".strip() or self.employee_no or str(self.teacher_id)
@@ -227,6 +243,7 @@ class Student(models.Model):
 
     # School link
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='students')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
 
     # 🔥 SAME FIELDS AS NewAdmission (without status)
     student_name = models.CharField(max_length=255, default="")
@@ -273,10 +290,23 @@ class Student(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def save(self, *args, **kwargs):
-        """Sync profile_photo_id with profile_photo if profile_photo is set"""
+        """Sync profile_photo_id with profile_photo if profile_photo is set, and auto-populate school_id and school_name"""
         if self.profile_photo:
             self.profile_photo_id = self.profile_photo.file_id
+        
+        # Auto-populate school_name from school ForeignKey
+        if self.school:
+            if not self.school_name or self.school_name != self.school.name:
+                self.school_name = self.school.name
+        
         super().save(*args, **kwargs)
+        
+        # Update user's school_id if user is linked (signal will also handle this, but doing it here ensures it's immediate)
+        if self.user:
+            from main_login.utils import get_user_school_id
+            school_id = get_user_school_id(self.user)
+            if school_id and self.user.school_id != school_id:
+                User.objects.filter(user_id=self.user.user_id).update(school_id=school_id)
 
     def __str__(self):
         return f"{self.student_name} - {self.applying_class}"
@@ -548,6 +578,7 @@ class Examination_management(models.Model):
     Exam_Location = models.CharField(max_length=255)
     Exam_Status = models.CharField(max_length=255)
     school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
     Exam_Created_At = models.DateTimeField(auto_now_add=True)
     Exam_Updated_At = models.DateTimeField(auto_now=True)
     
@@ -591,6 +622,7 @@ class Fee(models.Model):
     ]
     
     school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
     # Note: Django automatically creates a 'student_id' field for the ForeignKey
     # We'll add a custom 'student_id_string' field to store the student ID as a string
     student_id_string = models.CharField(
@@ -635,6 +667,12 @@ class Fee(models.Model):
             # Auto-populate grade from student if not set
             if not self.grade and hasattr(self.student, 'grade') and self.student.grade:
                 self.grade = self.student.grade
+            # Auto-populate school_id and school_name from student's school
+            if self.student.school:
+                if not self.school_id or self.school_id != self.student.school.school_id:
+                    self.school_id = self.student.school.school_id
+                if not self.school_name or self.school_name != self.student.school.name:
+                    self.school_name = self.student.school.name
         
         # Calculate due_amount: total_amount - paid_amount (always recalculate)
         from decimal import Decimal
@@ -740,6 +778,7 @@ class BusStop(models.Model):
     stop_id = models.CharField(max_length=255, primary_key=True, editable=False, help_text='Stop ID in format: busnumber_routeprefix_stopnumber')
     bus = models.ForeignKey(Bus, on_delete=models.CASCADE, related_name='stops', db_column='bus_number')
     school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
     stop_name = models.CharField(max_length=255, help_text='Name of the bus stop')
     stop_address = models.TextField(blank=True, help_text='Address of the bus stop')
     stop_time = models.TimeField(blank=True, null=True, help_text='Time when bus arrives at this stop')
@@ -761,9 +800,12 @@ class BusStop(models.Model):
             route_prefix = self.route_type[:3] if len(self.route_type) >= 3 else self.route_type
             self.stop_id = f"{self.bus.bus_number}_{route_prefix}_{self.stop_order}"
         
-        # Auto-populate school_id from bus's school
+        # Auto-populate school_id and school_name from bus's school
         if self.bus and self.bus.school:
-            self.school_id = self.bus.school.school_id
+            if not self.school_id or self.school_id != self.bus.school.school_id:
+                self.school_id = self.bus.school.school_id
+            if not self.school_name or self.school_name != self.bus.school.name:
+                self.school_name = self.bus.school.name
         super().save(*args, **kwargs)
     
     def __str__(self):
@@ -783,6 +825,7 @@ class BusStopStudent(models.Model):
     bus_stop = models.ForeignKey(BusStop, on_delete=models.CASCADE, related_name='stop_students', db_column='stop_id')
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='bus_stops')
     school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
     student_id_string = models.CharField(max_length=100, blank=True, help_text='Student ID as string (cached from student table)')
     student_name = models.CharField(max_length=255, blank=True, help_text='Student name (cached from student table)')
     student_class = models.CharField(max_length=50, blank=True, help_text='Student class (cached from student table)')
@@ -804,12 +847,18 @@ class BusStopStudent(models.Model):
             if not self.student_grade:
                 self.student_grade = self.student.grade or ''
             
-            # Get school_id from student's school
+            # Get school_id and school_name from student's school
             if self.student.school:
-                self.school_id = self.student.school.school_id
+                if not self.school_id or self.school_id != self.student.school.school_id:
+                    self.school_id = self.student.school.school_id
+                if not self.school_name or self.school_name != self.student.school.name:
+                    self.school_name = self.student.school.name
         elif self.bus_stop and self.bus_stop.bus and self.bus_stop.bus.school:
             # Fallback to bus's school
-            self.school_id = self.bus_stop.bus.school.school_id
+            if not self.school_id or self.school_id != self.bus_stop.bus.school.school_id:
+                self.school_id = self.bus_stop.bus.school.school_id
+            if not self.school_name or self.school_name != self.bus_stop.bus.school.name:
+                self.school_name = self.bus_stop.bus.school.name
         
         super().save(*args, **kwargs)
     

@@ -9,6 +9,7 @@ from management_admin.models import Teacher, Student, Department
 class Class(models.Model):
     """Class model"""
     school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
     name = models.CharField(max_length=50)
     section = models.CharField(max_length=10)
     teacher = models.ForeignKey(
@@ -30,15 +31,17 @@ class Class(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def save(self, *args, **kwargs):
-        """Auto-populate school_id from teacher's department's school or student's school"""
+        """Auto-populate school_id and school_name from teacher's department's school or student's school"""
         if not self.school_id:
             if self.teacher and self.teacher.department and self.teacher.department.school:
                 self.school_id = self.teacher.department.school.school_id
+                self.school_name = self.teacher.department.school.name
             # If no teacher, try to get from first student in class
             elif hasattr(self, 'class_students') and self.class_students.exists():
                 first_student = self.class_students.first().student
                 if first_student and first_student.school:
                     self.school_id = first_student.school.school_id
+                    self.school_name = first_student.school.name
         super().save(*args, **kwargs)
     
     def __str__(self):
@@ -56,6 +59,7 @@ class ClassStudent(models.Model):
     class_obj = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='class_students')
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='student_classes')
     school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
     enrolled_date = models.DateField(auto_now_add=True)
     
     def save(self, *args, **kwargs):
@@ -76,6 +80,7 @@ class Attendance(models.Model):
     class_obj = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='attendances')
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='attendances')
     school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
     date = models.DateField()
     status = models.CharField(
         max_length=10,
@@ -90,9 +95,10 @@ class Attendance(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     
     def save(self, *args, **kwargs):
-        """Auto-populate school_id from student's school"""
+        """Auto-populate school_id and school_name from student's school"""
         if self.student and self.student.school and not self.school_id:
             self.school_id = self.student.school.school_id
+            self.school_name = self.student.school.name
         super().save(*args, **kwargs)
     
     class Meta:
@@ -107,6 +113,7 @@ class Assignment(models.Model):
     class_obj = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='assignments')
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='assignments')
     school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
     title = models.CharField(max_length=255)
     description = models.TextField()
     due_date = models.DateTimeField()
@@ -114,9 +121,10 @@ class Assignment(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def save(self, *args, **kwargs):
-        """Auto-populate school_id from teacher's department's school"""
+        """Auto-populate school_id and school_name from teacher's department's school"""
         if self.teacher and self.teacher.department and self.teacher.department.school and not self.school_id:
             self.school_id = self.teacher.department.school.school_id
+            self.school_name = self.teacher.department.school.name
         super().save(*args, **kwargs)
     
     class Meta:
@@ -131,6 +139,7 @@ class Exam(models.Model):
     class_obj = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='exams')
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='exams')
     school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     exam_date = models.DateTimeField()
@@ -139,9 +148,10 @@ class Exam(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def save(self, *args, **kwargs):
-        """Auto-populate school_id from teacher's department's school"""
+        """Auto-populate school_id and school_name from teacher's department's school"""
         if self.teacher and self.teacher.department and self.teacher.department.school and not self.school_id:
             self.school_id = self.teacher.department.school.school_id
+            self.school_name = self.teacher.department.school.name
         super().save(*args, **kwargs)
     
     class Meta:
@@ -156,15 +166,17 @@ class Grade(models.Model):
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='grades')
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='grades')
     school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
     marks_obtained = models.DecimalField(max_digits=5, decimal_places=2)
     remarks = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     def save(self, *args, **kwargs):
-        """Auto-populate school_id from student's school"""
+        """Auto-populate school_id and school_name from student's school"""
         if self.student and self.student.school and not self.school_id:
             self.school_id = self.student.school.school_id
+            self.school_name = self.student.school.name
         super().save(*args, **kwargs)
     
     class Meta:
@@ -179,6 +191,7 @@ class Timetable(models.Model):
     class_obj = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='timetables')
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='timetables')
     school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
     day_of_week = models.IntegerField(choices=[
         (0, 'Monday'),
         (1, 'Tuesday'),
@@ -195,9 +208,10 @@ class Timetable(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def save(self, *args, **kwargs):
-        """Auto-populate school_id from teacher's department's school"""
+        """Auto-populate school_id and school_name from teacher's department's school"""
         if self.teacher and self.teacher.department and self.teacher.department.school and not self.school_id:
             self.school_id = self.teacher.department.school.school_id
+            self.school_name = self.teacher.department.school.name
         super().save(*args, **kwargs)
     
     class Meta:
@@ -212,6 +226,7 @@ class StudyMaterial(models.Model):
     class_obj = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='study_materials')
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='study_materials')
     school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     file_url = models.URLField(blank=True)
@@ -220,9 +235,10 @@ class StudyMaterial(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def save(self, *args, **kwargs):
-        """Auto-populate school_id from teacher's department's school"""
+        """Auto-populate school_id and school_name from teacher's department's school"""
         if self.teacher and self.teacher.department and self.teacher.department.school and not self.school_id:
             self.school_id = self.teacher.department.school.school_id
+            self.school_name = self.teacher.department.school.name
         super().save(*args, **kwargs)
     
     class Meta:

@@ -15,7 +15,7 @@ router.register(r'communications', views.CommunicationViewSet, basename='communi
 router.register(r'dashboard', views.StudentDashboardViewSet, basename='dashboard')
 
 urlpatterns = [
-    path('', include(router.urls)),
     path('student-profile/', views.student_profile, name='student-profile'),
+    path('', include(router.urls)),
 ]
 

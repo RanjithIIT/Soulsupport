@@ -20,6 +20,9 @@ from main_login.permissions import IsTeacher
 from main_login.mixins import SchoolFilterMixin
 from management_admin.models import Teacher
 from management_admin.serializers import TeacherSerializer
+from student_parent.models import Communication
+from student_parent.serializers import CommunicationSerializer
+from django.db.models import Q
 
 
 class ClassViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
@@ -162,13 +165,69 @@ class StudyMaterialViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
 @permission_classes([IsAuthenticated])
 def teacher_profile(request):
     """Get current logged-in teacher's profile"""
-    try:
-        teacher = Teacher.objects.get(user=request.user)
+    # First try to find by user relationship (use first() since ForeignKey allows multiple)
+    teacher = Teacher.objects.filter(user=request.user).first()
+    
+    if teacher:
         serializer = TeacherSerializer(teacher)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    except Teacher.DoesNotExist:
+    
+    # If not found by user, try to find by email
+    if request.user.email:
+        teacher = Teacher.objects.filter(email=request.user.email).first()
+        if teacher:
+            # Auto-link the user if not already linked
+            if not teacher.user:
+                teacher.user = request.user
+                teacher.save()
+            serializer = TeacherSerializer(teacher)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    return Response(
+        {'error': 'Teacher profile not found for this user'},
+        status=status.HTTP_404_NOT_FOUND
+    )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsTeacher])
+def teacher_communications(request):
+    """Get all communications for the current teacher"""
+    # Get communications where teacher is sender or recipient
+    communications = Communication.objects.filter(
+        Q(sender=request.user) | Q(recipient=request.user)
+    ).order_by('-created_at')
+    
+    serializer = CommunicationSerializer(communications, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsTeacher])
+def teacher_chat_history(request):
+    """Get chat history with a specific user"""
+    user_id = request.query_params.get('user_id')
+    if not user_id:
         return Response(
-            {'error': 'Teacher profile not found for this user'},
+            {'error': 'user_id parameter is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        from main_login.models import User
+        other_user = User.objects.get(user_id=user_id)
+    except User.DoesNotExist:
+        return Response(
+            {'error': 'User not found'},
             status=status.HTTP_404_NOT_FOUND
         )
+    
+    # Get messages where current user is sender or recipient
+    messages = Communication.objects.filter(
+        (Q(sender=request.user) & Q(recipient=other_user)) |
+        (Q(sender=other_user) & Q(recipient=request.user))
+    ).order_by('created_at')
+    
+    serializer = CommunicationSerializer(messages, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 

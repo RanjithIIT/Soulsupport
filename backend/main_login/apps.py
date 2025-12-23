@@ -6,3 +6,7 @@ class MainLoginConfig(AppConfig):
     name = 'main_login'
     verbose_name = 'Main Login'
 
+    def ready(self):
+        """Import signals to register them"""
+        import main_login.signals  # noqa
+

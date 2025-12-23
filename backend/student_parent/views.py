@@ -192,13 +192,29 @@ class StudentDashboardViewSet(viewsets.ViewSet):
 @permission_classes([IsAuthenticated])
 def student_profile(request):
     """Get current logged-in student's profile"""
-    try:
-        student = Student.objects.get(user=request.user)
+    # First try to find by user relationship (use first() since ForeignKey allows multiple)
+    student = Student.objects.filter(user=request.user).first()
+    
+    if student:
         serializer = StudentSerializer(student)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    except Student.DoesNotExist:
-        return Response(
-            {'error': 'Student profile not found for this user'},
-            status=status.HTTP_404_NOT_FOUND
-        )
+    
+    # If not found by user, try to find by email
+    if request.user.email:
+        try:
+            # Email is primary key, so get() is safe here
+            student = Student.objects.get(email=request.user.email)
+            # Auto-link the user if not already linked
+            if not student.user:
+                student.user = request.user
+                student.save()
+            serializer = StudentSerializer(student)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Student.DoesNotExist:
+            pass
+    
+    return Response(
+        {'error': 'Student profile not found for this user'},
+        status=status.HTTP_404_NOT_FOUND
+    )
 
