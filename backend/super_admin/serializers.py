@@ -56,12 +56,29 @@ class SchoolSerializer(serializers.ModelSerializer):
     class Meta:
         model = School
         fields = [
-            'school_id', 'name', 'location', 'statecode', 'districtcode', 'registration_number',
+            'school_id', 'school_name', 'location', 'statecode', 'districtcode', 'registration_number',
             'email', 'phone', 'address', 'principal_name', 'established_year', 'status',
             'license_expiry', 'user', 'user_id', 'username', 'stats', 'generated_password',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['school_id', 'user', 'user_id', 'username', 'created_at', 'updated_at']
+    
+    def validate(self, data):
+        """Validate that required fields for school_id generation are provided"""
+        # Only validate on create (when school_id is not set)
+        if not self.instance:  # This is a create operation
+            statecode = data.get('statecode', '').strip() if data.get('statecode') else ''
+            districtcode = data.get('districtcode', '').strip() if data.get('districtcode') else ''
+            registration_number = data.get('registration_number', '').strip() if data.get('registration_number') else ''
+            
+            if not statecode:
+                raise serializers.ValidationError({'statecode': 'State code is required to generate school_id'})
+            if not districtcode:
+                raise serializers.ValidationError({'districtcode': 'District code is required to generate school_id'})
+            if not registration_number:
+                raise serializers.ValidationError({'registration_number': 'Registration number is required to generate school_id'})
+        
+        return data
     
     def get_stats(self, obj):
         """Get or create SchoolStats and serialize it"""
@@ -86,7 +103,7 @@ class SchoolSerializer(serializers.ModelSerializer):
 class ActivitySerializer(serializers.ModelSerializer):
     """Serializer for Activity model"""
     user = UserSerializer(read_only=True)
-    school_name = serializers.CharField(source='school.name', read_only=True)
+    school_name = serializers.CharField(source='school.school_name', read_only=True)
     
     class Meta:
         model = Activity

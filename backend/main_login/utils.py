@@ -11,6 +11,7 @@ def get_user_school_id(user):
     For management_admin users: Get from School.user relationship (school_account)
     For teacher users: Get from Teacher -> Department -> School
     For student/parent users: Get from Student -> School or Parent -> Student -> School
+    Also checks Parent.school_id directly for efficiency
     
     Returns:
         str: school_id if found, None otherwise
@@ -30,8 +31,14 @@ def get_user_school_id(user):
     try:
         from management_admin.models import Teacher
         teacher = Teacher.objects.filter(user=user).first()
-        if teacher and teacher.department and teacher.department.school:
-            return teacher.department.school.school_id
+        if teacher:
+            # First check if teacher has school_id directly (more reliable)
+            if teacher.school_id:
+                return teacher.school_id
+            
+            # Fallback: get from department's school
+            if teacher.department and teacher.department.school:
+                return teacher.department.school.school_id
     except Exception:
         pass
     
@@ -44,14 +51,20 @@ def get_user_school_id(user):
     except Exception:
         pass
     
-    # Check if user is a parent (through parent_profile -> students -> school)
+    # Check if user is a parent (first check direct school_id field, then through students)
     try:
         from student_parent.models import Parent
         parent = Parent.objects.filter(user=user).first()
-        if parent and parent.students.exists():
-            first_student = parent.students.first()
-            if first_student and first_student.school:
-                return first_student.school.school_id
+        if parent:
+            # First, check if parent has school_id directly (more efficient)
+            if parent.school_id:
+                return parent.school_id
+            
+            # Fallback: get from first student's school
+            if parent.students.exists():
+                first_student = parent.students.first()
+                if first_student and first_student.school:
+                    return first_student.school.school_id
     except Exception:
         pass
     

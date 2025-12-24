@@ -35,13 +35,13 @@ class Class(models.Model):
         if not self.school_id:
             if self.teacher and self.teacher.department and self.teacher.department.school:
                 self.school_id = self.teacher.department.school.school_id
-                self.school_name = self.teacher.department.school.name
+                self.school_name = self.teacher.department.school.school_name
             # If no teacher, try to get from first student in class
             elif hasattr(self, 'class_students') and self.class_students.exists():
                 first_student = self.class_students.first().student
                 if first_student and first_student.school:
                     self.school_id = first_student.school.school_id
-                    self.school_name = first_student.school.name
+                    self.school_name = first_student.school.school_name
         super().save(*args, **kwargs)
     
     def __str__(self):
@@ -98,7 +98,7 @@ class Attendance(models.Model):
         """Auto-populate school_id and school_name from student's school"""
         if self.student and self.student.school and not self.school_id:
             self.school_id = self.student.school.school_id
-            self.school_name = self.student.school.name
+            self.school_name = self.student.school.school_name
         super().save(*args, **kwargs)
     
     class Meta:
@@ -124,7 +124,7 @@ class Assignment(models.Model):
         """Auto-populate school_id and school_name from teacher's department's school"""
         if self.teacher and self.teacher.department and self.teacher.department.school and not self.school_id:
             self.school_id = self.teacher.department.school.school_id
-            self.school_name = self.teacher.department.school.name
+            self.school_name = self.teacher.department.school.school_name
         super().save(*args, **kwargs)
     
     class Meta:
@@ -151,7 +151,7 @@ class Exam(models.Model):
         """Auto-populate school_id and school_name from teacher's department's school"""
         if self.teacher and self.teacher.department and self.teacher.department.school and not self.school_id:
             self.school_id = self.teacher.department.school.school_id
-            self.school_name = self.teacher.department.school.name
+            self.school_name = self.teacher.department.school.school_name
         super().save(*args, **kwargs)
     
     class Meta:
@@ -176,7 +176,7 @@ class Grade(models.Model):
         """Auto-populate school_id and school_name from student's school"""
         if self.student and self.student.school and not self.school_id:
             self.school_id = self.student.school.school_id
-            self.school_name = self.student.school.name
+            self.school_name = self.student.school.school_name
         super().save(*args, **kwargs)
     
     class Meta:
@@ -211,7 +211,7 @@ class Timetable(models.Model):
         """Auto-populate school_id and school_name from teacher's department's school"""
         if self.teacher and self.teacher.department and self.teacher.department.school and not self.school_id:
             self.school_id = self.teacher.department.school.school_id
-            self.school_name = self.teacher.department.school.name
+            self.school_name = self.teacher.department.school.school_name
         super().save(*args, **kwargs)
     
     class Meta:
@@ -238,7 +238,7 @@ class StudyMaterial(models.Model):
         """Auto-populate school_id and school_name from teacher's department's school"""
         if self.teacher and self.teacher.department and self.teacher.department.school and not self.school_id:
             self.school_id = self.teacher.department.school.school_id
-            self.school_name = self.teacher.department.school.name
+            self.school_name = self.teacher.department.school.school_name
         super().save(*args, **kwargs)
     
     class Meta:

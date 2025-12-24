@@ -187,11 +187,18 @@ class TeacherViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         # Get school_id for filtering
         school_id = self.get_school_id()
         
+        # Debug logging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"TeacherViewSet - User: {self.request.user.username}, School ID: {school_id}")
+        
         # For non-super-admin users, filter by school_id
         if school_id:
             # Filter by school_id
             queryset = queryset.filter(school_id=school_id)
+            logger.debug(f"Filtered teachers by school_id={school_id}, count: {queryset.count()}")
         else:
+            logger.warning(f"No school_id found for user {self.request.user.username}")
             # If no school_id found for authenticated user, return empty queryset
             return queryset.none()
         
@@ -239,12 +246,21 @@ class StudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         # Get school_id for current user
         school_id = self.get_school_id()
         
+        # Debug logging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"StudentViewSet - User: {self.request.user.username}, School ID: {school_id}")
+        
         if not school_id:
+            logger.warning(f"No school_id found for user {self.request.user.username}")
             # If no school_id found for authenticated user, return empty queryset
             return queryset.none()
         
         # Filter by school_id (Student model has 'school' ForeignKey)
-        return queryset.filter(school__school_id=school_id)
+        queryset = queryset.filter(school__school_id=school_id)
+        logger.debug(f"Filtered students by school__school_id={school_id}, count: {queryset.count()}")
+        
+        return queryset
     
     def perform_create(self, serializer):
         """Override to ensure school is set correctly when creating students"""
@@ -1090,7 +1106,7 @@ class BusStopStudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         except Student.DoesNotExist:
             return Response(
                 {
-                    'error': f'Student with ID {student_id} not found in school {bus_school.name}. Please ensure the student belongs to the same school as the bus.',
+                    'error': f'Student with ID {student_id} not found in school {bus_school.school_name}. Please ensure the student belongs to the same school as the bus.',
                     'school_id': str(bus_school.school_id)
                 },
                 status=status.HTTP_404_NOT_FOUND
@@ -1100,7 +1116,7 @@ class BusStopStudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         if student.school != bus_school:
             return Response(
                 {
-                    'error': f'Student belongs to a different school. Bus belongs to {bus_school.name}, but student belongs to {student.school.name}',
+                    'error': f'Student belongs to a different school. Bus belongs to {bus_school.school_name}, but student belongs to {student.school.school_name}',
                     'bus_school_id': str(bus_school.school_id),
                     'student_school_id': str(student.school.school_id)
                 },

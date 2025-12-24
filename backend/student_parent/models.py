@@ -25,8 +25,8 @@ class Parent(models.Model):
             if first_student and first_student.school:
                 if not self.school_id or self.school_id != first_student.school.school_id:
                     self.school_id = first_student.school.school_id
-                if not self.school_name or self.school_name != first_student.school.name:
-                    self.school_name = first_student.school.name
+                if not self.school_name or self.school_name != first_student.school.school_name:
+                    self.school_name = first_student.school.school_name
         super().save(*args, **kwargs)
     
     def __str__(self):
@@ -36,6 +36,7 @@ class Parent(models.Model):
         db_table = 'parents'
         verbose_name = 'Parent'
         verbose_name_plural = 'Parents'
+        ordering = ['-created_at']
 
 
 class Notification(models.Model):
@@ -143,35 +144,65 @@ class Communication(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     
     def save(self, *args, **kwargs):
-        """Auto-populate school_id from sender or recipient's school"""
-        if not self.school_id:
-            # Try to get school_id from sender's school
-            if self.sender:
-                try:
-                    from management_admin.models import Teacher
-                    teacher = Teacher.objects.filter(user=self.sender).first()
-                    if teacher and teacher.department and teacher.department.school:
-                        self.school_id = teacher.department.school.school_id
-                except Exception:
-                    pass
-            # If not found, try recipient
-            if not self.school_id and self.recipient:
-                try:
-                    student = Student.objects.filter(user=self.recipient).first()
-                    if student and student.school:
-                        self.school_id = student.school.school_id
-                except Exception:
-                    pass
-                # Try parent
-                if not self.school_id:
+        """Auto-populate school_id from sender or recipient's school and validate matching school_id"""
+        from main_login.utils import get_user_school_id
+        from django.core.exceptions import ValidationError
+        
+        # Get school_id for both sender and recipient
+        sender_school_id = get_user_school_id(self.sender)
+        recipient_school_id = get_user_school_id(self.recipient)
+        
+        # Validate that sender and recipient have matching school_id
+        if sender_school_id and recipient_school_id:
+            if sender_school_id != recipient_school_id:
+                raise ValidationError(
+                    f'Cannot send message: Sender and recipient must belong to the same school. '
+                    f'Sender school: {sender_school_id}, Recipient school: {recipient_school_id}'
+                )
+            # Use the matching school_id
+            self.school_id = sender_school_id
+        elif sender_school_id:
+            # If only sender has school_id, use it
+            self.school_id = sender_school_id
+        elif recipient_school_id:
+            # If only recipient has school_id, use it
+            self.school_id = recipient_school_id
+        else:
+            # If neither has school_id, try to populate from sender
+            if not self.school_id:
+                # Try to get school_id from sender's school
+                if self.sender:
                     try:
-                        parent = Parent.objects.filter(user=self.recipient).first()
-                        if parent and parent.students.exists():
-                            first_student = parent.students.first()
-                            if first_student and first_student.school:
-                                self.school_id = first_student.school.school_id
+                        from management_admin.models import Teacher
+                        teacher = Teacher.objects.filter(user=self.sender).first()
+                        if teacher:
+                            if teacher.school_id:
+                                self.school_id = teacher.school_id
+                            elif teacher.department and teacher.department.school:
+                                self.school_id = teacher.department.school.school_id
                     except Exception:
                         pass
+                # If not found, try recipient
+                if not self.school_id and self.recipient:
+                    try:
+                        student = Student.objects.filter(user=self.recipient).first()
+                        if student and student.school:
+                            self.school_id = student.school.school_id
+                    except Exception:
+                        pass
+                    # Try parent
+                    if not self.school_id:
+                        try:
+                            parent = Parent.objects.filter(user=self.recipient).first()
+                            if parent:
+                                if parent.school_id:
+                                    self.school_id = parent.school_id
+                                elif parent.students.exists():
+                                    first_student = parent.students.first()
+                                    if first_student and first_student.school:
+                                        self.school_id = first_student.school.school_id
+                        except Exception:
+                            pass
         super().save(*args, **kwargs)
     
     class Meta:

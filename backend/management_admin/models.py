@@ -66,7 +66,7 @@ class File(models.Model):
                 # Get school name
                 school = get_user_school(self.uploaded_by)
                 if school:
-                    self.school_name = school.name
+                    self.school_name = school.school_name
         
         super().save(*args, **kwargs)
     
@@ -95,7 +95,7 @@ class Department(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return f"{self.name} - {self.school.name}"
+        return f"{self.name} - {self.school.school_name}"
     
     class Meta:
         db_table = 'departments'
@@ -150,6 +150,8 @@ class Teacher(models.Model):
     address = models.TextField(null=True, blank=True)
     primary_room_id = models.CharField(max_length=50, null=True, blank=True, help_text='Primary room identifier')
     class_teacher_section_id = models.CharField(max_length=50, null=True, blank=True, help_text='Class teacher section identifier')
+    class_teacher_class = models.CharField(max_length=50, null=True, blank=True, help_text='Class name for class teacher assignment (e.g., Grade 9, 10)')
+    class_teacher_grade = models.CharField(max_length=10, null=True, blank=True, help_text='Grade level for class teacher assignment (e.g., A, B, C, D)')
     subject_specialization = models.TextField(null=True, blank=True, help_text='Subject specialization details')
     emergency_contact = models.CharField(max_length=20, null=True, blank=True)
     
@@ -172,7 +174,7 @@ class Teacher(models.Model):
         # Get school_id and school_name from department's school ForeignKey
         if self.department and self.department.school:
             department_school_id = self.department.school.school_id
-            department_school_name = self.department.school.name
+            department_school_name = self.department.school.school_name
             if not self.school_id or self.school_id != department_school_id:
                 self.school_id = department_school_id
             if not self.school_name or self.school_name != department_school_name:
@@ -296,8 +298,8 @@ class Student(models.Model):
         
         # Auto-populate school_name from school ForeignKey
         if self.school:
-            if not self.school_name or self.school_name != self.school.name:
-                self.school_name = self.school.name
+            if not self.school_name or self.school_name != self.school.school_name:
+                self.school_name = self.school.school_name
         
         super().save(*args, **kwargs)
         
@@ -671,8 +673,8 @@ class Fee(models.Model):
             if self.student.school:
                 if not self.school_id or self.school_id != self.student.school.school_id:
                     self.school_id = self.student.school.school_id
-                if not self.school_name or self.school_name != self.student.school.name:
-                    self.school_name = self.student.school.name
+                if not self.school_name or self.school_name != self.student.school.school_name:
+                    self.school_name = self.student.school.school_name
         
         # Calculate due_amount: total_amount - paid_amount (always recalculate)
         from decimal import Decimal
@@ -804,8 +806,8 @@ class BusStop(models.Model):
         if self.bus and self.bus.school:
             if not self.school_id or self.school_id != self.bus.school.school_id:
                 self.school_id = self.bus.school.school_id
-            if not self.school_name or self.school_name != self.bus.school.name:
-                self.school_name = self.bus.school.name
+            if not self.school_name or self.school_name != self.bus.school.school_name:
+                self.school_name = self.bus.school.school_name
         super().save(*args, **kwargs)
     
     def __str__(self):
@@ -851,14 +853,14 @@ class BusStopStudent(models.Model):
             if self.student.school:
                 if not self.school_id or self.school_id != self.student.school.school_id:
                     self.school_id = self.student.school.school_id
-                if not self.school_name or self.school_name != self.student.school.name:
-                    self.school_name = self.student.school.name
+                if not self.school_name or self.school_name != self.student.school.school_name:
+                    self.school_name = self.student.school.school_name
         elif self.bus_stop and self.bus_stop.bus and self.bus_stop.bus.school:
             # Fallback to bus's school
             if not self.school_id or self.school_id != self.bus_stop.bus.school.school_id:
                 self.school_id = self.bus_stop.bus.school.school_id
-            if not self.school_name or self.school_name != self.bus_stop.bus.school.name:
-                self.school_name = self.bus_stop.bus.school.name
+            if not self.school_name or self.school_name != self.bus_stop.bus.school.school_name:
+                self.school_name = self.bus_stop.bus.school.school_name
         
         super().save(*args, **kwargs)
     

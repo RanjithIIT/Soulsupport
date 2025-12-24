@@ -7,15 +7,15 @@ from .models import School, SchoolStats, Activity
 
 @admin.register(School)
 class SchoolAdmin(admin.ModelAdmin):
-    list_display = ['name', 'location', 'status', 'license_expiry', 'created_at']
+    list_display = ['school_name', 'location', 'status', 'license_expiry', 'created_at']
     list_filter = ['status', 'created_at']
-    search_fields = ['name', 'location']
+    search_fields = ['school_name', 'location']
 
 
 @admin.register(SchoolStats)
 class SchoolStatsAdmin(admin.ModelAdmin):
     list_display = ['school', 'total_students', 'total_teachers', 'total_revenue', 'updated_at']
-    search_fields = ['school__name']
+    search_fields = ['school__school_name']
 
 
 @admin.register(Activity)

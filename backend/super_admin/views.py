@@ -21,8 +21,8 @@ class SchoolViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsSuperAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'location']
-    search_fields = ['name', 'location', 'email', 'phone']
-    ordering_fields = ['name', 'created_at', 'updated_at']
+    search_fields = ['school_name', 'location', 'email', 'phone']
+    ordering_fields = ['school_name', 'created_at', 'updated_at']
     ordering = ['-created_at']
     
     def create(self, request, *args, **kwargs):
@@ -42,7 +42,7 @@ class SchoolViewSet(viewsets.ModelViewSet):
         try:
             # Get email from validated data
             email = serializer.validated_data.get('email')
-            school_name = serializer.validated_data.get('name', '')
+            school_name = serializer.validated_data.get('school_name', '')
             
             if not email:
                 return Response(

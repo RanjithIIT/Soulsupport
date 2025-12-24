@@ -25,8 +25,49 @@ class ParentViewSet(SchoolFilterMixin, viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated, IsStudentParent]
     
     def get_queryset(self):
-        """Filter by current user"""
-        return Parent.objects.filter(user=self.request.user)
+        """Filter by current user and prefetch related students with their schools and users"""
+        return Parent.objects.filter(user=self.request.user).prefetch_related(
+            'students__school', 'students__user'
+        ).select_related('user')
+    
+    def list(self, request, *args, **kwargs):
+        """Override list to return current user's parent profile as single object"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            logger.info(f'Fetching parent profile for user: {request.user.username} (ID: {request.user.user_id}, Email: {request.user.email})')
+            parent = self.get_queryset().first()
+            
+            if parent:
+                logger.info(f'Found parent profile: ID={parent.id}, Students count={parent.students.count()}')
+                serializer = self.get_serializer(parent)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            else:
+                logger.warning(f'Parent profile not found for user: {request.user.username} (ID: {request.user.user_id}, Email: {request.user.email})')
+                # Check if parent exists at all for this user
+                parent_exists = Parent.objects.filter(user=request.user).exists()
+                if not parent_exists:
+                    logger.warning(f'No parent record exists in database for user: {request.user.username}')
+                return Response(
+                    {
+                        'error': 'Parent profile not found for this user',
+                        'message': 'Please ensure your account is linked to a parent profile',
+                        'user_id': str(request.user.user_id),
+                        'username': request.user.username,
+                        'email': request.user.email
+                    },
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        except Exception as e:
+            logger.error(f'Error fetching parent profile: {str(e)}', exc_info=True)
+            return Response(
+                {
+                    'error': f'Error fetching parent profile: {str(e)}',
+                    'message': 'An error occurred while fetching your profile'
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class NotificationViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
@@ -122,12 +163,41 @@ class CommunicationViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     ordering = ['-created_at']
     
     def get_queryset(self):
-        """Filter communications by current user"""
-        return Communication.objects.filter(
-            recipient=self.request.user
-        ) | Communication.objects.filter(
-            sender=self.request.user
+        """Filter communications by current user, with support for username/email-based filtering"""
+        from main_login.models import User
+        from django.db.models import Q
+        
+        queryset = Communication.objects.filter(
+            Q(recipient=self.request.user) | Q(sender=self.request.user)
         )
+        
+        # Handle sender and recipient filters (expects username or email)
+        sender_param = self.request.query_params.get('sender')
+        recipient_param = self.request.query_params.get('recipient')
+        
+        if sender_param:
+            # Try to find user by username or email
+            sender_user = User.objects.filter(
+                Q(username=sender_param) | Q(email=sender_param)
+            ).first()
+            if sender_user:
+                queryset = queryset.filter(sender=sender_user)
+            else:
+                # If not found, return empty queryset
+                queryset = queryset.none()
+        
+        if recipient_param:
+            # Try to find user by username or email
+            recipient_user = User.objects.filter(
+                Q(username=recipient_param) | Q(email=recipient_param)
+            ).first()
+            if recipient_user:
+                queryset = queryset.filter(recipient=recipient_user)
+            else:
+                # If not found, return empty queryset
+                queryset = queryset.none()
+        
+        return queryset
     
     @action(detail=True, methods=['post'])
     def mark_read(self, request, pk=None):

@@ -9,7 +9,7 @@ from main_login.models import User
 class School(models.Model):
     """School model for super admin"""
     school_id = models.CharField(max_length=200, primary_key=True, editable=False, help_text='Auto-generated school identifier (Primary Key) - Format: StateCode + DistrictCode + RegistrationNumber')
-    name = models.CharField(max_length=255)
+    school_name = models.CharField(max_length=255)
     location = models.CharField(max_length=255)
     # Fields for auto-generating school_id
     statecode = models.CharField(max_length=100, help_text='State code (e.g., TG) - used for school_id generation')
@@ -45,9 +45,9 @@ class School(models.Model):
     def generate_school_id(self):
         """Generate school_id from statecode, districtcode, and registration_number"""
         # Normalize the values: remove spaces, convert to uppercase
-        state_normalized = self.statecode.strip().upper().replace(' ', '')
-        district_normalized = self.districtcode.strip().upper().replace(' ', '')
-        reg_normalized = self.registration_number.strip().upper().replace(' ', '')
+        state_normalized = (self.statecode or '').strip().upper().replace(' ', '')
+        district_normalized = (self.districtcode or '').strip().upper().replace(' ', '')
+        reg_normalized = (self.registration_number or '').strip().upper().replace(' ', '')
         
         # Generate school_id in format: StateCode + DistrictCode + RegistrationNumber
         school_id = f"{state_normalized}{district_normalized}{reg_normalized}"
@@ -55,11 +55,26 @@ class School(models.Model):
     
     def save(self, *args, **kwargs):
         """Override save to auto-generate school_id"""
-        # Only generate school_id for new instances
-        if self._state.adding:
-            if not all([self.statecode, self.districtcode, self.registration_number]):
-                raise ValueError("statecode, districtcode, and registration_number are required to generate school_id")
-            self.school_id = self.generate_school_id()
+        # Only generate school_id for new instances (when pk is None or not in database)
+        if not self.pk or self._state.adding:
+            # Strip whitespace and check if fields are not empty
+            statecode = (self.statecode or '').strip()
+            districtcode = (self.districtcode or '').strip()
+            registration_number = (self.registration_number or '').strip()
+            
+            if not statecode or not districtcode or not registration_number:
+                raise ValueError("statecode, districtcode, and registration_number are required to generate school_id. Received: statecode='{}', districtcode='{}', registration_number='{}'".format(
+                    statecode, districtcode, registration_number
+                ))
+            
+            # Ensure the stripped values are set back
+            self.statecode = statecode
+            self.districtcode = districtcode
+            self.registration_number = registration_number
+            
+            # Generate school_id if not already set
+            if not self.school_id:
+                self.school_id = self.generate_school_id()
         else:
             # For existing instances, prevent changes to statecode/districtcode/registration_number
             # that would change school_id (to maintain referential integrity)
@@ -72,7 +87,7 @@ class School(models.Model):
         super().save(*args, **kwargs)
     
     def __str__(self):
-        return self.name
+        return self.school_name
     
     class Meta:
         db_table = 'schools'

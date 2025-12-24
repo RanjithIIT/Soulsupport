@@ -53,6 +53,29 @@ class ClassStudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsTeacher]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['class_obj', 'student']
+    
+    def get_queryset(self):
+        """Filter class students by teacher's school"""
+        queryset = super().get_queryset()
+        
+        # Get school_id for current teacher
+        school_id = self.get_school_id()
+        
+        if school_id:
+            # Filter by school_id (ClassStudent has school_id field)
+            queryset = queryset.filter(school_id=school_id)
+        else:
+            # If no school_id, try to filter by teacher's classes
+            try:
+                teacher = Teacher.objects.get(user=self.request.user)
+                if teacher:
+                    # Get classes for this teacher and filter students in those classes
+                    class_ids = Class.objects.filter(teacher=teacher).values_list('id', flat=True)
+                    queryset = queryset.filter(class_obj_id__in=class_ids)
+            except Teacher.DoesNotExist:
+                queryset = queryset.none()
+        
+        return queryset
 
 
 class AttendanceViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
@@ -215,11 +238,30 @@ def teacher_chat_history(request):
     
     try:
         from main_login.models import User
-        other_user = User.objects.get(user_id=user_id)
-    except User.DoesNotExist:
+        import uuid
+        
+        # Try to parse as UUID first
+        try:
+            uuid_obj = uuid.UUID(user_id)
+            other_user = User.objects.get(user_id=uuid_obj)
+        except (ValueError, User.DoesNotExist):
+            # If not a valid UUID, try to find by email or username
+            other_user = User.objects.filter(
+                Q(email=user_id) | Q(username=user_id)
+            ).first()
+            
+            if not other_user:
+                return Response(
+                    {'error': 'User not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Error finding user for chat history: {str(e)}')
         return Response(
-            {'error': 'User not found'},
-            status=status.HTTP_404_NOT_FOUND
+            {'error': f'Error finding user: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
     
     # Get messages where current user is sender or recipient

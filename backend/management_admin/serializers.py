@@ -34,7 +34,7 @@ class FileSerializer(serializers.ModelSerializer):
 class DepartmentSerializer(serializers.ModelSerializer):
     """Serializer for Department model"""
     head = UserSerializer(read_only=True)
-    school_name = serializers.CharField(source='school.name', read_only=True)
+    school_name = serializers.CharField(source='school.school_name', read_only=True)
     school_id = serializers.CharField(source='school.school_id', read_only=True, help_text='School ID (read-only)')
     
     class Meta:
@@ -70,7 +70,7 @@ class TeacherSerializer(SchoolIdMixin, serializers.ModelSerializer):
             'employee_no', 'first_name', 'last_name', 'qualification',
             'joining_date', 'dob', 'gender',
             'blood_group', 'nationality', 'mobile_no', 'email', 'address',
-            'primary_room_id', 'class_teacher_section_id', 'subject_specialization',
+            'primary_room_id', 'class_teacher_section_id', 'class_teacher_class', 'class_teacher_grade', 'subject_specialization',
             'emergency_contact', 'profile_photo', 'profile_photo_id', 'profile_photo_url', 
             'is_class_teacher', 'is_active',
             'created_at', 'updated_at'
@@ -167,7 +167,7 @@ class TeacherSerializer(SchoolIdMixin, serializers.ModelSerializer):
 class StudentSerializer(serializers.ModelSerializer):
     """Serializer for Student model"""
     user = UserSerializer(read_only=True)
-    school_name = serializers.CharField(source='school.name', read_only=True)
+    school_name = serializers.CharField(source='school.school_name', read_only=True)
     school_id = serializers.CharField(source='school.school_id', read_only=True, help_text='School ID (read-only)')
     total_fee_amount = serializers.SerializerMethodField()
     paid_fee_amount = serializers.SerializerMethodField()
@@ -404,7 +404,7 @@ class NewAdmissionSerializer(SchoolIdMixin, serializers.ModelSerializer):
 
 class DashboardStatsSerializer(serializers.ModelSerializer):
     """Serializer for Dashboard Stats"""
-    school_name = serializers.CharField(source='school.name', read_only=True)
+    school_name = serializers.CharField(source='school.school_name', read_only=True)
     
     class Meta:
         model = DashboardStats
@@ -533,7 +533,7 @@ class BusStopSerializer(SchoolIdMixin, serializers.ModelSerializer):
 
 class BusSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Bus model"""
-    school_name = serializers.CharField(source='school.name', read_only=True)
+    school_name = serializers.CharField(source='school.school_name', read_only=True)
     school_id = serializers.CharField(source='school.school_id', read_only=True, help_text='School ID (read-only)')
     morning_stops = serializers.SerializerMethodField()
     afternoon_stops = serializers.SerializerMethodField()
