@@ -40,7 +40,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
   final _emailController = TextEditingController();
   final _addressController = TextEditingController();
   final _nationalityController = TextEditingController();
-  final _primaryRoomIdController = TextEditingController();
   final _classTeacherSectionIdController = TextEditingController();
   final _subjectSpecializationController = TextEditingController();
   final _emergencyContactController = TextEditingController();
@@ -50,6 +49,9 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
   bool _isLoadingDepartments = false;
   String? _gender;
   String? _bloodGroup;
+  bool _isClassTeacher = false;
+  String? _classTeacherClass;
+  String? _classTeacherGrade;
   
   // Default department names (from old designation dropdown)
   static const List<String> _defaultDepartmentNames = [
@@ -163,10 +165,12 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
       _addressController.text = data['address'] as String? ?? '';
       _bloodGroup = data['blood_group'] as String?;
       _nationalityController.text = data['nationality'] as String? ?? '';
-      _primaryRoomIdController.text = data['primary_room_id'] as String? ?? '';
       _classTeacherSectionIdController.text = data['class_teacher_section_id'] as String? ?? '';
       _subjectSpecializationController.text = data['subject_specialization'] as String? ?? '';
       _emergencyContactController.text = data['emergency_contact'] as String? ?? '';
+      _isClassTeacher = data['is_class_teacher'] as bool? ?? false;
+      _classTeacherClass = data['class_teacher_class'] as String?;
+      _classTeacherGrade = data['class_teacher_grade'] as String?;
       
       if (data['dob'] != null) {
         _dob = DateTime.tryParse(data['dob']);
@@ -195,7 +199,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
     _emailController.dispose();
       _addressController.dispose();
       _nationalityController.dispose();
-    _primaryRoomIdController.dispose();
     _classTeacherSectionIdController.dispose();
     _subjectSpecializationController.dispose();
     _emergencyContactController.dispose();
@@ -276,8 +279,12 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
         'address': _addressController.text.trim(),
         if (_bloodGroup != null && _bloodGroup!.isNotEmpty) 'blood_group': _bloodGroup,
         'nationality': _nationalityController.text.trim(),
-        'primary_room_id': _primaryRoomIdController.text.trim(),
         'class_teacher_section_id': _classTeacherSectionIdController.text.trim(),
+        'is_class_teacher': _isClassTeacher,
+        if (_isClassTeacher && _classTeacherClass != null && _classTeacherClass!.isNotEmpty) 
+          'class_teacher_class': _classTeacherClass,
+        if (_isClassTeacher && _classTeacherGrade != null && _classTeacherGrade!.isNotEmpty) 
+          'class_teacher_grade': _classTeacherGrade,
         'subject_specialization': _subjectSpecializationController.text.trim(),
         'emergency_contact': _emergencyContactController.text.trim(),
         if (profilePhotoFileId != null) 'profile_photo': profilePhotoFileId,
@@ -414,8 +421,29 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
                         bloodGroup: _bloodGroup,
                         onBloodGroupChanged: (value) => setState(() => _bloodGroup = value),
                         nationalityController: _nationalityController,
-                        primaryRoomIdController: _primaryRoomIdController,
                         classTeacherSectionIdController: _classTeacherSectionIdController,
+                        isClassTeacher: _isClassTeacher,
+                        onIsClassTeacherChanged: (value) {
+                          setState(() {
+                            _isClassTeacher = value;
+                            if (!value) {
+                              _classTeacherClass = null;
+                              _classTeacherGrade = null;
+                            }
+                          });
+                        },
+                        classTeacherClass: _classTeacherClass,
+                        onClassTeacherClassChanged: (value) {
+                          setState(() {
+                            _classTeacherClass = value;
+                          });
+                        },
+                        classTeacherGrade: _classTeacherGrade,
+                        onClassTeacherGradeChanged: (value) {
+                          setState(() {
+                            _classTeacherGrade = value;
+                          });
+                        },
                         subjectSpecializationController: _subjectSpecializationController,
                         emergencyContactController: _emergencyContactController,
                         photoBytes: _photoBytes,
@@ -649,8 +677,13 @@ class _FormCard extends StatelessWidget {
   final String? bloodGroup;
   final ValueChanged<String?> onBloodGroupChanged;
   final TextEditingController nationalityController;
-  final TextEditingController primaryRoomIdController;
   final TextEditingController classTeacherSectionIdController;
+  final bool isClassTeacher;
+  final ValueChanged<bool> onIsClassTeacherChanged;
+  final String? classTeacherClass;
+  final ValueChanged<String?> onClassTeacherClassChanged;
+  final String? classTeacherGrade;
+  final ValueChanged<String?> onClassTeacherGradeChanged;
   final TextEditingController subjectSpecializationController;
   final TextEditingController emergencyContactController;
   final Uint8List? photoBytes;
@@ -686,8 +719,13 @@ class _FormCard extends StatelessWidget {
     required this.bloodGroup,
     required this.onBloodGroupChanged,
     required this.nationalityController,
-    required this.primaryRoomIdController,
     required this.classTeacherSectionIdController,
+    required this.isClassTeacher,
+    required this.onIsClassTeacherChanged,
+    required this.classTeacherClass,
+    required this.onClassTeacherClassChanged,
+    required this.classTeacherGrade,
+    required this.onClassTeacherGradeChanged,
     required this.subjectSpecializationController,
     required this.emergencyContactController,
     required this.photoBytes,
@@ -1105,40 +1143,74 @@ class _FormCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 20),
-            // Primary Room ID and Class Teacher Section ID
+            // Class Teacher Assignment Section
             Row(
               children: [
                 Expanded(
-                  child: TextFormField(
-                    controller: primaryRoomIdController,
-              decoration: InputDecoration(
-                      labelText: 'Primary Room ID',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                filled: true,
-                fillColor: Colors.white,
-                      prefixIcon: const Icon(Icons.room),
-                    ),
-                  ),
-              ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: TextFormField(
-                    controller: classTeacherSectionIdController,
-                    decoration: InputDecoration(
-                      labelText: 'Class Teacher Section ID',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      prefixIcon: const Icon(Icons.class_),
-                    ),
+                  child: CheckboxListTile(
+                    title: const Text('Is Class Teacher'),
+                    value: isClassTeacher,
+                    onChanged: (value) {
+                      onIsClassTeacherChanged(value ?? false);
+                    },
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
                   ),
                 ),
               ],
             ),
+            if (isClassTeacher) ...[
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      decoration: InputDecoration(
+                        labelText: 'Class *',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        prefixIcon: const Icon(Icons.school),
+                      ),
+                      value: classTeacherClass,
+                      items: const [
+                        DropdownMenuItem(value: null, child: Text('Select Class')),
+                        DropdownMenuItem(value: 'Grade 9', child: Text('Grade 9')),
+                        DropdownMenuItem(value: 'Grade 10', child: Text('Grade 10')),
+                        DropdownMenuItem(value: 'Grade 11', child: Text('Grade 11')),
+                        DropdownMenuItem(value: 'Grade 12', child: Text('Grade 12')),
+                      ],
+                      onChanged: onClassTeacherClassChanged,
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      decoration: InputDecoration(
+                        labelText: 'Grade *',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        prefixIcon: const Icon(Icons.star),
+                      ),
+                      value: classTeacherGrade,
+                      items: const [
+                        DropdownMenuItem(value: null, child: Text('Select Grade')),
+                        DropdownMenuItem(value: 'A', child: Text('Grade A')),
+                        DropdownMenuItem(value: 'B', child: Text('Grade B')),
+                        DropdownMenuItem(value: 'C', child: Text('Grade C')),
+                        DropdownMenuItem(value: 'D', child: Text('Grade D')),
+                      ],
+                      onChanged: onClassTeacherGradeChanged,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 20),
             // Subject Specialization
             TextFormField(

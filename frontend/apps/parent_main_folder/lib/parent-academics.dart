@@ -227,7 +227,7 @@ final List<Subject> mockSubjects = [
     completed: 6,
     attendance: 96,
     topics: ['Algorithms', 'Data Structures', 'Databases'],
-    resources: ['Lecture Notes', 'GitHub Repo', 'Practice Problems'],
+    resources: ['Lecture Notes', 'Course Materials', 'Practice Problems'],
   ),
 ];
 

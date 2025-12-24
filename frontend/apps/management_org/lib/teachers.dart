@@ -16,6 +16,9 @@ class Teacher {
   final String address;
   final String initials;
   final String? classTeacher;
+  final bool isClassTeacher;
+  final String? classTeacherClass;
+  final String? classTeacherGrade;
   final dynamic experience;
   final String qualifications;
   final String specializations;
@@ -34,6 +37,7 @@ class Teacher {
     required this.address,
     required this.initials,
     required this.classTeacher,
+    required this.isClassTeacher,
     required this.experience,
     required this.qualifications,
     required this.specializations,
@@ -42,6 +46,8 @@ class Teacher {
     required this.salary,
     required this.status,
     this.profilePhotoUrl,
+    this.classTeacherClass,
+    this.classTeacherGrade,
   });
 
   // Factory constructor to parse from JSON (database response)
@@ -68,6 +74,9 @@ class Teacher {
       address: json['address'] as String? ?? '',
       initials: _getInitials(firstName, lastName),
       classTeacher: json['class_teacher'] as String?,
+      isClassTeacher: json['is_class_teacher'] as bool? ?? false,
+      classTeacherClass: json['class_teacher_class'] as String?,
+      classTeacherGrade: json['class_teacher_grade'] as String?,
       experience: (json['experience'] as String?) ?? '0',
       qualifications: json['qualification'] as String? ?? json['qualifications'] as String? ?? '',
       specializations: json['subject_specialization'] as String? ?? json['specializations'] as String? ?? '',
@@ -377,9 +386,18 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
                                                 _DetailCard(
                                                   title: 'Academic Information',
                                                   lines: [
-                                                    'Class Teacher: ${teacher.classTeacher ?? 'Not Assigned'}',
-                                                    'Subjects: ${teacher.subjects.join(', ')}',
-                                                    'Qualifications: ${teacher.qualifications}',
+                                                    () {
+                                                      if (teacher.isClassTeacher && 
+                                                          (teacher.classTeacherClass != null || teacher.classTeacherGrade != null)) {
+                                                        return 'Class Teacher: ${teacher.classTeacherClass ?? ''} ${teacher.classTeacherGrade ?? ''}'.trim();
+                                                      } else if (teacher.isClassTeacher) {
+                                                        return 'Class Teacher: Assigned';
+                                                      } else {
+                                                        return 'Class Teacher: Not Assigned';
+                                                      }
+                                                    }(),
+                                                    if (teacher.subjects.isNotEmpty) 'Subjects: ${teacher.subjects.join(', ')}',
+                                                    if (teacher.qualifications.isNotEmpty) 'Qualifications: ${teacher.qualifications}',
                                                   ],
                                                 ),
                                                 _DetailCard(
