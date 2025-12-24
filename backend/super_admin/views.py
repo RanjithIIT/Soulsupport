@@ -8,6 +8,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db import transaction
 from .models import School, SchoolStats, Activity
 from .serializers import SchoolSerializer, ActivitySerializer
 from main_login.permissions import IsSuperAdmin
@@ -25,6 +26,7 @@ class SchoolViewSet(viewsets.ModelViewSet):
     ordering_fields = ['school_name', 'created_at', 'updated_at']
     ordering = ['-created_at']
     
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         """Override create to create user account for school"""
         serializer = self.get_serializer(data=request.data)

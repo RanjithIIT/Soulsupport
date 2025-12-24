@@ -51,6 +51,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'school_backend.middleware.DatabaseConnectionMiddleware',  # Database connection cleanup
 ]
 
 ROOT_URLCONF = 'school_backend.urls'
@@ -88,6 +89,9 @@ DATABASES = {
             'connect_timeout': 10,
             'sslmode': 'require',  # Supabase requires SSL
         },
+        # Connection pooling settings for Supabase
+        'CONN_MAX_AGE': 600,  # Keep connections alive for 10 minutes
+        'AUTOCOMMIT': True,  # Ensure autocommit is enabled
     }
 }
 

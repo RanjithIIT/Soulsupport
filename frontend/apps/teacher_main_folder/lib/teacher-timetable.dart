@@ -1,1372 +1,981 @@
-// lib/main.dart
-import 'dart:async';
-import 'dart:math';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-// file_picker removed for emulator builds; using a simple local stub instead.
+import 'package:intl/intl.dart';
 
+// ---------------------- Main Function ----------------------
 void main() {
-  runApp(const StudyMaterialsApp());
+  runApp(const MyApp());
 }
 
-class _PickedFile {
-  final String name;
-  final int size;
-  _PickedFile({required this.name, required this.size});
-}
-
-class StudyMaterialsApp extends StatelessWidget {
-  const StudyMaterialsApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Study Materials Management',
+      title: 'Teacher Timetable',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primarySwatch: createMaterialColor(const Color(0xFF667EEA)),
-        useMaterial3: false,
+        primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          iconTheme: IconThemeData(color: Colors.white),
+          titleTextStyle: TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
-      home: const DashboardScreen(),
+      home: const TeacherTimetableScreen(),
     );
   }
 }
 
-/// A utility to create a MaterialColor from a single color (used for theme).
-MaterialColor createMaterialColor(Color color) {
-  List strengths = <double>[.05];
-  Map<int, Color> swatch = {};
-  final int r = color.red, g = color.green, b = color.blue;
-  for (int i = 1; i < 10; i++) {
-    strengths.add(0.1 * i);
+// ---------------------- TeacherTimetableScreen ----------------------
+
+class TeacherTimetableScreen extends StatefulWidget {
+  const TeacherTimetableScreen({super.key});
+
+  @override
+  State<TeacherTimetableScreen> createState() => _TeacherTimetableScreenState();
+}
+
+class _TeacherTimetableScreenState extends State<TeacherTimetableScreen> {
+  // --------------------- State Variables ---------------------
+  DateTime currentWeek = DateTime.now();
+  String currentView = 'weekly'; // Corresponds to the active view-btn
+
+  // --------------------- Timetable Data ---------------------
+  final Map<String, Map<String, Map<String, String>?>> timetableData = const {
+    "8:00 AM": {
+      "Monday": {
+        "subject": "mathematics",
+        "class": "Class 10A",
+        "room": "Room 101",
+      },
+      "Tuesday": {
+        "subject": "physics",
+        "class": "Class 11B",
+        "room": "Lab 201",
+      },
+      "Wednesday": {
+        "subject": "mathematics",
+        "class": "Class 12A",
+        "room": "Room 102",
+      },
+      "Thursday": {
+        "subject": "chemistry",
+        "class": "Class 11A",
+        "room": "Lab 202",
+      },
+      "Friday": {
+        "subject": "mathematics",
+        "class": "Class 10B",
+        "room": "Room 101",
+      },
+      "Saturday": null,
+    },
+    "9:00 AM": {
+      "Monday": {"subject": "science", "class": "Class 9A", "room": "Lab 101"},
+      "Tuesday": {
+        "subject": "mathematics",
+        "class": "Class 10A",
+        "room": "Room 101",
+      },
+      "Wednesday": {
+        "subject": "english",
+        "class": "Class 11A",
+        "room": "Room 103",
+      },
+      "Thursday": {
+        "subject": "mathematics",
+        "class": "Class 12B",
+        "room": "Room 102",
+      },
+      "Friday": {"subject": "physics", "class": "Class 11B", "room": "Lab 201"},
+      "Saturday": null,
+    },
+    "10:00 AM": {
+      "Monday": {"subject": "history", "class": "Class 8A", "room": "Room 104"},
+      "Tuesday": {
+        "subject": "chemistry",
+        "class": "Class 12A",
+        "room": "Lab 202",
+      },
+      "Wednesday": {
+        "subject": "mathematics",
+        "class": "Class 10B",
+        "room": "Room 101",
+      },
+      "Thursday": {
+        "subject": "english",
+        "class": "Class 9A",
+        "room": "Room 103",
+      },
+      "Friday": {
+        "subject": "mathematics",
+        "class": "Class 11A",
+        "room": "Room 101",
+      },
+      "Saturday": null,
+    },
+    "11:00 AM": {
+      "Monday": {
+        "subject": "mathematics",
+        "class": "Class 11A",
+        "room": "Room 101",
+      },
+      "Tuesday": {
+        "subject": "science",
+        "class": "Class 10A",
+        "room": "Lab 101",
+      },
+      "Wednesday": {
+        "subject": "physics",
+        "class": "Class 12A",
+        "room": "Lab 201",
+      },
+      "Thursday": {
+        "subject": "mathematics",
+        "class": "Class 10A",
+        "room": "Room 101",
+      },
+      "Friday": {
+        "subject": "chemistry",
+        "class": "Class 11B",
+        "room": "Lab 202",
+      },
+      "Saturday": null,
+    },
+    "12:00 PM": {
+      "Monday": null,
+      "Tuesday": null,
+      "Wednesday": null,
+      "Thursday": null,
+      "Friday": null,
+      "Saturday": null,
+    },
+    "1:00 PM": {
+      "Monday": {
+        "subject": "english",
+        "class": "Class 10A",
+        "room": "Room 103",
+      },
+      "Tuesday": {
+        "subject": "mathematics",
+        "class": "Class 12A",
+        "room": "Room 101",
+      },
+      "Wednesday": {
+        "subject": "chemistry",
+        "class": "Class 11A",
+        "room": "Lab 202",
+      },
+      "Thursday": {
+        "subject": "physics",
+        "class": "Class 10B",
+        "room": "Lab 201",
+      },
+      "Friday": {
+        "subject": "english",
+        "class": "Class 11A",
+        "room": "Room 103",
+      },
+      "Saturday": null,
+    },
+    "2:00 PM": {
+      "Monday": {"subject": "physics", "class": "Class 11A", "room": "Lab 201"},
+      "Tuesday": {
+        "subject": "english",
+        "class": "Class 9A",
+        "room": "Room 103",
+      },
+      "Wednesday": {
+        "subject": "mathematics",
+        "class": "Class 10A",
+        "room": "Room 101",
+      },
+      "Thursday": {
+        "subject": "science",
+        "class": "Class 11B",
+        "room": "Lab 101",
+      },
+      "Friday": {
+        "subject": "mathematics",
+        "class": "Class 12A",
+        "room": "Room 102",
+      },
+      "Saturday": null,
+    },
+    "3:00 PM": {
+      "Monday": {
+        "subject": "chemistry",
+        "class": "Class 10A",
+        "room": "Lab 202",
+      },
+      "Tuesday": {
+        "subject": "mathematics",
+        "class": "Class 11B",
+        "room": "Room 101",
+      },
+      "Wednesday": {
+        "subject": "english",
+        "class": "Class 12A",
+        "room": "Room 103",
+      },
+      "Thursday": {
+        "subject": "mathematics",
+        "class": "Class 10B",
+        "room": "Room 101",
+      },
+      "Friday": {"subject": "physics", "class": "Class 11A", "room": "Lab 201"},
+      "Saturday": null,
+    },
+  };
+
+  // ----------------------- Navigation Logic ------------------------
+  void nextWeek() {
+    setState(() => currentWeek = currentWeek.add(const Duration(days: 7)));
   }
-  for (var strength in strengths) {
-    final double ds = 0.5 - strength;
-    swatch[(strength * 1000).round()] = Color.fromRGBO(
-      r + ((ds < 0 ? r : (255 - r)) * ds).round(),
-      g + ((ds < 0 ? g : (255 - g)) * ds).round(),
-      b + ((ds < 0 ? b : (255 - b)) * ds).round(),
-      1,
+
+  void previousWeek() {
+    setState(() => currentWeek = currentWeek.subtract(const Duration(days: 7)));
+  }
+
+  void setView(String view) {
+    setState(() {
+      currentView = view;
+      // Removed mock alerts here as the views will now render the content below
+    });
+  }
+
+  String get weekDisplay {
+    // Dart's weekday starts with Monday=1, Sunday=7. The logic below calculates the Monday of the current week.
+    DateTime start = currentWeek.subtract(
+      Duration(days: currentWeek.weekday == 7 ? 6 : currentWeek.weekday - 1),
     );
-  }
-  return MaterialColor(color.value, swatch);
-}
-
-/// Model for a material item
-class MaterialItem {
-  int id;
-  String title;
-  String subject;
-  String className;
-  String type;
-  String description;
-  double sizeMB;
-  DateTime date;
-  List<String> tags;
-  String fileName;
-
-  MaterialItem({
-    required this.id,
-    required this.title,
-    required this.subject,
-    required this.className,
-    required this.type,
-    required this.description,
-    required this.sizeMB,
-    required this.date,
-    required this.tags,
-    required this.fileName,
-  });
-}
-
-/// Dashboard screen
-class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
-
-  @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends State<DashboardScreen> {
-  // Mock data
-  final List<MaterialItem> _materials = [
-    MaterialItem(
-      id: 1,
-      title: "Calculus Fundamentals",
-      subject: "mathematics",
-      className: "class-12",
-      type: "notes",
-      description:
-          "Comprehensive notes on calculus fundamentals including limits, derivatives, and integrals.",
-      sizeMB: 2.5,
-      date: DateTime(2024, 1, 15),
-      tags: ["calculus", "advanced", "notes"],
-      fileName: "calculus_fundamentals.pdf",
-    ),
-    MaterialItem(
-      id: 2,
-      title: "Physics Lab Report Template",
-      subject: "science",
-      className: "class-11",
-      type: "worksheet",
-      description:
-          "Standard template for physics laboratory reports with guidelines and formatting.",
-      sizeMB: 1.8,
-      date: DateTime(2024, 1, 12),
-      tags: ["lab", "template", "physics"],
-      fileName: "physics_lab_template.docx",
-    ),
-    MaterialItem(
-      id: 3,
-      title: "English Literature Analysis",
-      subject: "english",
-      className: "class-10",
-      type: "assignment",
-      description:
-          "Assignment guidelines for analyzing classic English literature texts.",
-      sizeMB: 3.2,
-      date: DateTime(2024, 1, 10),
-      tags: ["literature", "analysis", "assignment"],
-      fileName: "english_literature_analysis.pdf",
-    ),
-    MaterialItem(
-      id: 4,
-      title: "Chemistry Periodic Table",
-      subject: "science",
-      className: "class-11",
-      type: "presentation",
-      description: "Interactive presentation on the periodic table.",
-      sizeMB: 5.1,
-      date: DateTime(2024, 1, 8),
-      tags: ["chemistry", "periodic", "presentation"],
-      fileName: "chemistry_periodic_table.pptx",
-    ),
-    MaterialItem(
-      id: 5,
-      title: "History Timeline",
-      subject: "history",
-      className: "class-10",
-      type: "notes",
-      description:
-          "Comprehensive timeline of major historical events for exam preparation.",
-      sizeMB: 4.7,
-      date: DateTime(2024, 1, 5),
-      tags: ["history", "timeline", "exam"],
-      fileName: "history_timeline.pdf",
-    ),
-  ];
-
-  // UI state
-  String filterSubject = '';
-  String filterClass = '';
-  String filterType = '';
-  DateTime? filterDate;
-  String filterDateStr = '';
-  String sortBy = 'date';
-
-  // Upload form controllers
-  final _titleController = TextEditingController();
-  String selectedSubject = '';
-  String selectedClass = '';
-  String selectedType = '';
-  String selectedBoard = '';
-  final _tagsController = TextEditingController();
-  final _descriptionController = TextEditingController();
-
-  // For demo builds without native plugins, use a simple local file stub.
-  List<_PickedFile> pickedFiles = [];
-
-  // upload simulation
-  double uploadProgress = 0.0;
-  bool isUploading = false;
-
-  // id generator
-  int _nextId = 6;
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _tagsController.dispose();
-    _descriptionController.dispose();
-    super.dispose();
+    return "Week of ${DateFormat('MMMM d, yyyy').format(start)}";
   }
 
-  List<MaterialItem> get filteredAndSortedMaterials {
-    List<MaterialItem> list = _materials.where((m) {
-      final subjectMatch =
-          filterSubject.isEmpty || m.subject == filterSubject.toLowerCase();
-      final classMatch =
-          filterClass.isEmpty || m.className == filterClass.toLowerCase();
-      final typeMatch =
-          filterType.isEmpty || m.type == filterType.toLowerCase();
-      return subjectMatch && classMatch && typeMatch;
-    }).toList();
-
-    switch (sortBy) {
-      case 'name':
-        list.sort((a, b) => a.title.compareTo(b.title));
-        break;
-      case 'size':
-        list.sort((a, b) => a.sizeMB.compareTo(b.sizeMB));
-        break;
-      case 'type':
-        list.sort((a, b) => a.type.compareTo(b.type));
-        break;
-      default:
-        list.sort((a, b) => b.date.compareTo(a.date));
+  // Helper to get today's classes for the Daily view
+  List<Map<String, String>> get dailyClasses {
+    final today = DateFormat('EEEE').format(DateTime.now());
+    List<Map<String, String>> list = [];
+    for (var entry in timetableData.entries) {
+      final classData = entry.value[today];
+      if (classData != null) {
+        list.add({...classData, 'time': entry.key});
+      }
     }
-
     return list;
   }
 
-  // pick files using file_picker
-  Future<void> pickFiles() async {
-    final chosen = await showDialog<_PickedFile?>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Simulate File Pick'),
-        content: const Text('This demo simulates picking a sample PDF file.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(null),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(
-              _PickedFile(name: 'sample_document.pdf', size: 2 * 1024 * 1024),
-            ),
-            child: const Text('Pick Sample'),
-          ),
-        ],
-      ),
-    );
-
-    if (chosen != null) {
-      setState(() {
-        pickedFiles = [chosen];
-      });
-    }
-  }
-
-  void resetForm() {
-    _titleController.clear();
-    selectedSubject = '';
-    selectedClass = '';
-    selectedType = '';
-    selectedBoard = '';
-    _tagsController.clear();
-    _descriptionController.clear();
-    pickedFiles = [];
-    setState(() {});
-  }
-
-  Future<void> uploadMaterial() async {
-    // validation
-    if (_titleController.text.trim().isEmpty ||
-        selectedSubject.isEmpty ||
-        selectedClass.isEmpty ||
-        selectedType.isEmpty ||
-        pickedFiles.isEmpty) {
-      _showSnack('Please fill required fields and select at least one file.');
-      return;
-    }
-
-    // start simulated upload
-    setState(() {
-      isUploading = true;
-      uploadProgress = 0.0;
-    });
-
-    // simulate progress
-    final random = Random();
-    Timer.periodic(const Duration(milliseconds: 250), (timer) {
-      setState(() {
-        uploadProgress += 0.05 + random.nextDouble() * 0.15;
-        if (uploadProgress >= 1.0) {
-          uploadProgress = 1.0;
-        }
-      });
-
-      if (uploadProgress >= 1.0) {
-        timer.cancel();
-        // create MaterialItem(s) from pickedFiles (if multiple, create multiple entries OR combine)
-        for (var pf in pickedFiles) {
-          final sizeMB = pf.size / (1024 * 1024);
-          final item = MaterialItem(
-            id: _nextId++,
-            title: _titleController.text.trim(),
-            subject: selectedSubject,
-            className: selectedClass,
-            type: selectedType,
-            description: _descriptionController.text.trim(),
-            sizeMB: double.parse((sizeMB).toStringAsFixed(2)),
-            date: DateTime.now(),
-            tags: _tagsController.text
-                .split(',')
-                .map((s) => s.trim())
-                .where((s) => s.isNotEmpty)
-                .toList(),
-            fileName: pf.name,
-          );
-          _materials.insert(0, item);
-        }
-
-        // reset UI after short delay
-        Future.delayed(const Duration(milliseconds: 600), () {
-          setState(() {
-            isUploading = false;
-            uploadProgress = 0.0;
-            resetForm();
-          });
-          _showSnack('Material(s) uploaded successfully!');
-        });
-      }
-    });
-  }
-
-  void _showSnack(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  void _deleteMaterial(int id) {
-    final idx = _materials.indexWhere((m) => m.id == id);
-    if (idx >= 0) {
-      final title = _materials[idx].title;
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Delete Material'),
-          content: Text('Are you sure you want to delete "$title"?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _materials.removeAt(idx);
-                });
-                Navigator.of(context).pop();
-                _showSnack('Material deleted successfully!');
-              },
-              child: const Text('Delete'),
-            ),
-          ],
-        ),
-      );
-    }
-  }
-
-  void _editMaterial(int id) {
-    final item = _materials.firstWhere(
-      (m) => m.id == id,
-      orElse: () => throw 'not found',
-    );
-    // For Option A single-file demo we will just show a dialog and allow changing title/description
-    final titleCtrl = TextEditingController(text: item.title);
-    final descCtrl = TextEditingController(text: item.description);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Material'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: titleCtrl,
-              decoration: const InputDecoration(labelText: 'Title'),
-            ),
-            TextField(
-              controller: descCtrl,
-              decoration: const InputDecoration(labelText: 'Description'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                item.title = titleCtrl.text.trim();
-                item.description = descCtrl.text.trim();
-              });
-              Navigator.of(context).pop();
-              _showSnack('Material updated!');
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _downloadMaterial(MaterialItem item) {
-    // In a demo app we just show a notification. Real behavior would call a backend or use platform APIs.
-    _showSnack('Downloading ${item.fileName} ...');
-  }
-
-  // small helper to format date
-  String fmtDate(DateTime d) {
-    return "${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
-  }
-
-  // compute summary metrics
-  int get totalMaterialsCount => _materials.length;
-  double get totalSizeMB => _materials.fold(0.0, (p, e) => p + e.sizeMB);
-  int get activeClasses => _materials.map((m) => m.className).toSet().length;
-  int get thisMonthCount {
-    final now = DateTime.now();
-    return _materials
-        .where((m) => m.date.year == now.year && m.date.month == now.month)
-        .length;
-  }
+  // ----------------------- UI BUILD ------------------------
 
   @override
   Widget build(BuildContext context) {
-    // Responsive: change layout based on width
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(72),
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF8E6BFF), Color(0xFF7A4BE6)],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
-            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6)],
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12.0,
-                vertical: 10,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8F9FA),
+          // --- Custom AppBar Implementation (Matching Image) ---
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(kToolbarHeight),
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4.0)],
               ),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+              child: AppBar(
+                backgroundColor: Colors.transparent, // Use Container gradient
+                elevation: 0,
+                // Leading: Back Arrow
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () {
+                    // Back action
+                  },
+                ),
+                // Title: "Teacher Timetable"
+                title: const Text(
+                  "Teacher Timetable",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
                   ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Teacher',
-                    style: TextStyle(
-                      fontSize: 20,
+                ),
+                // Actions: Refresh/Loop icon and Person icon
+                actions: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.refresh_outlined,
                       color: Colors.white,
-                      fontWeight: FontWeight.w700,
                     ),
+                    onPressed: () {
+                      // Refresh action
+                    },
                   ),
-                  const Spacer(),
                   IconButton(
-                    onPressed: null,
-                    icon: const Icon(Icons.refresh, color: Colors.white),
-                  ),
-                  const SizedBox(width: 6),
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Center(
-                      child: Icon(Icons.person, color: Colors.white, size: 24),
-                    ),
+                    icon: const Icon(Icons.person_outline, color: Colors.white),
+                    onPressed: () {
+                      // Profile action
+                    },
                   ),
                 ],
               ),
             ),
           ),
-        ),
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          final isNarrow = width < 900;
-          return SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(18.0),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1200),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Page header
-                      const SizedBox(height: 18),
-                      Text(
-                        'Study Materials Management',
-                        style: TextStyle(
-                          fontSize: isNarrow ? 26 : 34,
-                          fontWeight: FontWeight.w800,
-                          foreground: Paint()
-                            ..shader = const LinearGradient(
-                              colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                            ).createShader(const Rect.fromLTWH(0, 0, 200, 70)),
-                        ),
+          // --- END AppBar Implementation ---
+          body: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1200),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildPageHeader(),
+                          const SizedBox(height: 30),
+                          // Stat Cards: Horizontal, sliding view (Overflow fixed by reducing height)
+                          _buildStatsHorizontalList(),
+                          const SizedBox(height: 30),
+                          _buildTimetableControls(),
+                          const SizedBox(height: 30),
+                          // Conditional content rendering based on selected view
+                          _buildTimetableContent(),
+                          const SizedBox(height: 20),
+                          _buildLegend(),
+                        ],
                       ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Upload and organize study materials for your classes',
-                        style: TextStyle(color: Colors.black54),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Stats slider - horizontal row of 4 cards (slideable)
-                      SizedBox(
-                        height: 110,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 6.0),
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemBuilder: (context, index) {
-                              final widgets = [
-                                _buildStatCard(
-                                  '📚',
-                                  totalMaterialsCount.toString(),
-                                  'Total Materials',
-                                ),
-                                _buildStatCard(
-                                  '📁',
-                                  totalSizeMB.toStringAsFixed(1),
-                                  'Total Size (MB)',
-                                ),
-                                _buildStatCard(
-                                  '👥',
-                                  activeClasses.toString(),
-                                  'Active Classes',
-                                ),
-                                _buildStatCard(
-                                  '📅',
-                                  thisMonthCount.toString(),
-                                  'This Month',
-                                ),
-                              ];
-                              // reduced card width to fit more on screen
-                              return SizedBox(
-                                width: 160,
-                                child: widgets[index],
-                              );
-                            },
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(width: 12),
-                            itemCount: 4,
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Upload section
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black12, blurRadius: 12),
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Text(
-                                  '📤',
-                                  style: TextStyle(fontSize: 20),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Upload New Material',
-                                  style: TextStyle(
-                                    fontSize: isNarrow ? 18 : 20,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const Spacer(),
-                                // optional action buttons could go here
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            // Upload form fields - stack line-by-line for clarity
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _buildFormField(
-                                  'Title',
-                                  TextField(
-                                    controller: _titleController,
-                                    decoration: const InputDecoration(
-                                      border: OutlineInputBorder(),
-                                      contentPadding: EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                _buildFormField(
-                                  'Subject',
-                                  DropdownButtonFormField<String>(
-                                    initialValue: selectedSubject.isEmpty
-                                        ? null
-                                        : selectedSubject,
-                                    items: const [
-                                      DropdownMenuItem(
-                                        value: 'mathematics',
-                                        child: Text('Mathematics'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'science',
-                                        child: Text('Science'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'english',
-                                        child: Text('English'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'history',
-                                        child: Text('History'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'geography',
-                                        child: Text('Geography'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'physics',
-                                        child: Text('Physics'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'chemistry',
-                                        child: Text('Chemistry'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'biology',
-                                        child: Text('Biology'),
-                                      ),
-                                    ],
-                                    onChanged: (v) {
-                                      setState(() {
-                                        selectedSubject = v ?? '';
-                                      });
-                                    },
-                                    decoration: const InputDecoration(
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                _buildFormField(
-                                  'Class',
-                                  DropdownButtonFormField<String>(
-                                    initialValue: selectedClass.isEmpty
-                                        ? null
-                                        : selectedClass,
-                                    items: const [
-                                      DropdownMenuItem(
-                                        value: 'class-10',
-                                        child: Text('Class 10'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'class-11',
-                                        child: Text('Class 11'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'class-12',
-                                        child: Text('Class 12'),
-                                      ),
-                                    ],
-                                    onChanged: (v) {
-                                      setState(() {
-                                        selectedClass = v ?? '';
-                                      });
-                                    },
-                                    decoration: const InputDecoration(
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                _buildFormField(
-                                  'Type',
-                                  DropdownButtonFormField<String>(
-                                    initialValue: selectedType.isEmpty
-                                        ? null
-                                        : selectedType,
-                                    items: const [
-                                      DropdownMenuItem(
-                                        value: 'notes',
-                                        child: Text('Notes'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'assignment',
-                                        child: Text('Assignment'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'worksheet',
-                                        child: Text('Worksheet'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'presentation',
-                                        child: Text('Presentation'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'video',
-                                        child: Text('Video'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'audio',
-                                        child: Text('Audio'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'other',
-                                        child: Text('Other'),
-                                      ),
-                                    ],
-                                    onChanged: (v) {
-                                      setState(() {
-                                        selectedType = v ?? '';
-                                      });
-                                    },
-                                    decoration: const InputDecoration(
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                _buildFormField(
-                                  'Board',
-                                  DropdownButtonFormField<String>(
-                                    initialValue: selectedBoard.isEmpty
-                                        ? null
-                                        : selectedBoard,
-                                    items: const [
-                                      DropdownMenuItem(
-                                        value: 'cbse',
-                                        child: Text('CBSE'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'icse',
-                                        child: Text('ICSE'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'state',
-                                        child: Text('State Board'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'international',
-                                        child: Text('International'),
-                                      ),
-                                    ],
-                                    onChanged: (v) {
-                                      setState(() {
-                                        selectedBoard = v ?? '';
-                                      });
-                                    },
-                                    decoration: const InputDecoration(
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                _buildFormField(
-                                  'Tags (comma separated)',
-                                  TextField(
-                                    controller: _tagsController,
-                                    decoration: const InputDecoration(
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            _buildFormField(
-                              'Description',
-                              TextField(
-                                controller: _descriptionController,
-                                maxLines: 4,
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-
-                            // File upload area
-                            GestureDetector(
-                              onTap: pickFiles,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: Theme.of(context).primaryColor,
-                                    width: 2,
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                  color: Theme.of(
-                                    context,
-                                  ).primaryColor.withValues(alpha: 0.04),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 18,
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.folder, size: 32),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            pickedFiles.isEmpty
-                                                ? 'Click to upload or drag and drop files here'
-                                                : 'Selected: ${pickedFiles.map((e) => e.name).join(", ")}',
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          const Text(
-                                            'Supports PDF, DOC, PPT, Images, Videos (Max 50MB)',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.black54,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    ElevatedButton(
-                                      onPressed: null,
-                                      style: ElevatedButton.styleFrom(
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                      ),
-                                      child: const Text('Choose Files'),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(height: 12),
-
-                            // upload progress
-                            if (isUploading)
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  LinearProgressIndicator(
-                                    value: uploadProgress,
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    '${(uploadProgress * 100).round()}% uploading...',
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ],
-                              ),
-
-                            const SizedBox(height: 12),
-                                Row(
-                              children: [
-                                ElevatedButton(
-                                  onPressed: null,
-                                  style: ElevatedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 18,
-                                      vertical: 12,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  child: const Text('Upload Material'),
-                                ),
-                                const SizedBox(width: 12),
-                                OutlinedButton(
-                                  onPressed: null,
-                                  child: const Text('Reset'),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Materials list section
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black12, blurRadius: 12),
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Text(
-                                  '📚',
-                                  style: TextStyle(fontSize: 20),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Study Materials',
-                                  style: TextStyle(
-                                    fontSize: isNarrow ? 18 : 20,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const Spacer(),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-
-                            // Filters stacked line-by-line: Subject, Class, Type, Date
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _buildFormField(
-                                  'Subject',
-                                  DropdownButtonFormField<String>(
-                                    initialValue: filterSubject.isEmpty
-                                        ? null
-                                        : filterSubject,
-                                    items: const [
-                                      DropdownMenuItem(
-                                        value: 'mathematics',
-                                        child: Text('Mathematics'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'science',
-                                        child: Text('Science'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'english',
-                                        child: Text('English'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'history',
-                                        child: Text('History'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: '',
-                                        child: Text('All Subjects'),
-                                      ),
-                                    ],
-                                    onChanged: (v) {
-                                      setState(() {
-                                        filterSubject = v ?? '';
-                                      });
-                                    },
-                                    decoration: const InputDecoration(
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                _buildFormField(
-                                  'Class',
-                                  DropdownButtonFormField<String>(
-                                    initialValue: filterClass.isEmpty
-                                        ? null
-                                        : filterClass,
-                                    items: const [
-                                      DropdownMenuItem(
-                                        value: 'class-10',
-                                        child: Text('Class 10'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'class-11',
-                                        child: Text('Class 11'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'class-12',
-                                        child: Text('Class 12'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: '',
-                                        child: Text('All Classes'),
-                                      ),
-                                    ],
-                                    onChanged: (v) {
-                                      setState(() {
-                                        filterClass = v ?? '';
-                                      });
-                                    },
-                                    decoration: const InputDecoration(
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                _buildFormField(
-                                  'Type',
-                                  DropdownButtonFormField<String>(
-                                    initialValue: filterType.isEmpty
-                                        ? null
-                                        : filterType,
-                                    items: const [
-                                      DropdownMenuItem(
-                                        value: 'notes',
-                                        child: Text('Notes'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'assignment',
-                                        child: Text('Assignment'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'worksheet',
-                                        child: Text('Worksheet'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'presentation',
-                                        child: Text('Presentation'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: '',
-                                        child: Text('All Types'),
-                                      ),
-                                    ],
-                                    onChanged: (v) {
-                                      setState(() {
-                                        filterType = v ?? '';
-                                      });
-                                    },
-                                    decoration: const InputDecoration(
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                _buildFormField(
-                                  'Date',
-                                  GestureDetector(
-                                    onTap: () async {
-                                      final picked = await showDatePicker(
-                                        context: context,
-                                        initialDate:
-                                            filterDate ?? DateTime.now(),
-                                        firstDate: DateTime(2000),
-                                        lastDate: DateTime.now(),
-                                      );
-                                      if (picked != null) {
-                                        setState(() {
-                                          filterDate = picked;
-                                          filterDateStr =
-                                              "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
-                                        });
-                                      }
-                                    },
-                                    child: AbsorbPointer(
-                                      child: TextFormField(
-                                        decoration: InputDecoration(
-                                          border: const OutlineInputBorder(),
-                                          hintText: filterDateStr.isEmpty
-                                              ? 'Select date'
-                                              : filterDateStr,
-                                          suffixIcon: IconButton(
-                                            onPressed: () {
-                                              setState(() {
-                                                filterDate = null;
-                                                filterDateStr = '';
-                                              });
-                                            },
-                                            icon: const Icon(Icons.clear),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            // Materials grid/list
-                            Builder(
-                              builder: (context) {
-                                final items = filteredAndSortedMaterials;
-                                if (items.isEmpty) {
-                                  return SizedBox(
-                                    height: 160,
-                                    child: Center(
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: const [
-                                          Text(
-                                            '📚',
-                                            style: TextStyle(
-                                              fontSize: 46,
-                                              color: Colors.black26,
-                                            ),
-                                          ),
-                                          SizedBox(height: 10),
-                                          Text(
-                                            'No materials found matching your criteria',
-                                            style: TextStyle(
-                                              color: Colors.black54,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                }
-
-                                // grid crossAxisCount depends on width; increase card height for saved books view
-                                int crossCount = 1;
-                                if (width > 1200) {
-                                  crossCount = 3;
-                                } else if (width > 800)
-                                  crossCount = 2;
-                                else
-                                  crossCount = 1;
-
-                                // adjust childAspectRatio (width/height). larger ratio => shorter cards.
-                                double childAspect = crossCount == 1
-                                    ? 1.2
-                                    : 1.4;
-                                // if there are many items (e.g., 5+), make cards shorter (increase ratio)
-                                if (items.length >= 5) {
-                                  childAspect = crossCount == 1 ? 1.6 : 1.8;
-                                }
-
-                                return GridView.builder(
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  shrinkWrap: true,
-                                  gridDelegate:
-                                      SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: crossCount,
-                                        childAspectRatio: childAspect,
-                                        crossAxisSpacing: 12,
-                                        mainAxisSpacing: 12,
-                                      ),
-                                  itemCount: items.length,
-                                  itemBuilder: (context, idx) {
-                                    final m = items[idx];
-                                    return MaterialCard(
-                                      item: m,
-                                      onDownload: () => _downloadMaterial(m),
-                                      onEdit: () => _editMaterial(m.id),
-                                      onDelete: () => _deleteMaterial(m.id),
-                                    );
-                                  },
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 32),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // --- Page Header Section
+  Widget _buildPageHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: const [
+        // Removed the large gradient "Teacher Timetable" title as it's in the AppBar now
+        SizedBox(height: 10),
+        Text(
+          "Manage your class schedule and view upcoming sessions",
+          style: TextStyle(fontSize: 16, color: Color(0xFF666666)),
+        ),
+      ],
+    );
+  }
+
+  // --- Stats Horizontal List Section (Reduced height to fix overflow)
+  Widget _buildStatsHorizontalList() {
+    final List<Map<String, String>> stats = [
+      {"icon": "📅", "number": "25", "label": "Classes This Week"},
+      {"icon": "⏰", "number": "5", "label": "Hours Today"},
+      {"icon": "👥", "number": "150", "label": "Total Students"},
+      {"icon": "📚", "number": "4", "label": "Subjects"},
+    ];
+
+    return SizedBox(
+      // REDUCED HEIGHT to clear vertical overflow on small screens
+      height: 170,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: stats.length,
+        itemBuilder: (context, index) {
+          final stat = stats[index];
+          return Padding(
+            padding: EdgeInsets.only(right: index < stats.length - 1 ? 20 : 0),
+            child: _statCard(stat["icon"]!, stat["number"]!, stat["label"]!),
           );
         },
       ),
     );
   }
 
-  Widget _buildStatCard(String icon, String number, String label) {
+  Widget _statCard(String icon, String number, String label) {
     return Container(
+      width: 170, // Fixed width for horizontal scrolling
+      // REDUCED VERTICAL PADDING to ensure content fits
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
-        // show a colored stroke only at the top edge to match app bar style
-        border: const Border(
-          top: BorderSide(color: Color(0xFF8E6BFF), width: 3.0),
-        ),
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(12),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(icon, style: const TextStyle(fontSize: 28)),
-          const SizedBox(height: 8),
+          Text(icon, style: const TextStyle(fontSize: 40)),
+          const SizedBox(height: 10), // Reduced spacing
           Text(
             number,
-            textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF667EEA),
+              fontSize: 32,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF667eea),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 5),
           Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12, color: Colors.black54),
+            style: const TextStyle(fontSize: 14, color: Color(0xFF666666)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFormField(String label, Widget child) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  // --- Timetable Controls Section
+  Widget _buildTimetableControls() {
+    return Container(
+      padding: const EdgeInsets.all(25),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Wrap(
+        // Use Wrap for layout flexibility to avoid overflow on small screens
+        alignment: WrapAlignment.spaceBetween,
+        spacing: 20, // Horizontal space between children
+        runSpacing: 20, // Vertical space between lines when wrapping
+        children: [
+          // Week navigation group (FIX: Added Expanded to the Text widget)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _navButton("‹", previousWeek),
+              const SizedBox(width: 15),
+              // FIX: Use Expanded to force the date text to wrap or shrink if necessary
+              Expanded(
+                child: Text(
+                  weekDisplay,
+                  textAlign: TextAlign
+                      .center, // Added alignment for better appearance when wrapped
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 15),
+              _navButton("›", nextWeek),
+            ],
+          ),
+
+          // View Modes group
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _viewButton("Weekly", "weekly"),
+              _viewButton("Daily", "daily"),
+              _viewButton("Monthly", "monthly"),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _navButton(String t, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          t,
+          style: const TextStyle(fontSize: 20, color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  Widget _viewButton(String name, String key) {
+    bool active = currentView == key;
+    return GestureDetector(
+      onTap: () => setView(key),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(6),
+          color: active ? const Color(0xFF667eea) : Colors.white,
+          border: Border.all(color: const Color(0xFF667eea), width: 2),
+        ),
+        child: Text(
+          name,
+          style: TextStyle(
+            color: active ? Colors.white : const Color(0xFF667eea),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- Main Timetable Content Switcher ---
+  Widget _buildTimetableContent() {
+    switch (currentView) {
+      case 'daily':
+        return _buildDailyTimetable();
+      case 'monthly':
+        return _buildMonthlyView();
+      case 'weekly':
+      default:
+        return _buildTimetableBox();
+    }
+  }
+
+  // --- Weekly View (The original table) ---
+  Widget _buildTimetableBox() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Padding(
+          padding: const EdgeInsets.all(20), // Reduced table padding slightly
+          child: Table(
+            border: TableBorder.all(color: const Color(0xFFE9ECEF), width: 1),
+            defaultColumnWidth: const IntrinsicColumnWidth(),
+            columnWidths: const {0: IntrinsicColumnWidth(flex: 1.0)},
+            children: [
+              _buildTableHeader(),
+              ...timetableData.entries.map(
+                (entry) => _buildTableRow(entry.key, entry.value),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  TableRow _buildTableHeader() {
+    return TableRow(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
-        child,
+        _headerCell("Time"),
+        _headerCell("Monday"),
+        _headerCell("Tuesday"),
+        _headerCell("Wednesday"),
+        _headerCell("Thursday"),
+        _headerCell("Friday"),
+        _headerCell("Saturday"),
       ],
     );
   }
-}
 
-/// Widget for individual material card
-class MaterialCard extends StatelessWidget {
-  final MaterialItem item;
-  final VoidCallback? onDownload;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
+  Widget _headerCell(String t) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 10),
+      child: Center(
+        child: Text(
+          t,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
+      ),
+    );
+  }
 
-  const MaterialCard({
-    super.key,
-    required this.item,
-    required this.onDownload,
-    required this.onEdit,
-    required this.onDelete,
-  });
+  TableRow _buildTableRow(
+    String time,
+    Map<String, Map<String, String>?> sessions,
+  ) {
+    DateTime now = DateTime.now();
+    String today = DateFormat('EEEE').format(now);
 
-  String fmtDate(DateTime d) =>
-      "${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}";
+    return TableRow(
+      children: [
+        _timeCell(time),
+        ...[
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+        ].map((day) {
+          bool highlight = (day == today);
+          var classData = sessions[day];
+          return _classCell(classData, highlight);
+        }),
+      ],
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _timeCell(String time) {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      color: const Color(0xFFF8F9FA),
+      child: Center(
+        child: Text(
+          time,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF667eea),
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _classCell(Map<String, String>? data, bool highlight) {
+    Color cellColor = highlight
+        ? const Color(0xFF667eea).withOpacity(0.1)
+        : Colors.white;
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      color: cellColor,
+      child: data == null
+          ? const Center(
+              child: Text(
+                "Free",
+                style: TextStyle(
+                  color: Color(0xFFCCCCCC),
+                  fontStyle: FontStyle.italic,
+                  fontSize: 12,
+                ),
+              ),
+            )
+          : InkWell(
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Class Details:\n\nSubject: ${data["subject"]!.toUpperCase()}\nClass: ${data["class"]}\nRoom: ${data["room"]}',
+                    ),
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  gradient: _subjectColor(data["subject"] ?? ""),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 5,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      data["class"] ?? "",
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      data["subject"]!.substring(0, 1).toUpperCase() +
+                          data["subject"]!.substring(1),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white, fontSize: 11),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      data["room"] ?? "",
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+
+  // --- Daily View (Detailed List) ---
+  Widget _buildDailyTimetable() {
+    final today = DateFormat('EEEE').format(DateTime.now());
+    final classes = dailyClasses;
+
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
         color: Colors.white,
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)],
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(15),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // header (stacked)
-          Text(
-            item.title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            "${capitalize(item.subject)} • ${item.className.replaceAll('class-', 'Class ')}",
-            style: const TextStyle(
-              color: Color(0xFF667EEA),
-              fontWeight: FontWeight.w600,
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10.0),
+            child: Text(
+              'Schedule for $today (${classes.length} classes)',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF667eea),
+              ),
             ),
           ),
-          const SizedBox(height: 8),
-          // action buttons aligned to right
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              IconButton(
-                onPressed: onDownload,
-                icon: const Icon(Icons.download_outlined, color: Colors.green),
-              ),
-              IconButton(
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_outlined, color: Color(0xFF667EEA)),
-              ),
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 4),
-          Text(
-            item.description,
-            style: const TextStyle(color: Colors.black87),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.insert_drive_file, size: 16),
-                  const SizedBox(width: 6),
-                  Text(
-                    "${item.sizeMB.toStringAsFixed(1)} MB",
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  const Icon(Icons.calendar_today_outlined, size: 14),
-                  const SizedBox(width: 6),
-                  Text(
-                    fmtDate(item.date),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: item.tags.map((t) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+          if (classes.isEmpty)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(40.0),
                 child: Text(
-                  t,
-                  style: const TextStyle(color: Colors.white, fontSize: 11),
+                  '🎉 No classes scheduled for today!',
+                  style: TextStyle(fontSize: 16, color: Colors.green),
                 ),
-              );
-            }).toList(),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: classes.length,
+              itemBuilder: (context, index) {
+                final data = classes[index];
+                final gradient = _subjectColor(data['subject']!);
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  elevation: 2,
+                  child: ListTile(
+                    leading: Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        gradient: gradient,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        data['time']!.split(' ')[0],
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    title: Text(data['class']!),
+                    subtitle: Text(
+                      '${data['subject']!.substring(0, 1).toUpperCase() + data['subject']!.substring(1)} • ${data['room']}',
+                    ),
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Class Details: ${data['class']} at ${data['time']}',
+                          ),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  // --- Monthly View (Placeholder Calendar) ---
+  Widget _buildMonthlyView() {
+    final month = DateFormat('MMMM yyyy').format(currentWeek);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Text(
+            '$month Calendar Overview',
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF667eea),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            height: 300,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFE9ECEF)),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Text(
+              'Monthly Calendar Grid Placeholder',
+              style: TextStyle(color: Colors.grey, fontSize: 16),
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Click on any date to view classes for that day.',
+            style: TextStyle(color: Color(0xFF666666)),
           ),
         ],
       ),
     );
   }
 
-  static String capitalize(String s) =>
-      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+  // --- Subject Color Mapping
+  LinearGradient _subjectColor(String subject) {
+    switch (subject) {
+      case "mathematics":
+        return const LinearGradient(
+          colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case "science":
+        return const LinearGradient(
+          colors: [Color(0xFFFF6B6B), Color(0xFFEE5A52)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case "english":
+        return const LinearGradient(
+          colors: [Color(0xFFFFD93D), Color(0xFFFCC419)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case "history":
+        return const LinearGradient(
+          colors: [Color(0xFF51CF66), Color(0xFF40C057)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case "physics":
+        return const LinearGradient(
+          colors: [Color(0xFF845EF7), Color(0xFF7048E8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case "chemistry":
+        return const LinearGradient(
+          colors: [Color(0xFFFd7e14), Color(0xFFe8590c)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      default:
+        return const LinearGradient(
+          colors: [Colors.grey, Colors.black],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+    }
+  }
+
+  // --- Legend Section
+  Widget _buildLegend() {
+    return Wrap(
+      spacing: 20,
+      runSpacing: 10,
+      alignment: WrapAlignment.center,
+      children: [
+        _legendItem("Mathematics", _subjectColor("mathematics")),
+        _legendItem("Science", _subjectColor("science")),
+        _legendItem("English", _subjectColor("english")),
+        _legendItem("History", _subjectColor("history")),
+        _legendItem("Physics", _subjectColor("physics")),
+        _legendItem("Chemistry", _subjectColor("chemistry")),
+      ],
+    );
+  }
+
+  Widget _legendItem(String title, LinearGradient color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 20,
+          height: 20,
+          decoration: BoxDecoration(
+            gradient: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(title, style: const TextStyle(fontSize: 14)),
+      ],
+    );
+  }
 }

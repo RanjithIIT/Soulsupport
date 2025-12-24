@@ -8,6 +8,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db import transaction
 from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent
 from super_admin.models import School
 from .serializers import (
@@ -115,6 +116,7 @@ class TeacherViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                 teacher.school_id = school_id
                 teacher.save(update_fields=['school_id'])
     
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         """
         Override create to allow creation even if school_id is not found initially.
@@ -332,6 +334,7 @@ class NewAdmissionViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     ordering_fields = ['created_at', 'status', 'student_name']
     ordering = ['-created_at']
     
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         """Override create to provide better error messages"""
         serializer = self.get_serializer(data=request.data)
@@ -442,6 +445,7 @@ class NewAdmissionViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         
         return admission
     
+    @transaction.atomic
     def update(self, request, *args, **kwargs):
         """Override update to provide better error messages and handle partial updates"""
         partial = kwargs.pop('partial', False)
@@ -515,6 +519,7 @@ class NewAdmissionViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
     
+    @transaction.atomic
     @action(detail=True, methods=['post'], url_path='approve')
     def approve(self, request, pk=None):
         """
@@ -690,6 +695,7 @@ class FeeViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @transaction.atomic
     @action(detail=True, methods=['post'], url_path='record-payment')
     def record_payment(self, request, pk=None):
         """Record a payment for a fee and create payment history"""
@@ -922,6 +928,7 @@ class BusViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         ).select_related('school')
         return queryset
     
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         """Override create to automatically get school from logged-in user if not provided"""
         # Get school from request data if provided
@@ -1062,6 +1069,7 @@ class BusStopStudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     ordering_fields = ['created_at']
     ordering = ['bus_stop', 'student_name']
     
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         """Override create to fetch student by student_id and validate school match"""
         student_id = request.data.get('student_id')

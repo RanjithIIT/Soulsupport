@@ -2,6 +2,7 @@
 Serializers for management_admin app
 """
 from rest_framework import serializers
+from django.db import transaction
 from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent
 from main_login.serializers import UserSerializer
 from main_login.serializer_mixins import SchoolIdMixin
@@ -284,6 +285,7 @@ class NewAdmissionSerializer(SchoolIdMixin, serializers.ModelSerializer):
         
         return value
     
+    @transaction.atomic
     def create(self, validated_data):
         """Override create to generate student_id and password if not provided"""
         import random

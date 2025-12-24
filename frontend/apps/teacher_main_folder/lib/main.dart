@@ -406,7 +406,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 'time-table':
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const timetable.DashboardScreen()),
+          MaterialPageRoute(builder: (context) => const timetable.TeacherTimetableScreen()),
         );
         break;
       default:
@@ -1937,7 +1937,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         } else if (label.contains('Results')) {
           Navigator.push(context, MaterialPageRoute(builder: (context) => const EnterResultsScreen()));
         } else if (label.contains('Timetable')) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const timetable.DashboardScreen()));
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const timetable.TeacherTimetableScreen()));
         } else if (label.contains('Profile')) {
           Navigator.push(context, MaterialPageRoute(builder: (context) => const TeacherProfilePage()));
         } else if (label.contains('Communication')) {
