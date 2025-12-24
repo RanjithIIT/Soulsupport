@@ -290,7 +290,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final data = jsonDecode(response.body);
         if (data is Map) {
           setState(() {
-            _schoolName = data['name']?.toString() ?? 'School';
+            _schoolName = data['school_name']?.toString() ?? 'School';
           });
           return;
         }
@@ -303,9 +303,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           final department = teacherProfile['department'];
           if (department is Map) {
             final school = department['school'];
-            if (school is Map && school['name'] != null) {
+            if (school is Map && school['school_name'] != null) {
               setState(() {
-                _schoolName = school['name']?.toString() ?? 'School';
+                _schoolName = school['school_name']?.toString() ?? 'School';
               });
               return;
             }
@@ -1053,7 +1053,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
       child: Scaffold(
       appBar: PreferredSize(
-        preferredSize: Size.fromHeight(_schoolName != null ? 120.0 : 100.0),
+        preferredSize: const Size.fromHeight(100.0),
         child: _buildHeader(),
       ),
       body: Stack(
@@ -1253,27 +1253,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  '🏫 School Management System',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-                if (_schoolName != null)
-                  Text(
-                    _schoolName!,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white70,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      '🏫 ',
+              style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
                     ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
+                    Flexible(
+                      child: Text(
+                        _schoolName ?? 'School Management System',
+                        style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

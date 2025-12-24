@@ -5,12 +5,13 @@ Django settings for school_backend project.
 from pathlib import Path
 from datetime import timedelta
 import os
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-change-this-in-production'
+SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -72,22 +73,21 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'school_backend.wsgi.application'
 
-# Database
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
+# Database Configuration - Supabase PostgreSQL (Session Pooler)
+# Using Session Pooler for IPv4 compatibility and better connection management
+# Connection details from: Supabase Dashboard → Settings → Database → Connection Pooling
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'ss_db',       # The database you created
-        'USER': 'postgres',        # PostgreSQL username
-        'PASSWORD': '123456',    # PostgreSQL password
-        'HOST': 'localhost',               # or your server IP
-        'PORT': '5432',                    # default PostgreSQL port
+        'NAME': config('SUPABASE_DB_NAME', default='postgres'),
+        'USER': config('SUPABASE_DB_USER', default='postgres.qdubnprylmqiitsifyfb'),
+        'PASSWORD': config('SUPABASE_DB_PASSWORD', default='Indus@2025'),
+        'HOST': config('SUPABASE_POOLER_HOST', default='aws-1-ap-northeast-2.pooler.supabase.com'),
+        'PORT': config('SUPABASE_DB_PORT', default='6543'),
+        'OPTIONS': {
+            'connect_timeout': 10,
+            'sslmode': 'require',  # Supabase requires SSL
+        },
     }
 }
 

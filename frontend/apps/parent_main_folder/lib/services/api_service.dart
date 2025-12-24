@@ -90,18 +90,34 @@ class ApiService {
       final resp = await http
           .get(Uri.parse(parentEndpoint), headers: headers)
           .timeout(const Duration(seconds: 10));
+      
+      // Log response for debugging
+      print('Parent profile API response: status=${resp.statusCode}, body=${resp.body}');
+      
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
         if (data is List && data.isNotEmpty) {
           return Map<String, dynamic>.from(data[0] as Map);
         }
         if (data is Map) {
+          // Check if it's an error response
+          if (data.containsKey('error')) {
+            print('Parent profile API returned error: ${data['error']}');
+            return null;
+          }
           return Map<String, dynamic>.from(data);
         }
+      } else if (resp.statusCode == 404) {
+        print('Parent profile not found (404)');
+        return null;
+      } else {
+        print('Parent profile API error: status=${resp.statusCode}, body=${resp.body}');
+        return null;
       }
       return null;
     } catch (e) {
-      throw Exception('Failed to fetch parent profile: $e');
+      print('Exception fetching parent profile: $e');
+      return null; // Return null instead of throwing to allow fallback handling
     }
   }
 
@@ -128,12 +144,24 @@ class ApiService {
       final resp = await http
           .get(Uri.parse('$parentBase/student-profile/'), headers: headers)
           .timeout(const Duration(seconds: 10));
+      
+      print('Student profile API response: status=${resp.statusCode}');
+      
       if (resp.statusCode == 200) {
-        return jsonDecode(resp.body) as Map<String, dynamic>;
+        final data = jsonDecode(resp.body);
+        print('Student profile data keys: ${data is Map<String, dynamic> ? data.keys : 'not a map'}');
+        if (data is Map) {
+          print('Student name in profile: ${data['student_name']}');
+          print('Student email in profile: ${data['email']}');
+          return Map<String, dynamic>.from(data);
+        }
+      } else {
+        print('Student profile API error: status=${resp.statusCode}, body=${resp.body}');
       }
       return null;
     } catch (e) {
-      throw Exception('Failed to fetch student profile: $e');
+      print('Exception fetching student profile: $e');
+      return null; // Return null instead of throwing to allow fallback handling
     }
   }
 }

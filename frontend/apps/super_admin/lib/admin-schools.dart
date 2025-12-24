@@ -69,6 +69,23 @@ class School {
     this.licenseExpiry,
   });
 
+  // Helper function to parse school name from JSON
+  static String _parseSchoolName(Map<String, dynamic> json) {
+    // Try school_name first, then name, then fallback
+    String? schoolName = json['school_name'] as String?;
+    if (schoolName != null && schoolName.trim().isNotEmpty && schoolName.trim().toUpperCase() != 'NA') {
+      return schoolName.trim();
+    }
+    
+    schoolName = json['name'] as String?;
+    if (schoolName != null && schoolName.trim().isNotEmpty && schoolName.trim().toUpperCase() != 'NA') {
+      return schoolName.trim();
+    }
+    
+    // Return a default name if both are null, empty, or "NA"
+    return 'Unnamed School';
+  }
+
   // Factory constructor to create School from API response
   factory School.fromJson(Map<String, dynamic> json) {
     final stats = json['stats'] as Map<String, dynamic>?;
@@ -76,7 +93,7 @@ class School {
     
     return School(
       id: json['school_id'] as String? ?? json['id']?.toString() ?? '',
-      name: json['name'] as String? ?? '',
+      name: School._parseSchoolName(json),
       location: json['location'] as String? ?? '',
       principal: json['principal_name'] as String?,
       students: stats != null ? (stats['total_students'] as int? ?? 0) : 0,

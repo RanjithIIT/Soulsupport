@@ -142,6 +142,21 @@ class _SchoolProfileDialogState extends State<SchoolProfileDialog> {
     );
   }
 
+  String? _getSchoolName(Map<String, dynamic> school) {
+    // Try school_name first (new field name), then name (backward compatibility)
+    String? schoolName = school['school_name']?.toString();
+    if (schoolName != null && schoolName.trim().isNotEmpty && schoolName.trim().toUpperCase() != 'NA') {
+      return schoolName.trim();
+    }
+    
+    schoolName = school['name']?.toString();
+    if (schoolName != null && schoolName.trim().isNotEmpty && schoolName.trim().toUpperCase() != 'NA') {
+      return schoolName.trim();
+    }
+    
+    return null;
+  }
+
   Widget _buildSchoolDetails() {
     if (_schoolData == null) return const SizedBox();
 
@@ -163,7 +178,7 @@ class _SchoolProfileDialogState extends State<SchoolProfileDialog> {
             ),
             child: Center(
               child: Text(
-                (school['name']?.toString() ?? 'S')[0].toUpperCase(),
+                (_getSchoolName(school) ?? 'S')[0].toUpperCase(),
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -176,7 +191,7 @@ class _SchoolProfileDialogState extends State<SchoolProfileDialog> {
         const SizedBox(height: 24),
         
         // School Name
-        _buildInfoRow('School Name', school['name']?.toString() ?? 'N/A'),
+        _buildInfoRow('School Name', _getSchoolName(school) ?? 'N/A'),
         const SizedBox(height: 16),
         
         // School ID

@@ -81,27 +81,35 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Use RunPython to handle cases where tables might not exist
+        # Use RunPython to handle cases where tables might not exist and add columns to database
         migrations.RunPython(add_school_id_fields_if_not_exists, remove_school_id_fields),
-        # Also add the fields using standard operations so Django tracks them
-        migrations.AddField(
-            model_name='communication',
-            name='school_id',
-            field=models.CharField(blank=True, db_index=True, help_text='School ID for filtering', max_length=100, null=True),
-        ),
-        migrations.AddField(
-            model_name='fee',
-            name='school_id',
-            field=models.CharField(blank=True, db_index=True, help_text='School ID for filtering', max_length=100, null=True),
-        ),
-        migrations.AddField(
-            model_name='notification',
-            name='school_id',
-            field=models.CharField(blank=True, db_index=True, help_text='School ID for filtering', max_length=100, null=True),
-        ),
-        migrations.AddField(
-            model_name='parent',
-            name='school_id',
-            field=models.CharField(blank=True, db_index=True, help_text='School ID for filtering', max_length=100, null=True),
+        # Use SeparateDatabaseAndState to only update model state (columns already exist in DB)
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                # No database operations needed - columns already added by RunPython above
+            ],
+            state_operations=[
+                # Update model state to reflect the fields that were added to the database
+                migrations.AddField(
+                    model_name='communication',
+                    name='school_id',
+                    field=models.CharField(blank=True, db_index=True, help_text='School ID for filtering', max_length=100, null=True),
+                ),
+                migrations.AddField(
+                    model_name='fee',
+                    name='school_id',
+                    field=models.CharField(blank=True, db_index=True, help_text='School ID for filtering', max_length=100, null=True),
+                ),
+                migrations.AddField(
+                    model_name='notification',
+                    name='school_id',
+                    field=models.CharField(blank=True, db_index=True, help_text='School ID for filtering', max_length=100, null=True),
+                ),
+                migrations.AddField(
+                    model_name='parent',
+                    name='school_id',
+                    field=models.CharField(blank=True, db_index=True, help_text='School ID for filtering', max_length=100, null=True),
+                ),
+            ],
         ),
     ]

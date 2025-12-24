@@ -87,12 +87,23 @@ class _AddSchoolScreenState extends State<AddSchoolScreen> {
     }
     final String fullAddress = addressParts.join('\n');
 
+    // Validate required fields for school_id generation
+    final statecode = _statecodeController.text.trim();
+    final districtcode = _districtcodeController.text.trim();
+    final registrationNumber = _registrationNumberController.text.trim();
+    
+    if (statecode.isEmpty || districtcode.isEmpty || registrationNumber.isEmpty) {
+      _showSnackBar('State Code, District Code, and Registration Number are required to generate school ID', isError: true);
+      setState(() => _isLoading = false);
+      return;
+    }
+    
     final Map<String, dynamic> schoolData = {
-      'name': _nameController.text.trim(),
+      'school_name': _nameController.text.trim(),
       'location': location.isNotEmpty ? location : _addressController.text.trim(),
-      'statecode': _statecodeController.text.trim(),
-      'districtcode': _districtcodeController.text.trim(),
-      'registration_number': _registrationNumberController.text.trim(),
+      'statecode': statecode,
+      'districtcode': districtcode,
+      'registration_number': registrationNumber,
       'address': fullAddress.trim(),
       'email': _emailController.text.trim(),
       'phone': _phoneController.text.trim(),

@@ -3,6 +3,7 @@ import 'admin_login.dart';
 import 'management_login.dart';
 import 'teacher_login.dart';
 import 'parent_login.dart';
+import 'splash_screen.dart';
 
 void main() {
   runApp(const SchoolApp());
@@ -21,11 +22,11 @@ class SchoolApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF667EEA)),
         fontFamily: 'Segoe UI',
       ),
-      home: const LoginScreen(),
+      home: const SplashScreen(),
       onUnknownRoute: (settings) {
-        // Fallback for unknown routes - return to login
+        // Fallback for unknown routes - return to splash
         return MaterialPageRoute(
-          builder: (_) => const LoginScreen(),
+          builder: (_) => const SplashScreen(),
         );
       },
     );

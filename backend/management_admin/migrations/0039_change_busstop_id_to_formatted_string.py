@@ -13,11 +13,25 @@ class Migration(migrations.Migration):
     operations = [
         migrations.SeparateDatabaseAndState(
             database_operations=[
-                # Step 1: Drop foreign key constraint
+                # Step 1: Drop foreign key constraint (using dynamic query to find actual constraint name)
                 migrations.RunSQL(
                     sql="""
-                        ALTER TABLE bus_stop_students 
-                        DROP CONSTRAINT IF EXISTS bus_stop_students_stop_id_fkey CASCADE;
+                        DO $$ 
+                        DECLARE
+                            constraint_name text;
+                        BEGIN
+                            -- Find the foreign key constraint name
+                            SELECT conname INTO constraint_name
+                            FROM pg_constraint
+                            WHERE conrelid = 'bus_stop_students'::regclass
+                            AND contype = 'f'
+                            AND confrelid = 'bus_stops'::regclass;
+                            
+                            -- Drop the constraint if it exists
+                            IF constraint_name IS NOT NULL THEN
+                                EXECUTE format('ALTER TABLE bus_stop_students DROP CONSTRAINT IF EXISTS %I CASCADE', constraint_name);
+                            END IF;
+                        END $$;
                     """,
                     reverse_sql="-- Cannot reverse",
                 ),

@@ -38,7 +38,6 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
   final _emailController = TextEditingController();
   final _addressController = TextEditingController();
   final _nationalityController = TextEditingController();
-  final _primaryRoomIdController = TextEditingController();
   final _classTeacherSectionIdController = TextEditingController();
   final _subjectSpecializationController = TextEditingController();
   final _emergencyContactController = TextEditingController();
@@ -154,7 +153,6 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
     _emailController.dispose();
     _addressController.dispose();
     _nationalityController.dispose();
-    _primaryRoomIdController.dispose();
     _classTeacherSectionIdController.dispose();
     _subjectSpecializationController.dispose();
     _emergencyContactController.dispose();
@@ -253,9 +251,6 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
       
       final nationality = _nullIfEmpty(_nationalityController.text);
       if (nationality != null) teacherData['nationality'] = nationality;
-      
-      final primaryRoomId = _nullIfEmpty(_primaryRoomIdController.text);
-      if (primaryRoomId != null) teacherData['primary_room_id'] = primaryRoomId;
       
       final classTeacherSectionId = _nullIfEmpty(_classTeacherSectionIdController.text);
       if (classTeacherSectionId != null) teacherData['class_teacher_section_id'] = classTeacherSectionId;
@@ -915,20 +910,6 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                           controller: _nationalityController,
                                           decoration: _inputDecoration(
                                             hint: 'Enter nationality',
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    // Primary Room ID
-                                    SizedBox(
-                                      width:
-                                          isTwoColumns ? (constraints.maxWidth - 30) / 2 : constraints.maxWidth,
-                                      child: _LabeledField(
-                                        label: 'Primary Room ID',
-                                        child: TextFormField(
-                                          controller: _primaryRoomIdController,
-                                          decoration: _inputDecoration(
-                                            hint: 'Enter primary room identifier',
                                           ),
                                         ),
                                       ),

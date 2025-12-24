@@ -28,6 +28,23 @@ class _SchoolProfileHeaderState extends State<SchoolProfileHeader> {
     _loadSchoolData();
   }
 
+  String? _getSchoolName(dynamic schoolData) {
+    if (schoolData is! Map) return null;
+    
+    // Try school_name first (new field name), then name (backward compatibility)
+    String? schoolName = schoolData['school_name']?.toString();
+    if (schoolName != null && schoolName.trim().isNotEmpty && schoolName.trim().toUpperCase() != 'NA') {
+      return schoolName.trim();
+    }
+    
+    schoolName = schoolData['name']?.toString();
+    if (schoolName != null && schoolName.trim().isNotEmpty && schoolName.trim().toUpperCase() != 'NA') {
+      return schoolName.trim();
+    }
+    
+    return null;
+  }
+
   Future<void> _loadSchoolData() async {
     try {
       await widget.apiService.initialize();
@@ -40,7 +57,7 @@ class _SchoolProfileHeaderState extends State<SchoolProfileHeader> {
           final schoolData = data['data'] ?? data;
           if (schoolData is Map) {
             setState(() {
-              _schoolName = schoolData['name']?.toString() ?? 'School';
+              _schoolName = _getSchoolName(schoolData);
               _schoolId = schoolData['school_id']?.toString() ?? 
                          schoolData['id']?.toString();
               _isLoading = false;
@@ -51,12 +68,12 @@ class _SchoolProfileHeaderState extends State<SchoolProfileHeader> {
       }
       
       setState(() {
-        _schoolName = 'School';
+        _schoolName = _schoolName ?? 'School';
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _schoolName = 'School';
+        _schoolName = _schoolName ?? 'School';
         _isLoading = false;
       });
     }

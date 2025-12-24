@@ -159,28 +159,55 @@ class _HomeScreenState extends State<HomeScreen> {
         _schoolId = parentData['school_id']?.toString();
         _schoolName = parentData['school_name']?.toString();
         
-        if (_schoolId == null || _schoolId!.isEmpty || _schoolName == null || _schoolName!.isEmpty) {
+        debugPrint('Parent profile - school_id: $_schoolId, school_name: $_schoolName');
+        
+        // Check for null, empty, or 'null' string values
+        final isSchoolIdEmpty = _schoolId == null || _schoolId!.isEmpty || _schoolId == 'null';
+        final isSchoolNameEmpty = _schoolName == null || _schoolName!.isEmpty || _schoolName == 'null';
+        
+        if (isSchoolIdEmpty || isSchoolNameEmpty) {
           // Try to get from students
           final students = parentData['students'];
           if (students is List && students.isNotEmpty) {
-            final student = students[0];
-            if (student is Map) {
-              if (_schoolId == null || _schoolId!.isEmpty) {
-                _schoolId = student['school']?['school_id']?.toString() ?? 
-                           student['school_id']?.toString();
-              }
-              if (_schoolName == null || _schoolName!.isEmpty) {
-                _schoolName = student['school_name']?.toString() ?? 
-                             student['school']?['name']?.toString();
+            // Try all students to find one with school data
+            for (var student in students) {
+              if (student is Map) {
+                // Try to get school_id
+                if (isSchoolIdEmpty) {
+                  final extractedSchoolId = student['school_id']?.toString() ?? 
+                                          student['school']?['school_id']?.toString();
+                  if (extractedSchoolId != null && extractedSchoolId.isNotEmpty && extractedSchoolId != 'null') {
+                    _schoolId = extractedSchoolId;
+                  }
+                }
+                // Try to get school_name
+                if (isSchoolNameEmpty) {
+                  final extractedSchoolName = student['school_name']?.toString() ?? 
+                                             student['school']?['school_name']?.toString() ??
+                                             student['school']?['name']?.toString();
+                  if (extractedSchoolName != null && extractedSchoolName.isNotEmpty && extractedSchoolName != 'null') {
+                    _schoolName = extractedSchoolName;
+                  }
+                }
+                
+                // If we found both, break
+                if ((_schoolId != null && _schoolId!.isNotEmpty && _schoolId != 'null') &&
+                    (_schoolName != null && _schoolName!.isNotEmpty && _schoolName != 'null')) {
+                  debugPrint('Extracted from student - school_id: $_schoolId, school_name: $_schoolName');
+                  break;
+                }
               }
             }
           }
         }
         
-        // Update UI if school name is available
-        if (_schoolName != null && _schoolName!.isNotEmpty) {
+        // Update UI
+        if (mounted) {
           setState(() {});
-        } else if (_schoolId != null && _schoolId!.isNotEmpty) {
+        }
+        
+        // If school name is still not available, try to load it
+        if ((_schoolName == null || _schoolName!.isEmpty) && _schoolId != null && _schoolId!.isNotEmpty) {
           // Fallback: try to load school name if not in profile
           await _loadSchoolName();
         }
@@ -206,7 +233,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final data = jsonDecode(response.body);
         if (data is Map) {
           setState(() {
-            _schoolName = data['name']?.toString() ?? 'School';
+            _schoolName = data['school_name']?.toString() ?? 'School';
           });
           return;
         }
@@ -221,9 +248,9 @@ class _HomeScreenState extends State<HomeScreen> {
             final student = students[0];
             if (student is Map) {
               final school = student['school'];
-              if (school is Map && school['name'] != null) {
+              if (school is Map && school['school_name'] != null) {
                 setState(() {
-                  _schoolName = school['name']?.toString() ?? 'School';
+                  _schoolName = school['school_name']?.toString() ?? 'School';
                 });
                 return;
               }
@@ -1554,21 +1581,29 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🏫 School Management System'),
-            if (_schoolName != null)
-              Text(
-                _schoolName!,
+            const Text(
+              '🏫 ',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+            Flexible(
+              child: Text(
+                _schoolName ?? 'School Management System',
                 style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.white70,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
                 overflow: TextOverflow.ellipsis,
+                maxLines: 1,
               ),
+            ),
           ],
         ),
         actions: [
@@ -2290,12 +2325,38 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
   List<Map<String, dynamic>> _teachers = [];
   List<Map<String, dynamic>> _groups = [];
   bool _loadingTeachers = false;
+  String? _schoolId; // Parent's school_id for filtering
+  Map<String, int> _unreadCounts = {}; // Track unread messages per teacher
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadParentSchoolId();
     _loadTeachers();
+  }
+
+  Future<void> _loadParentSchoolId() async {
+    try {
+      final parentData = await api.ApiService.fetchParentProfile();
+      if (parentData != null) {
+        _schoolId = parentData['school_id']?.toString();
+        // Try to get from students if not in parent profile
+        if ((_schoolId == null || _schoolId!.isEmpty || _schoolId == 'null')) {
+          final students = parentData['students'];
+          if (students is List && students.isNotEmpty) {
+            final student = students[0];
+            if (student is Map) {
+              _schoolId = student['school_id']?.toString() ?? 
+                         student['school']?['school_id']?.toString();
+            }
+          }
+        }
+        debugPrint('Parent school_id for filtering: $_schoolId');
+      }
+    } catch (e) {
+      debugPrint('Failed to load parent school_id: $e');
+    }
   }
 
   @override
@@ -2307,8 +2368,19 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
 
   List<Map<String, dynamic>> get _filteredTeachers {
     if (_loadingTeachers) return [];
-    if (_searchQuery.isEmpty) return _teachers;
-    return _teachers
+    
+    // First filter by school_id match (if parent has school_id)
+    var filtered = _teachers;
+    if (_schoolId != null && _schoolId!.isNotEmpty) {
+      filtered = _teachers.where((teacher) {
+        final teacherSchoolId = teacher['school_id']?.toString();
+        return teacherSchoolId == null || teacherSchoolId == _schoolId;
+      }).toList();
+    }
+    
+    // Then apply search filter
+    if (_searchQuery.isEmpty) return filtered;
+    return filtered
         .where(
           (teacher) =>
               teacher['name'].toLowerCase().contains(
@@ -2713,6 +2785,17 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
     BuildContext context,
     Map<String, dynamic> teacher,
   ) {
+    // Reset unread count when opening chat
+    final teacherName = teacher['name'] as String;
+    setState(() {
+      _unreadCounts[teacherName] = 0;
+      // Update the teacher in the list
+      final teacherIndex = _teachers.indexWhere((t) => t['name'] == teacherName);
+      if (teacherIndex != -1) {
+        _teachers[teacherIndex]['unread'] = 0;
+      }
+    });
+    
     // Close the parent dialog, then open the teacher chat as a full-screen route
     Navigator.of(context).pop();
     Navigator.of(context).push(
@@ -2720,6 +2803,23 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
         builder: (context) => _TeacherChatScreen(teacher: teacher),
       ),
     );
+  }
+  
+  // Method to update unread count (can be called from chat screen)
+  void _updateUnreadCount(String teacherName, {bool increment = true}) {
+    setState(() {
+      if (increment) {
+        _unreadCounts[teacherName] = (_unreadCounts[teacherName] ?? 0) + 1;
+      } else {
+        _unreadCounts[teacherName] = 0; // Reset when chat is opened
+      }
+      
+      // Update the teacher in the list
+      final teacherIndex = _teachers.indexWhere((t) => t['name'] == teacherName);
+      if (teacherIndex != -1) {
+        _teachers[teacherIndex]['unread'] = _unreadCounts[teacherName] ?? 0;
+      }
+    });
   }
 
   void _openGroup(BuildContext context, Map<String, dynamic> group) {
@@ -2789,6 +2889,46 @@ class _WhatsAppChatScreenState extends State<_WhatsAppChatScreen>
   List<Map<String, dynamic>> _teachers = [];
   List<Map<String, dynamic>> _groups = [];
   bool _loadingTeachers = false;
+  String? _schoolId; // Parent's school_id for filtering
+  Map<String, int> _unreadCounts = {}; // Track unread messages per teacher
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _loadParentSchoolId();
+    _loadTeachers();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadParentSchoolId() async {
+    try {
+      final parentData = await api.ApiService.fetchParentProfile();
+      if (parentData != null) {
+        _schoolId = parentData['school_id']?.toString();
+        // Try to get from students if not in parent profile
+        if ((_schoolId == null || _schoolId!.isEmpty || _schoolId == 'null')) {
+          final students = parentData['students'];
+          if (students is List && students.isNotEmpty) {
+            final student = students[0];
+            if (student is Map) {
+              _schoolId = student['school_id']?.toString() ?? 
+                         student['school']?['school_id']?.toString();
+            }
+          }
+        }
+        debugPrint('Parent school_id for filtering: $_schoolId');
+      }
+    } catch (e) {
+      debugPrint('Failed to load parent school_id: $e');
+    }
+  }
 
   String _buildInitials(String name) {
     final parts = name.split(' ').where((p) => p.isNotEmpty).toList();
@@ -2807,18 +2947,38 @@ class _WhatsAppChatScreenState extends State<_WhatsAppChatScreen>
         final last = (user['last_name'] as String? ?? '').trim();
         final fullName = ('$first $last').trim();
         final designation = t['designation'] as String? ?? 'Teacher';
+        final teacherSchoolId = t['school_id']?.toString();
+        final teacherKey = fullName.isNotEmpty ? fullName : 'Teacher';
+        
+        // Get unread count for this teacher (default to 0 if not set)
+        final unreadCount = _unreadCounts[teacherKey] ?? 0;
+        
         return {
           'name': fullName.isNotEmpty ? fullName : 'Teacher',
           'subject': designation,
+          'school_id': teacherSchoolId,
           'online': false,
-          'unread': 0,
+          'unread': unreadCount, // Use tracked unread count
           'lastMessage': '',
           'time': '',
           'avatar': _buildInitials(fullName.isNotEmpty ? fullName : 'T'),
         };
       }).toList();
+      
+      // Filter teachers by matching school_id (if parent has school_id)
+      final filteredTeachers = _schoolId != null && _schoolId!.isNotEmpty
+          ? mapped.where((teacher) {
+              final teacherSchoolId = teacher['school_id']?.toString();
+              final matches = teacherSchoolId == null || teacherSchoolId == _schoolId;
+              if (!matches) {
+                debugPrint('Filtered out teacher - school_id mismatch: teacher=$teacherSchoolId, parent=$_schoolId');
+              }
+              return matches;
+            }).toList()
+          : mapped;
+      
       setState(() {
-        _teachers = mapped;
+        _teachers = filteredTeachers;
         _groups = [
           {
             'name': 'All Teachers',
@@ -2837,24 +2997,21 @@ class _WhatsAppChatScreenState extends State<_WhatsAppChatScreen>
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _loadTeachers();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    _searchController.dispose();
-    super.dispose();
-  }
-
   List<Map<String, dynamic>> get _filteredTeachers {
     if (_loadingTeachers) return [];
-    if (_searchQuery.isEmpty) return _teachers;
-    return _teachers
+    
+    // First filter by school_id match (if parent has school_id)
+    var filtered = _teachers;
+    if (_schoolId != null && _schoolId!.isNotEmpty) {
+      filtered = _teachers.where((teacher) {
+        final teacherSchoolId = teacher['school_id']?.toString();
+        return teacherSchoolId == null || teacherSchoolId == _schoolId;
+      }).toList();
+    }
+    
+    // Then apply search filter
+    if (_searchQuery.isEmpty) return filtered;
+    return filtered
         .where(
           (teacher) =>
               teacher['name'].toLowerCase().contains(
@@ -3236,8 +3393,21 @@ class _TeacherChatScreenState extends State<_TeacherChatScreen> {
   RealtimeChatService? _chatService;
   StreamSubscription? _chatSubscription;
   String? _chatRoomId;
-  String? _studentUsername;
-  String? _teacherUsername;
+  String? _studentUsername; // Display name (used for room ID)
+  String? _teacherUsername; // Display name (used for room ID)
+  String? _studentEmail; // Student email/username for API calls and message saving
+  String? _teacherEmail; // Teacher email/username for API calls and message saving
+  
+  // Helper function to normalize names for room IDs
+  String normalizeNameForRoomId(String name) {
+    if (name.isEmpty) return '';
+    // Convert to lowercase, replace spaces with underscores, remove special characters
+    return name
+        .toLowerCase()
+        .trim()
+        .replaceAll(' ', '_')
+        .replaceAll(RegExp(r'[^a-z0-9_]'), ''); // Keep only alphanumeric and underscore
+  }
 
   @override
   void initState() {
@@ -3269,7 +3439,7 @@ class _TeacherChatScreenState extends State<_TeacherChatScreen> {
     if (trimmed.isEmpty) return;
     
     if (_studentUsername == null || _studentUsername!.isEmpty) {
-      debugPrint('Cannot send message: student username not initialized');
+      debugPrint('Cannot send message: student name not initialized');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please wait, initializing chat...')),
       );
@@ -3305,12 +3475,18 @@ class _TeacherChatScreenState extends State<_TeacherChatScreen> {
     
     try {
       if (_chatService!.isConnected) {
+        // Use emails/usernames for message saving (backend expects usernames)
+        // But room ID uses names (already set)
+        final senderForWs = _studentEmail ?? _studentUsername!;
+        final recipientForWs = _teacherEmail ?? _teacherUsername!;
+        
         _chatService!.sendMessage(
-          sender: _studentUsername!,
-          recipient: _teacherUsername!,
+          sender: senderForWs,
+          recipient: recipientForWs,
           message: trimmed,
         );
-        debugPrint('Message sent: student=$_studentUsername, teacher=$_teacherUsername');
+        debugPrint('Message sent: student name=$_studentUsername, teacher=$_teacherUsername');
+        debugPrint('WebSocket sender=$senderForWs, recipient=$recipientForWs');
       } else {
         debugPrint('Chat service not connected, reconnecting...');
         _initializeRealtimeChat();
@@ -3327,34 +3503,184 @@ class _TeacherChatScreenState extends State<_TeacherChatScreen> {
 
   Future<void> _initializeChat() async {
     try {
+      setState(() {
+        _isLoadingMessages = true;
+      });
+      
       // Fetch parent profile to get student data
-      final parentData = await api.ApiService.fetchParentProfile();
-      if (parentData != null && parentData['students'] != null) {
+      Map<String, dynamic>? parentData = await api.ApiService.fetchParentProfile();
+      debugPrint('Parent data received: ${parentData?.keys}');
+      
+      // If parent profile is null, try to fetch student profile as fallback
+      // (since parent and student are in same portal)
+      if (parentData == null) {
+        debugPrint('Parent profile is null, trying student profile as fallback...');
+        try {
+          final studentData = await api.ApiService.fetchStudentProfile();
+          if (studentData != null) {
+            debugPrint('Found student profile, converting to parent-like structure');
+            debugPrint('Student data keys: ${studentData.keys}');
+            debugPrint('Student name from profile: ${studentData['student_name']}');
+            
+            // Convert student data to parent-like structure
+            parentData = {
+              'user': studentData['user'],
+              'students': [studentData], // Wrap student in students array
+              'school_id': studentData['school_id'],
+              'school_name': studentData['school_name'],
+              // Add student_name at top level for easier access
+              'student_name': studentData['student_name'],
+            };
+            debugPrint('Converted student profile to parent-like structure');
+            debugPrint('Student name in converted data: ${parentData['student_name']}');
+          } else {
+            debugPrint('Student profile is also null');
+          }
+        } catch (e) {
+          debugPrint('Failed to fetch student profile as fallback: $e');
+        }
+      }
+      
+      if (parentData != null) {
+        // First, try to get student_name directly from parentData (for student profile fallback)
+        if (parentData.containsKey('student_name')) {
+          final studentNameValue = parentData['student_name'];
+          final directStudentName = studentNameValue != null ? studentNameValue.toString().trim() : null;
+          if (directStudentName != null && directStudentName.isNotEmpty && directStudentName != 'null') {
+            debugPrint('✓ Found student_name directly in parentData: $directStudentName');
+            _studentUsername = directStudentName;
+            
+            // Also extract username/email for room ID
         final students = parentData['students'];
         if (students is List && students.isNotEmpty) {
-          // Use any available student from database
-          final studentData = students[0];
-          if (studentData is Map<String, dynamic>) {
-            // Get student ID and username for chat room
-            final studentId = studentData['id']?.toString() ?? studentData['student_id']?.toString() ?? '';
-            final studentUser = studentData['user'] as Map<String, dynamic>?;
-            _studentUsername = studentUser?['username']?.toString() ?? studentUser?['email']?.toString() ?? '';
-            
-            // Get teacher username
-            final teacherUser = widget.teacher['user'] as Map<String, dynamic>?;
-            _teacherUsername = teacherUser?['username']?.toString() ?? teacherUser?['email']?.toString() ?? widget.teacher['name']?.toString() ?? '';
-            
-            // Create room ID from student and teacher usernames
-            // Sort usernames to ensure same room ID regardless of who connects first
-            if (_studentUsername != null && _teacherUsername != null && _studentUsername!.isNotEmpty && _teacherUsername!.isNotEmpty) {
-              final usernames = [_studentUsername!, _teacherUsername!];
-              usernames.sort();
-              _chatRoomId = '${usernames[0]}_${usernames[1]}';
-            } else if (studentId.isNotEmpty) {
-              _chatRoomId = studentId;
-            } else {
-              _chatRoomId = 'chat_${DateTime.now().millisecondsSinceEpoch}';
+              final firstStudent = students[0] as Map<String, dynamic>?;
+              if (firstStudent != null) {
+                // Room ID will use student name (no email needed)
+                debugPrint('  Student name for room ID: $_studentUsername');
+              }
             }
+          }
+        }
+        
+        final students = parentData['students'];
+        debugPrint('Students in parent data: ${students is List ? students.length : 'not a list'}');
+        
+        if (students is List && students.isNotEmpty) {
+          // Iterate through all students to find one with valid name
+          Map<String, dynamic>? validStudentData;
+          String? extractedStudentName;
+          
+          debugPrint('Processing ${students.length} students from parent profile...');
+          
+          for (var studentItem in students) {
+            if (studentItem is Map<String, dynamic>) {
+              debugPrint('Student item keys: ${studentItem.keys}');
+              final studentUser = studentItem['user'] as Map<String, dynamic>?;
+              
+              // Try to get student name - check multiple fields
+              String studentName = '';
+              
+              // Priority 1: student_name field (MOST IMPORTANT - this is the actual student name like "rakesh")
+              if (studentItem['student_name'] != null) {
+                final studentNameValue = studentItem['student_name'].toString().trim();
+                if (studentNameValue.isNotEmpty && studentNameValue != 'null' && studentNameValue.toLowerCase() != 'null') {
+                  studentName = studentNameValue;
+                  debugPrint('✓ Found student_name: $studentName');
+                }
+              }
+              
+              // Priority 2: name field
+              if (studentName.isEmpty && studentItem['name'] != null) {
+                final nameValue = studentItem['name'].toString().trim();
+                if (nameValue.isNotEmpty && nameValue != 'null') {
+                  studentName = nameValue;
+                  debugPrint('Found name field: $studentName');
+                }
+              }
+              
+              // Priority 3: user's first_name + last_name
+              if (studentName.isEmpty && studentUser != null) {
+                final firstName = (studentUser['first_name'] as String? ?? '').trim();
+                final lastName = (studentUser['last_name'] as String? ?? '').trim();
+                if (firstName.isNotEmpty || lastName.isNotEmpty) {
+                  studentName = '$firstName $lastName'.trim();
+                  debugPrint('Found name from user: $studentName');
+                }
+              }
+              
+              // Use the first student with a valid name
+              if (studentName.isNotEmpty) {
+                validStudentData = studentItem;
+                extractedStudentName = studentName;
+                debugPrint('✓ Selected student: $studentName');
+                break;
+              } else {
+                debugPrint('✗ Skipped student - no valid name found');
+              }
+            } else {
+              debugPrint('✗ Student item is not a Map: ${studentItem.runtimeType}');
+            }
+          }
+          
+          if (validStudentData != null && extractedStudentName != null) {
+            _studentUsername = extractedStudentName;
+            
+            // Get teacher username/name/email
+            final teacherUser = widget.teacher['user'] as Map<String, dynamic>?;
+            String teacherFirstName = '';
+            String teacherLastName = '';
+            String teacherEmail = '';
+            String teacherUsername = '';
+            if (teacherUser != null) {
+              teacherFirstName = (teacherUser['first_name'] as String? ?? '').trim();
+              teacherLastName = (teacherUser['last_name'] as String? ?? '').trim();
+              teacherEmail = teacherUser['email'] as String? ?? '';
+              teacherUsername = teacherUser['username'] as String? ?? '';
+            }
+            final teacherFullName = '$teacherFirstName $teacherLastName'.trim();
+            final teacherName = (widget.teacher['name'] as String? ?? '').trim();
+            final finalTeacherName = teacherName.isNotEmpty ? teacherName : teacherFullName;
+            
+            _teacherUsername = finalTeacherName.isNotEmpty 
+                ? finalTeacherName 
+                : 'Teacher';
+            
+            // Store emails/usernames for API calls and message saving
+            final studentUser = validStudentData['user'] as Map<String, dynamic>?;
+            final studentEmailValue = validStudentData['email']?.toString() ?? 
+                                     studentUser?['email']?.toString() ?? '';
+            final studentUsernameValue = studentUser?['username']?.toString();
+            _studentEmail = studentUsernameValue ?? 
+                          (studentEmailValue.isNotEmpty ? studentEmailValue : '');
+            
+            _teacherEmail = teacherUsername.isNotEmpty ? teacherUsername : 
+                          (teacherEmail.isNotEmpty ? teacherEmail : '');
+            
+            debugPrint('Student name set: $_studentUsername, Teacher: $_teacherUsername');
+            debugPrint('Student email/username for API: $_studentEmail, Teacher email/username: $_teacherEmail');
+            
+            // Create room ID using names only (no email fallback)
+            if ((_studentUsername != null && _studentUsername!.isNotEmpty) &&
+                (_teacherUsername != null && _teacherUsername!.isNotEmpty)) {
+              final normalizedStudentName = normalizeNameForRoomId(_studentUsername!);
+              final normalizedTeacherName = normalizeNameForRoomId(_teacherUsername!);
+              
+              if (normalizedStudentName.isNotEmpty && normalizedTeacherName.isNotEmpty) {
+                final identifiers = [normalizedStudentName, normalizedTeacherName]..sort();
+                _chatRoomId = identifiers.join('_');
+                debugPrint('Room ID using names - Student: $_studentUsername -> $normalizedStudentName');
+                debugPrint('  Teacher: $_teacherUsername -> $normalizedTeacherName');
+                debugPrint('  Final room ID: $_chatRoomId');
+            } else {
+                debugPrint('ERROR: Normalized names are empty (student: $normalizedStudentName, teacher: $normalizedTeacherName)');
+                _chatRoomId = null;
+              }
+            } else {
+              debugPrint('ERROR: Student or teacher name is missing (student: $_studentUsername, teacher: $_teacherUsername)');
+              _chatRoomId = null;
+            }
+            
+            debugPrint('Chat initialized - student: $_studentUsername, teacher: $_teacherUsername, room: $_chatRoomId');
             
             // Load existing messages from API
             await _loadExistingMessages();
@@ -3366,18 +3692,323 @@ class _TeacherChatScreenState extends State<_TeacherChatScreen> {
               _isLoadingMessages = false;
             });
             return;
-          }
+          } else {
+            debugPrint('No valid student found with name in students list');
         }
-      }
-      
-      // Fallback: use teacher name for room ID
-      _chatRoomId = widget.teacher['name']?.toString().replaceAll(' ', '_') ?? 'chat_${DateTime.now().millisecondsSinceEpoch}';
+        } else {
+          debugPrint('No students found in parent profile. Students: $students');
+          
+          // Try to find student data in a different structure or retry with better extraction
+          // Check if students might be in a different format
+          if (students == null || (students is List && students.isEmpty)) {
+            debugPrint('Students list is empty or null, checking alternative data structures...');
+            
+            // Try to get student from any available source
+            Map<String, dynamic>? alternativeStudentData;
+            
+            // Check if there's student data elsewhere in parentData
+            if (parentData.containsKey('student')) {
+              alternativeStudentData = parentData['student'] as Map<String, dynamic>?;
+              debugPrint('Found student data in parentData[\'student\']');
+            }
+            
+            // If still no student found, use parent as last resort but try to get student name from elsewhere
+            if (alternativeStudentData == null) {
+              debugPrint('No alternative student data found, will use parent info but prefer student name if available');
+            } else {
+              // Process alternative student data
+              final studentUser = alternativeStudentData['user'] as Map<String, dynamic>?;
+              String studentName = '';
+              if (alternativeStudentData['student_name'] != null && 
+                  alternativeStudentData['student_name'].toString().trim().isNotEmpty) {
+                studentName = alternativeStudentData['student_name'].toString().trim();
+              } else if (studentUser != null) {
+                final firstName = (studentUser['first_name'] as String? ?? '').trim();
+                final lastName = (studentUser['last_name'] as String? ?? '').trim();
+                studentName = '$firstName $lastName'.trim();
+              }
+              
+              if (studentName.isNotEmpty) {
+                _studentUsername = studentName;
+                
+                // Get student email/username for API calls
+                final studentEmailValue = alternativeStudentData['email']?.toString() ?? 
+                                         studentUser?['email']?.toString() ?? '';
+                final studentUsernameValue = studentUser?['username']?.toString();
+                _studentEmail = studentUsernameValue ?? 
+                              (studentEmailValue.isNotEmpty ? studentEmailValue : '');
+                
+                // Get teacher info
+                final teacherUser = widget.teacher['user'] as Map<String, dynamic>?;
+                String teacherFirstName = '';
+                String teacherLastName = '';
+                String teacherEmail = '';
+                String teacherUsername = '';
+                if (teacherUser != null) {
+                  teacherFirstName = (teacherUser['first_name'] as String? ?? '').trim();
+                  teacherLastName = (teacherUser['last_name'] as String? ?? '').trim();
+                  teacherEmail = teacherUser['email'] as String? ?? '';
+                  teacherUsername = teacherUser['username'] as String? ?? '';
+                }
+                final teacherFullName = '$teacherFirstName $teacherLastName'.trim();
+                final teacherName = (widget.teacher['name'] as String? ?? '').trim();
+                final finalTeacherName = teacherName.isNotEmpty ? teacherName : teacherFullName;
+                
+                _teacherUsername = finalTeacherName.isNotEmpty 
+                    ? finalTeacherName 
+                    : 'Teacher';
+                
+                _teacherEmail = teacherUsername.isNotEmpty ? teacherUsername : 
+                              (teacherEmail.isNotEmpty ? teacherEmail : '');
+                
+                // Create room ID using names only (no email fallback)
+                if ((_studentUsername != null && _studentUsername!.isNotEmpty) &&
+                    (_teacherUsername != null && _teacherUsername!.isNotEmpty)) {
+                  final normalizedStudentName = normalizeNameForRoomId(_studentUsername!);
+                  final normalizedTeacherName = normalizeNameForRoomId(_teacherUsername!);
+                  
+                  if (normalizedStudentName.isNotEmpty && normalizedTeacherName.isNotEmpty) {
+                    final identifiers = [normalizedStudentName, normalizedTeacherName]..sort();
+                    _chatRoomId = identifiers.join('_');
+                  } else {
+                    _chatRoomId = null;
+                  }
+                  
+                  debugPrint('Using alternative student data - student: $_studentUsername, teacher: $_teacherUsername');
+                  debugPrint('Room ID: $_chatRoomId');
+                  await _loadExistingMessages();
       _initializeRealtimeChat();
       setState(() {
         _isLoadingMessages = false;
       });
+                  return;
+                }
+              }
+            }
+          }
+          
+          // Since parent and student are in same portal, try to use parent user as fallback
+          // But first, try to extract student name from any available source
+          final parentUser = parentData['user'] as Map<String, dynamic>?;
+          final parentEmail = parentUser?['email']?.toString() ?? '';
+          final parentFirstName = parentUser?['first_name']?.toString() ?? '';
+          final parentLastName = parentUser?['last_name']?.toString() ?? '';
+          final parentName = '$parentFirstName $parentLastName'.trim();
+          
+          // Try to get student name from parent profile if available
+          String? studentNameFromParent;
+          if (parentData.containsKey('student_name')) {
+            studentNameFromParent = (parentData['student_name'] as String?)?.trim();
+            if (studentNameFromParent != null && studentNameFromParent.isNotEmpty) {
+              debugPrint('Found student_name in parent profile: $studentNameFromParent');
+            }
+          }
+          
+          if (parentEmail.isNotEmpty || parentName.isNotEmpty) {
+            // Use student name if found, otherwise use parent name, but never use "Parent" as default
+            _studentUsername = studentNameFromParent ?? (parentName.isNotEmpty ? parentName : 'Student');
+            
+            final teacherUser = widget.teacher['user'] as Map<String, dynamic>?;
+            String teacherFirstName = '';
+            String teacherLastName = '';
+            if (teacherUser != null) {
+              teacherFirstName = (teacherUser['first_name'] as String? ?? '').trim();
+              teacherLastName = (teacherUser['last_name'] as String? ?? '').trim();
+            }
+            final teacherFullName = '$teacherFirstName $teacherLastName'.trim();
+            final teacherName = (widget.teacher['name'] as String? ?? '').trim();
+            final finalTeacherName = teacherName.isNotEmpty ? teacherName : teacherFullName;
+            
+            _teacherUsername = finalTeacherName.isNotEmpty 
+                ? finalTeacherName 
+                : 'Teacher';
+            
+            // Create room ID using names only (no email fallback)
+            if ((_studentUsername != null && _studentUsername!.isNotEmpty) &&
+                (_teacherUsername != null && _teacherUsername!.isNotEmpty)) {
+              final normalizedStudentName = normalizeNameForRoomId(_studentUsername!);
+              final normalizedTeacherName = normalizeNameForRoomId(_teacherUsername!);
+              
+              if (normalizedStudentName.isNotEmpty && normalizedTeacherName.isNotEmpty) {
+                final identifiers = [normalizedStudentName, normalizedTeacherName]..sort();
+                _chatRoomId = identifiers.join('_');
+              } else {
+                _chatRoomId = null;
+              }
+              
+              debugPrint('Using parent as fallback - student: $_studentUsername, teacher: $_teacherUsername');
+              await _loadExistingMessages();
+              _initializeRealtimeChat();
+              setState(() {
+                _isLoadingMessages = false;
+              });
+              return;
+            }
+          }
+        }
+      } else {
+        debugPrint('Parent data is null');
+      }
+      
+      // Final fallback: retry student extraction with more thorough checking
+      debugPrint('Using final fallback for chat initialization - retrying student extraction');
+      try {
+        Map<String, dynamic>? parentData = await api.ApiService.fetchParentProfile();
+        
+        // If parent profile is null, try student profile as fallback
+        if (parentData == null) {
+          debugPrint('Parent profile is null in final fallback, trying student profile...');
+          try {
+            final studentData = await api.ApiService.fetchStudentProfile();
+            if (studentData != null) {
+              debugPrint('Found student profile in final fallback');
+              debugPrint('Student name from profile: ${studentData['student_name']}');
+              debugPrint('Student email: ${studentData['email']}');
+              
+              parentData = {
+                'user': studentData['user'],
+                'students': [studentData],
+                'school_id': studentData['school_id'],
+                'school_name': studentData['school_name'],
+                'student_name': studentData['student_name'], // Add for direct access
+              };
+              
+              // Immediately try to extract student name from the converted data
+              if (studentData['student_name'] != null) {
+                final name = studentData['student_name'].toString().trim();
+                if (name.isNotEmpty && name != 'null') {
+                  _studentUsername = name;
+                  debugPrint('✓ Set student name from student profile: $_studentUsername');
+                  
+                  debugPrint('  Student name for room ID: $_studentUsername');
+                }
+              }
+            }
     } catch (e) {
-      debugPrint('Failed to initialize chat: $e');
+            debugPrint('Failed to fetch student profile in final fallback: $e');
+          }
+        }
+        
+        if (parentData != null) {
+          // Retry students extraction with more thorough checking
+          final students = parentData['students'];
+          debugPrint('Final fallback - Students type: ${students.runtimeType}, is List: ${students is List}');
+          
+          if (students is List && students.isNotEmpty) {
+            debugPrint('Final fallback - Found ${students.length} students, retrying extraction...');
+            
+            for (var studentItem in students) {
+              if (studentItem is Map<String, dynamic>) {
+                debugPrint('Final fallback - Student keys: ${studentItem.keys}');
+                final studentUser = studentItem['user'] as Map<String, dynamic>?;
+                
+                // Try multiple ways to get student name
+                String studentName = '';
+                
+                // Check student_name (MOST IMPORTANT - actual student name like "rakesh")
+                if (studentItem['student_name'] != null) {
+                  final val = studentItem['student_name'].toString().trim();
+                  if (val.isNotEmpty && val != 'null' && val.toLowerCase() != 'null') {
+                    studentName = val;
+                    debugPrint('✓ Final fallback - Found student_name: $studentName');
+                  }
+                }
+                
+                // Check name field
+                if (studentName.isEmpty && studentItem['name'] != null) {
+                  final val = studentItem['name'].toString().trim();
+                  if (val.isNotEmpty && val != 'null') studentName = val;
+                }
+                
+                // Check user first_name + last_name
+                if (studentName.isEmpty && studentUser != null) {
+                  final firstName = (studentUser['first_name'] as String? ?? '').trim();
+                  final lastName = (studentUser['last_name'] as String? ?? '').trim();
+                  if (firstName.isNotEmpty || lastName.isNotEmpty) {
+                    studentName = '$firstName $lastName'.trim();
+                  }
+                }
+                
+                if (studentName.isNotEmpty) {
+                  _studentUsername = studentName;
+                  debugPrint('✓ Final fallback - Found student: $_studentUsername');
+                  break;
+                }
+              }
+            }
+          }
+          
+          // If still no student name found, check if parent profile has student_name directly
+          if ((_studentUsername == null || _studentUsername!.isEmpty) && parentData.containsKey('student_name')) {
+            final studentNameFromProfile = (parentData['student_name'] as String?)?.trim();
+            if (studentNameFromProfile != null && studentNameFromProfile.isNotEmpty && studentNameFromProfile != 'null') {
+              _studentUsername = studentNameFromProfile;
+              debugPrint('✓ Found student_name in parent profile: $_studentUsername');
+            }
+          }
+          
+          // Last resort: use parent name but log warning
+          if (_studentUsername == null || _studentUsername!.isEmpty) {
+            final parentUser = parentData['user'] as Map<String, dynamic>?;
+            if (parentUser != null) {
+              final parentFirstName = (parentUser['first_name'] as String? ?? '').trim();
+              final parentLastName = (parentUser['last_name'] as String? ?? '').trim();
+              final parentName = '$parentFirstName $parentLastName'.trim();
+              _studentUsername = parentName.isNotEmpty ? parentName : 'Student';
+              debugPrint('⚠ WARNING: Using parent name as student name: $_studentUsername');
+            } else {
+              _studentUsername = 'Student';
+            }
+          }
+        } else {
+          _studentUsername = 'Student';
+        }
+      } catch (e) {
+        debugPrint('Error in final fallback: $e');
+        _studentUsername = 'Student';
+      }
+      
+      // Get teacher info for final fallback
+      final teacherUser = widget.teacher['user'] as Map<String, dynamic>?;
+      String teacherFirstName = '';
+      String teacherLastName = '';
+      if (teacherUser != null) {
+        teacherFirstName = (teacherUser['first_name'] as String? ?? '').trim();
+        teacherLastName = (teacherUser['last_name'] as String? ?? '').trim();
+      }
+      final teacherFullName = '$teacherFirstName $teacherLastName'.trim();
+      final teacherName = (widget.teacher['name'] as String? ?? '').trim();
+      final finalTeacherName = teacherName.isNotEmpty ? teacherName : (teacherFullName.isNotEmpty ? teacherFullName : 'Teacher');
+      _teacherUsername = finalTeacherName;
+      
+      // Create room ID using names only (no email fallback)
+      if ((_studentUsername != null && _studentUsername!.isNotEmpty) &&
+          (_teacherUsername != null && _teacherUsername!.isNotEmpty)) {
+        final normalizedStudentName = normalizeNameForRoomId(_studentUsername!);
+        final normalizedTeacherName = normalizeNameForRoomId(_teacherUsername!);
+        
+        if (normalizedStudentName.isNotEmpty && normalizedTeacherName.isNotEmpty) {
+          final identifiers = [normalizedStudentName, normalizedTeacherName]..sort();
+          _chatRoomId = identifiers.join('_');
+          debugPrint('Final fallback room ID: $_chatRoomId');
+          debugPrint('  Student: $_studentUsername -> $normalizedStudentName');
+          debugPrint('  Teacher: $_teacherUsername -> $normalizedTeacherName');
+        } else {
+          _chatRoomId = null;
+          debugPrint('ERROR: Normalized names are empty (student: $normalizedStudentName, teacher: $normalizedTeacherName)');
+        }
+      } else {
+        _chatRoomId = null;
+        debugPrint('ERROR: Student or teacher name is missing (student: $_studentUsername, teacher: $_teacherUsername)');
+      }
+      
+      _initializeRealtimeChat();
+      setState(() {
+        _isLoadingMessages = false;
+      });
+    } catch (e, stackTrace) {
+      debugPrint('Error initializing chat: $e');
+      debugPrint('Stack trace: $stackTrace');
       setState(() {
         _isLoadingMessages = false;
       });
@@ -3385,15 +4016,32 @@ class _TeacherChatScreenState extends State<_TeacherChatScreen> {
   }
 
   Future<void> _loadExistingMessages() async {
-    if (_studentUsername == null || _teacherUsername == null) return;
+    if (_studentEmail == null || _teacherEmail == null) {
+      debugPrint('Cannot load messages: missing email/username (student: $_studentEmail, teacher: $_teacherEmail)');
+      return;
+    }
     
     try {
-      final messages = await api.ApiService.fetchCommunications(_studentUsername!, _teacherUsername!);
+      // Fetch messages using email/username identifiers (backend expects usernames/emails)
+      final messages = await api.ApiService.fetchCommunications(_studentEmail!, _teacherEmail!);
+      
+      debugPrint('Loaded ${messages.length} existing messages');
+      
       setState(() {
         _messages = messages.map((msg) {
           final sender = msg['sender'] as Map<String, dynamic>?;
           final senderUsername = sender?['username']?.toString() ?? '';
-          final isTeacher = senderUsername == _teacherUsername;
+          final senderEmail = sender?['email']?.toString() ?? '';
+          final senderFirstName = sender?['first_name']?.toString() ?? '';
+          final senderLastName = sender?['last_name']?.toString() ?? '';
+          final senderName = '$senderFirstName $senderLastName'.trim();
+          
+          // Check if sender is teacher by comparing username, email, or name
+          final isTeacher = senderUsername == _teacherUsername || 
+                           senderEmail == _teacherUsername ||
+                           senderName == _teacherUsername ||
+                           (widget.teacher['user'] != null && 
+                            (widget.teacher['user'] as Map)['username']?.toString() == senderUsername);
           
           return {
             'text': msg['message']?.toString() ?? msg['subject']?.toString() ?? '',
@@ -3402,6 +4050,8 @@ class _TeacherChatScreenState extends State<_TeacherChatScreen> {
           };
         }).toList();
       });
+      
+      debugPrint('Processed ${_messages.length} messages for display');
     } catch (e) {
       debugPrint('Failed to load existing messages: $e');
     }
@@ -3425,7 +4075,7 @@ class _TeacherChatScreenState extends State<_TeacherChatScreen> {
     try {
       debugPrint('=== Student Chat Connection ===');
       debugPrint('Room ID: $_chatRoomId');
-      debugPrint('Student username: $_studentUsername');
+      debugPrint('Student name: $_studentUsername');
       debugPrint('Teacher username: $_teacherUsername');
       debugPrint('Chat type: teacher-student');
       
@@ -3450,8 +4100,28 @@ class _TeacherChatScreenState extends State<_TeacherChatScreen> {
             if (messageText.isEmpty) return;
             
             final sender = decoded['sender']?.toString() ?? '';
-            final isTeacher = sender == 'teacher' || sender == _teacherUsername;
             
+            // Determine if sender is teacher by comparing with teacher's username/email
+            final teacherUser = widget.teacher['user'] as Map<String, dynamic>?;
+            final teacherUsername = teacherUser?['username']?.toString() ?? '';
+            final teacherEmail = teacherUser?['email']?.toString() ?? '';
+            final teacherName = widget.teacher['name']?.toString() ?? '';
+            
+            final isTeacher = sender == teacherUsername || 
+                            sender == teacherEmail ||
+                            sender == teacherName ||
+                            sender == _teacherUsername ||
+                            sender == 'teacher';
+            
+            debugPrint('Received message from: $sender (isTeacher: $isTeacher, message: $messageText)');
+            
+            // Check if message already exists to avoid duplicates
+            final messageExists = _messages.any((msg) => 
+              msg['text'] == messageText && 
+              msg['isTeacher'] == isTeacher
+            );
+            
+            if (!messageExists) {
             setState(() {
               _messages.add({
                 'text': messageText,
@@ -3459,6 +4129,10 @@ class _TeacherChatScreenState extends State<_TeacherChatScreen> {
                 'time': intl.DateFormat('hh:mm a').format(DateTime.now()),
               });
             });
+              debugPrint('Added new message to list (total: ${_messages.length})');
+            } else {
+              debugPrint('Message already exists, skipping duplicate');
+            }
           } else if (messageType == 'error') {
             debugPrint('Chat error: ${decoded['message']}');
           }

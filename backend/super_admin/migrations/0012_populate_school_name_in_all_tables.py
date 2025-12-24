@@ -5,156 +5,146 @@ from django.db import migrations
 
 def populate_school_name_in_all_tables(apps, schema_editor):
     """Populate school_name field in all tables that have it"""
-    # Import models using historical versions
+    # Get School model to build the mapping
     School = apps.get_model('super_admin', 'School')
-    Teacher = apps.get_model('management_admin', 'Teacher')
-    Student = apps.get_model('management_admin', 'Student')
-    Parent = apps.get_model('student_parent', 'Parent')
-    File = apps.get_model('management_admin', 'File')
-    Fee = apps.get_model('management_admin', 'Fee')
-    BusStop = apps.get_model('management_admin', 'BusStop')
-    BusStopStudent = apps.get_model('management_admin', 'BusStopStudent')
-    ExaminationManagement = apps.get_model('management_admin', 'Examination_management')
-    Class = apps.get_model('teacher', 'Class')
-    ClassStudent = apps.get_model('teacher', 'ClassStudent')
-    Attendance = apps.get_model('teacher', 'Attendance')
-    Assignment = apps.get_model('teacher', 'Assignment')
-    Exam = apps.get_model('teacher', 'Exam')
-    Grade = apps.get_model('teacher', 'Grade')
-    Timetable = apps.get_model('teacher', 'Timetable')
-    StudyMaterial = apps.get_model('teacher', 'StudyMaterial')
     
     # Create a mapping of school_id to school_name for faster lookups
     school_name_map = {}
     for school in School.objects.all():
         school_name_map[school.school_id] = school.school_name
     
-    # Update Teachers
+    # Update Teachers using raw SQL to avoid field mismatch issues
     print("Updating school_name in teachers table...")
-    for teacher in Teacher.objects.all():
-        if teacher.school_id and teacher.school_id in school_name_map:
-            teacher.school_name = school_name_map[teacher.school_id]
-            teacher.save(update_fields=['school_name'])
+    db_alias = schema_editor.connection.alias
+    with schema_editor.connection.cursor() as cursor:
+        for school_id, school_name in school_name_map.items():
+            cursor.execute(
+                "UPDATE teachers SET school_name = %s WHERE school_id = %s",
+                [school_name, school_id]
+            )
     
-    # Update Students
-    print("Updating school_name in students table...")
-    for student in Student.objects.all():
-        # Get school_id from the ForeignKey
-        if hasattr(student, 'school_id') and student.school_id:
-            school_id = student.school_id
-        elif hasattr(student, 'school') and student.school:
-            school_id = student.school.school_id
-        else:
-            continue
-        if school_id in school_name_map:
-            student.school_name = school_name_map[school_id]
-            student.save(update_fields=['school_name'])
-    
-    # Update Parents
-    print("Updating school_name in parents table...")
-    for parent in Parent.objects.all():
-        if parent.school_id and parent.school_id in school_name_map:
-            parent.school_name = school_name_map[parent.school_id]
-            parent.save(update_fields=['school_name'])
-    
-    # Update Files
-    print("Updating school_name in files table...")
-    for file_obj in File.objects.all():
-        if file_obj.school_id:
-            try:
-                school = School.objects.get(school_id=file_obj.school_id)
-                file_obj.school_name = school.school_name
-                file_obj.save(update_fields=['school_name'])
-            except School.DoesNotExist:
-                pass
-    
-    # Update Fees
-    print("Updating school_name in fees table...")
-    for fee in Fee.objects.all():
-        if fee.school_id and fee.school_id in school_name_map:
-            fee.school_name = school_name_map[fee.school_id]
-            fee.save(update_fields=['school_name'])
-    
-    # Update BusStops
-    print("Updating school_name in bus_stops table...")
-    for bus_stop in BusStop.objects.all():
-        if bus_stop.school_id and bus_stop.school_id in school_name_map:
-            bus_stop.school_name = school_name_map[bus_stop.school_id]
-            bus_stop.save(update_fields=['school_name'])
-    
-    # Update BusStopStudents
-    print("Updating school_name in bus_stop_students table...")
-    for bus_stop_student in BusStopStudent.objects.all():
-        if bus_stop_student.school_id and bus_stop_student.school_id in school_name_map:
-            bus_stop_student.school_name = school_name_map[bus_stop_student.school_id]
-            bus_stop_student.save(update_fields=['school_name'])
-    
-    # Update ExaminationManagement
-    print("Updating school_name in examination_management table...")
-    # This will be populated by the save method when records are updated
-    
-    # Update Classes
-    print("Updating school_name in classes table...")
-    for class_obj in Class.objects.all():
-        if class_obj.school_id and class_obj.school_id in school_name_map:
-            class_obj.school_name = school_name_map[class_obj.school_id]
-            class_obj.save(update_fields=['school_name'])
-    
-    # Update ClassStudents
-    print("Updating school_name in class_students table...")
-    for class_student in ClassStudent.objects.all():
-        if class_student.school_id and class_student.school_id in school_name_map:
-            class_student.school_name = school_name_map[class_student.school_id]
-            class_student.save(update_fields=['school_name'])
-    
-    # Update Attendances
-    print("Updating school_name in attendances table...")
-    for attendance in Attendance.objects.all():
-        if attendance.school_id and attendance.school_id in school_name_map:
-            attendance.school_name = school_name_map[attendance.school_id]
-            attendance.save(update_fields=['school_name'])
-    
-    # Update Assignments
-    print("Updating school_name in assignments table...")
-    for assignment in Assignment.objects.all():
-        if assignment.school_id and assignment.school_id in school_name_map:
-            assignment.school_name = school_name_map[assignment.school_id]
-            assignment.save(update_fields=['school_name'])
-    
-    # Update Exams
-    print("Updating school_name in exams table...")
-    for exam in Exam.objects.all():
-        if exam.school_id and exam.school_id in school_name_map:
-            exam.school_name = school_name_map[exam.school_id]
-            exam.save(update_fields=['school_name'])
-    
-    # Update Grades
-    print("Updating school_name in grades table...")
-    for grade in Grade.objects.all():
-        if grade.school_id and grade.school_id in school_name_map:
-            grade.school_name = school_name_map[grade.school_id]
-            grade.save(update_fields=['school_name'])
-    
-    # Update Timetables
-    print("Updating school_name in timetables table...")
-    for timetable in Timetable.objects.all():
-        if timetable.school_id and timetable.school_id in school_name_map:
-            timetable.school_name = school_name_map[timetable.school_id]
-            timetable.save(update_fields=['school_name'])
-    
-    # Update StudyMaterials
-    print("Updating school_name in study_materials table...")
-    for study_material in StudyMaterial.objects.all():
-        if study_material.school_id and study_material.school_id in school_name_map:
-            study_material.school_name = school_name_map[study_material.school_id]
-            study_material.save(update_fields=['school_name'])
-    
-    # Update ExaminationManagement
-    print("Updating school_name in examination_management table...")
-    for exam_mgmt in ExaminationManagement.objects.all():
-        if exam_mgmt.school_id and exam_mgmt.school_id in school_name_map:
-            exam_mgmt.school_name = school_name_map[exam_mgmt.school_id]
-            exam_mgmt.save(update_fields=['school_name'])
+    # Update all other tables using raw SQL to avoid field mismatch issues
+    db_alias = schema_editor.connection.alias
+    with schema_editor.connection.cursor() as cursor:
+        # Update Students
+        print("Updating school_name in students table...")
+        for school_id, school_name in school_name_map.items():
+            cursor.execute(
+                "UPDATE students SET school_name = %s WHERE school_id = %s",
+                [school_name, school_id]
+            )
+        
+        # Update Parents
+        print("Updating school_name in parents table...")
+        for school_id, school_name in school_name_map.items():
+            cursor.execute(
+                "UPDATE parents SET school_name = %s WHERE school_id = %s",
+                [school_name, school_id]
+            )
+        
+        # Update Files
+        print("Updating school_name in files table...")
+        for school_id, school_name in school_name_map.items():
+            cursor.execute(
+                "UPDATE files SET school_name = %s WHERE school_id = %s",
+                [school_name, school_id]
+            )
+        
+        # Update Fees
+        print("Updating school_name in fees table...")
+        for school_id, school_name in school_name_map.items():
+            cursor.execute(
+                "UPDATE fees SET school_name = %s WHERE school_id = %s",
+                [school_name, school_id]
+            )
+        
+        # Update BusStops
+        print("Updating school_name in bus_stops table...")
+        for school_id, school_name in school_name_map.items():
+            cursor.execute(
+                "UPDATE bus_stops SET school_name = %s WHERE school_id = %s",
+                [school_name, school_id]
+            )
+        
+        # Update BusStopStudents
+        print("Updating school_name in bus_stop_students table...")
+        for school_id, school_name in school_name_map.items():
+            cursor.execute(
+                "UPDATE bus_stop_students SET school_name = %s WHERE school_id = %s",
+                [school_name, school_id]
+            )
+        
+        # Update Classes
+        print("Updating school_name in classes table...")
+        for school_id, school_name in school_name_map.items():
+            cursor.execute(
+                "UPDATE classes SET school_name = %s WHERE school_id = %s",
+                [school_name, school_id]
+            )
+        
+        # Update ClassStudents
+        print("Updating school_name in class_students table...")
+        for school_id, school_name in school_name_map.items():
+            cursor.execute(
+                "UPDATE class_students SET school_name = %s WHERE school_id = %s",
+                [school_name, school_id]
+            )
+        
+        # Update Attendances
+        print("Updating school_name in attendances table...")
+        for school_id, school_name in school_name_map.items():
+            cursor.execute(
+                "UPDATE attendances SET school_name = %s WHERE school_id = %s",
+                [school_name, school_id]
+            )
+        
+        # Update Assignments
+        print("Updating school_name in assignments table...")
+        for school_id, school_name in school_name_map.items():
+            cursor.execute(
+                "UPDATE assignments SET school_name = %s WHERE school_id = %s",
+                [school_name, school_id]
+            )
+        
+        # Update Exams
+        print("Updating school_name in exams table...")
+        for school_id, school_name in school_name_map.items():
+            cursor.execute(
+                "UPDATE exams SET school_name = %s WHERE school_id = %s",
+                [school_name, school_id]
+            )
+        
+        # Update Grades
+        print("Updating school_name in grades table...")
+        for school_id, school_name in school_name_map.items():
+            cursor.execute(
+                "UPDATE grades SET school_name = %s WHERE school_id = %s",
+                [school_name, school_id]
+            )
+        
+        # Update Timetables
+        print("Updating school_name in timetables table...")
+        for school_id, school_name in school_name_map.items():
+            cursor.execute(
+                "UPDATE timetables SET school_name = %s WHERE school_id = %s",
+                [school_name, school_id]
+            )
+        
+        # Update StudyMaterials
+        print("Updating school_name in study_materials table...")
+        for school_id, school_name in school_name_map.items():
+            cursor.execute(
+                "UPDATE study_materials SET school_name = %s WHERE school_id = %s",
+                [school_name, school_id]
+            )
+        
+        # Update ExaminationManagement
+        print("Updating school_name in examination_management table...")
+        for school_id, school_name in school_name_map.items():
+            cursor.execute(
+                "UPDATE examination_management SET school_name = %s WHERE school_id = %s",
+                [school_name, school_id]
+            )
     
     print("Finished populating school_name in all tables!")
 
