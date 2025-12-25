@@ -50,8 +50,8 @@ class ManagementRoutePages {
     },
     ManagementRoutes.editTeacher: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
-      final teacherId = args is int ? args : null;
-      return EditTeacherPage(teacherId: teacherId);
+      final employeeNo = args is String ? args : null;
+      return EditTeacherPage(employeeNo: employeeNo);
     },
     ManagementRoutes.editBus: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;

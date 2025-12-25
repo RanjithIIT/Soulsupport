@@ -106,7 +106,7 @@ class Department(models.Model):
 
 class Teacher(models.Model):
     """Teacher model"""
-    teacher_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    employee_no = models.CharField(max_length=50, primary_key=True, help_text='Employee number (unique identifier)')
     school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
     school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
     user = models.ForeignKey(
@@ -118,11 +118,10 @@ class Teacher(models.Model):
         related_name='teacher_profiles',
         help_text='If teacher has login'
     )
-    employee_no = models.CharField(max_length=50, unique=True, null=True, blank=True)
-    first_name = models.CharField(max_length=150, null=False, default="")
-    last_name = models.CharField(max_length=150, null=True, blank=True)
-    qualification = models.CharField(max_length=255, null=True, blank=True)
-    joining_date = models.DateField(null=True, blank=True)
+    first_name = models.CharField(max_length=150, null=False, help_text='First name (required)')
+    last_name = models.CharField(max_length=150, null=True, blank=True, help_text='Last name')
+    qualification = models.CharField(max_length=255, null=True, blank=True, help_text='Educational qualifications')
+    joining_date = models.DateField(null=True, blank=True, help_text='Date of joining')
     dob = models.DateField(null=True, blank=True, help_text='Date of Birth')
     
     GENDER_CHOICES = [
@@ -130,7 +129,7 @@ class Teacher(models.Model):
         ('Female', 'Female'),
         ('Other', 'Other'),
     ]
-    gender = models.CharField(max_length=20, choices=GENDER_CHOICES, null=True, blank=True)
+    gender = models.CharField(max_length=20, choices=GENDER_CHOICES, null=True, blank=True, help_text='Gender')
     
     # Foreign key to Department
     department = models.ForeignKey(
@@ -139,33 +138,31 @@ class Teacher(models.Model):
         null=True,
         blank=True,
         db_column='department_id',
-        related_name='teachers'
+        related_name='teachers',
+        help_text='Department assignment'
     )
     
-    # Additional fields from schema
-    blood_group = models.CharField(max_length=10, null=True, blank=True)
-    nationality = models.CharField(max_length=100, null=True, blank=True)
-    mobile_no = models.CharField(max_length=20, null=True, blank=True)
-    email = models.EmailField(null=True, blank=True)
-    address = models.TextField(null=True, blank=True)
-    primary_room_id = models.CharField(max_length=50, null=True, blank=True, help_text='Primary room identifier')
-    class_teacher_section_id = models.CharField(max_length=50, null=True, blank=True, help_text='Class teacher section identifier')
+    # Contact and personal information
+    blood_group = models.CharField(max_length=10, null=True, blank=True, help_text='Blood group')
+    nationality = models.CharField(max_length=100, null=True, blank=True, help_text='Nationality')
+    mobile_no = models.CharField(max_length=20, null=True, blank=True, help_text='Mobile phone number')
+    email = models.EmailField(null=True, blank=True, help_text='Email address')
+    address = models.TextField(null=True, blank=True, help_text='Address')
+    
+    # Class teacher assignment fields
     class_teacher_class = models.CharField(max_length=50, null=True, blank=True, help_text='Class name for class teacher assignment (e.g., Grade 9, 10)')
     class_teacher_grade = models.CharField(max_length=10, null=True, blank=True, help_text='Grade level for class teacher assignment (e.g., A, B, C, D)')
     subject_specialization = models.TextField(null=True, blank=True, help_text='Subject specialization details')
-    emergency_contact = models.CharField(max_length=20, null=True, blank=True)
+    emergency_contact = models.CharField(max_length=20, null=True, blank=True, help_text='Emergency contact number')
     
-    profile_photo = models.ForeignKey(
-        File,
-        on_delete=models.SET_NULL,
+    profile_photo = models.CharField(
+        max_length=100,
         null=True,
         blank=True,
-        related_name='teacher_profiles',
-        db_column='profile_photo_id',
-        help_text='Profile photo file (2-4MB)'
+        help_text='Profile photo URL or file path'
     )
     is_class_teacher = models.BooleanField(default=False, null=False, help_text='Whether the teacher is a class teacher')
-    is_active = models.BooleanField(default=True, null=False)
+    is_active = models.BooleanField(default=True, null=False, help_text='Active status')
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
     
@@ -180,7 +177,6 @@ class Teacher(models.Model):
             if not self.school_name or self.school_name != department_school_name:
                 self.school_name = department_school_name
         
-        # profile_photo_id is now the ForeignKey field itself (db_column='profile_photo_id')
         super().save(*args, **kwargs)
         
         # Update user's school_id if user is linked (signal will also handle this, but doing it here ensures it's immediate)
@@ -191,8 +187,8 @@ class Teacher(models.Model):
                 User.objects.filter(user_id=self.user.user_id).update(school_id=school_id)
     
     def __str__(self):
-        name = f"{self.first_name} {self.last_name}".strip() or self.employee_no or str(self.teacher_id)
-        return f"{name} - {self.employee_no or 'N/A'}"
+        name = f"{self.first_name} {self.last_name}".strip() or self.employee_no
+        return f"{name} - {self.employee_no}"
     
     class Meta:
         db_table = 'teachers'
@@ -278,24 +274,18 @@ class Student(models.Model):
     previous_school = models.CharField(max_length=255, null=True, blank=True)
     remarks = models.TextField(null=True, blank=True)
     
-    profile_photo = models.ForeignKey(
-        File,
-        on_delete=models.SET_NULL,
+    profile_photo = models.CharField(
+        max_length=100,
         null=True,
         blank=True,
-        related_name='student_profiles',
-        db_column='profile_photo_id',
-        help_text='Profile photo file (2-4MB)'
+        help_text='Profile photo URL or file path'
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     def save(self, *args, **kwargs):
-        """Sync profile_photo_id with profile_photo if profile_photo is set, and auto-populate school_id and school_name"""
-        if self.profile_photo:
-            self.profile_photo_id = self.profile_photo.file_id
-        
+        """Auto-populate school_id and school_name from school ForeignKey"""
         # Auto-populate school_name from school ForeignKey
         if self.school:
             if not self.school_name or self.school_name != self.school.school_name:
@@ -317,7 +307,6 @@ class Student(models.Model):
         db_table = 'students'
         verbose_name = 'Student'
         verbose_name_plural = 'Students'
-
 
 
 class NewAdmission(models.Model):
@@ -360,8 +349,8 @@ class NewAdmission(models.Model):
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
     applying_class = models.CharField(max_length=50)
     grade = models.CharField(max_length=1, choices=GRADE_CHOICES, null=True, blank=True, help_text="Grade of the student (A, B, C, or D)")
-    address = models.TextField(default = "Address not provided")
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default = "")
+    address = models.TextField(default="Address not provided")
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='General')
     
     # Student ID field - Primary Key
     student_id = models.CharField(max_length=100, primary_key=True, help_text="Student ID (Primary Key)")
@@ -435,75 +424,164 @@ class NewAdmission(models.Model):
         """
         Create a Student record from this approved NewAdmission.
         This method should be called when status changes to 'Approved'.
+        Also creates a User account with credentials if it doesn't exist.
         Returns the created or updated Student instance.
         """
-        from django.db import IntegrityError
+        from django.db import IntegrityError, transaction
         import datetime
-        
-        # Check if student already exists with this admission number or email
-        existing_student = None
-        if self.admission_number:
-            existing_student = Student.objects.filter(admission_number=self.admission_number).first()
-        if not existing_student and self.email:
-            existing_student = Student.objects.filter(email=self.email).first()
-        
-        if existing_student:
-            # Student already exists, update it with latest admission data
-            for field in ['student_name', 'parent_name', 'date_of_birth', 'gender', 
-                         'applying_class', 'grade', 'address', 'category',
-                         'parent_phone', 'emergency_contact', 'medical_information',
-                         'blood_group', 'previous_school', 'remarks']:
-                if hasattr(self, field):
-                    setattr(existing_student, field, getattr(self, field, None))
-            
-            # Update student_id from NewAdmission
-            if self.student_id:
-                existing_student.student_id = self.student_id
-            
-            # Note: user link is no longer stored in NewAdmission
-            
-            # Update admission number if not set
-            if self.admission_number and not existing_student.admission_number:
-                existing_student.admission_number = self.admission_number
-            
-            existing_student.save()
-            return existing_student
-        
-        # Generate admission number if not provided
-        admission_number = self.admission_number
-        if not admission_number:
-            timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-            admission_number = f'ADM-{datetime.datetime.now().year}-{timestamp[-6:]}'
-            # Ensure uniqueness
-            while Student.objects.filter(admission_number=admission_number).exists():
-                timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')
-                admission_number = f'ADM-{datetime.datetime.now().year}-{timestamp[-6:]}'
-            # Update the admission record with generated number
-            self.admission_number = admission_number
-            self.save(update_fields=['admission_number'])
-        
-        # Create Student record - map all fields from NewAdmission (except status)
-        # Get school from NewAdmission's school_id if available
+        import random
+        import string
+        import logging
+        from main_login.models import User, Role
         from super_admin.models import School
-        school = None
-        if self.school_id:
-            try:
-                school = School.objects.get(school_id=self.school_id)
-            except School.DoesNotExist:
-                pass
         
-        # If no school found, try to get default school
-        if not school:
-            school = School.objects.first()
+        logger = logging.getLogger(__name__)
+        
+        # Wrap everything in a transaction for atomicity
+        with transaction.atomic():
+            # Check if student already exists with this admission number or email
+            existing_student = None
+            if self.admission_number:
+                existing_student = Student.objects.filter(admission_number=self.admission_number).first()
+            if not existing_student and self.email:
+                existing_student = Student.objects.filter(email=self.email).first()
+            
+            # Create or get user account for the student
+            user = None
+            if self.email:
+                # Check if user already exists
+                user = User.objects.filter(email=self.email).first()
+                
+                if not user:
+                    # User doesn't exist, create it with credentials
+                    try:
+                        # Get or create student/parent role
+                        role, _ = Role.objects.get_or_create(
+                            name='student_parent',
+                            defaults={'description': 'Student/Parent role'}
+                        )
+                        
+                        # Generate unique username (optimized)
+                        username = self.email.split("@")[0]
+                        base_username = username
+                        # Add random suffix upfront to reduce collisions
+                        if User.objects.filter(username=username).exists():
+                            random_suffix = random.randint(1000, 9999)
+                            username = f'{base_username}{random_suffix}'
+                            # Double check and add more random if still exists (rare)
+                            if User.objects.filter(username=username).exists():
+                                username = f'{base_username}_{random.randint(10000, 99999)}'
+                        
+                        # Generate 8-character password
+                        characters = string.ascii_letters + string.digits
+                        generated_password = ''.join(random.choice(characters) for _ in range(8))
+                        
+                        # Create user account
+                        user = User.objects.create(
+                            email=self.email,
+                            username=username,
+                            first_name=self.student_name,
+                            role=role,
+                            is_active=True,
+                            has_custom_password=False
+                        )
+                        
+                        # Set password_hash to the generated password
+                        user.password_hash = generated_password
+                        user.set_unusable_password()  # This sets password field to unusable
+                        user.save()
+                        
+                    except IntegrityError as e:
+                        # Handle race condition - user might have been created by another process
+                        logger.warning(f"IntegrityError creating user during approval: {str(e)}")
+                        # Try to get the user that was just created
+                        user = User.objects.filter(email=self.email).first()
+                        if not user:
+                            raise  # Re-raise if we can't recover
+            
+            if existing_student:
+                # Student already exists, update it with latest admission data
+                for field in ['student_name', 'parent_name', 'date_of_birth', 'gender', 
+                             'applying_class', 'grade', 'address', 'category',
+                             'parent_phone', 'emergency_contact', 'medical_information',
+                             'blood_group', 'previous_school', 'remarks']:
+                    if hasattr(self, field):
+                        setattr(existing_student, field, getattr(self, field, None))
+                
+                # Update student_id from NewAdmission
+                if self.student_id:
+                    existing_student.student_id = self.student_id
+                
+                # Update admission number if not set
+                if self.admission_number and not existing_student.admission_number:
+                    existing_student.admission_number = self.admission_number
+                
+                # Link user to student if user exists and student doesn't have a user
+                if user and not existing_student.user:
+                    existing_student.user = user
+                
+                existing_student.save()
+                
+                # Create or update Parent record for existing student
+                if user:
+                    from student_parent.models import Parent
+                    try:
+                        parent = Parent.objects.get(user=user)
+                    except Parent.DoesNotExist:
+                        # Create parent first without accessing students
+                        parent = Parent(
+                            user=user,
+                            phone=self.parent_phone or self.email or "N/A",
+                            address=self.address or "Address not provided",
+                        )
+                        parent.save()  # Save first to get pk
+                    
+                    # Add the student to parent's students
+                    if existing_student not in parent.students.all():
+                        parent.students.add(existing_student)
+                        parent.save()  # Save again to update school_id/school_name from student
+                
+                return existing_student
+            
+            # Generate admission number if not provided (optimized)
+            admission_number = self.admission_number
+            if not admission_number:
+                now = datetime.datetime.now()
+                # Use timestamp + random string for better uniqueness without many DB queries
+                random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+                admission_number = f'ADM-{now.year}-{now.strftime("%m%d%H%M%S")}{random_str}'
+                
+                # Quick check - if it exists, append more random chars (should be very rare)
+                if Student.objects.filter(admission_number=admission_number).exists() or \
+                   NewAdmission.objects.filter(admission_number=admission_number).exists():
+                    admission_number = f'{admission_number}{random.randint(100,999)}'
+                
+                # Update the admission record with generated number
+                self.admission_number = admission_number
+                self.save(update_fields=['admission_number'])
+            
+            # Get school from NewAdmission's school_id if available
+            school = None
+            if self.school_id:
+                try:
+                    school = School.objects.get(school_id=self.school_id)
+                except School.DoesNotExist:
+                    logger.warning(f"School with ID {self.school_id} not found for admission {self.student_id}")
+                    pass
+            
+            # If no school found, try to get default school
             if not school:
-                # Create a default school if none exists
-                school = School.objects.create(
-                    name='Default School',
-                    location='Default Location',
-                    status='active'
-                )
-        
-        student_data = {
+                school = School.objects.first()
+                if not school:
+                    logger.warning("No school found, creating default school")
+                    # Create a default school if none exists
+                    school = School.objects.create(
+                        name='Default School',
+                        location='Default Location',
+                        status='active'
+                    )
+            
+            student_data = {
             'school': school,
             'student_id': self.student_id,  # Fetch student_id from NewAdmission
             'student_name': self.student_name,
@@ -522,29 +600,71 @@ class NewAdmission(models.Model):
             'blood_group': self.blood_group,
             'previous_school': self.previous_school,
             'remarks': self.remarks,
-            # Note: user is not stored in NewAdmission, so it will be None
-        }
-        
-        try:
-            # Create student
-            student = Student.objects.create(**student_data)
-            return student
-        except IntegrityError as e:
-            # Handle unique constraint violations (email or admission_number)
-            # Try to get existing student by email
-            if self.email:
-                try:
-                    student = Student.objects.get(email=self.email)
-                    # Update the existing student
-                    for key, value in student_data.items():
-                        if key != 'email':  # Don't update email if it's the same
-                            setattr(student, key, value)
-                    student.save()
-                    return student
-                except Student.DoesNotExist:
-                    pass
-            # If we can't find existing student, re-raise the error
-            raise
+                'user': user,  # Link the created user account to the student
+            }
+            
+            try:
+                # Create student
+                student = Student.objects.create(**student_data)
+                logger.info(f"Student created successfully: {student.student_id}")
+                
+                # Create Parent record for the same user (student and parent are the same user)
+                if user:
+                    from student_parent.models import Parent
+                    # Check if parent already exists for this user
+                    try:
+                        parent = Parent.objects.get(user=user)
+                    except Parent.DoesNotExist:
+                        # Create parent first without accessing students
+                        parent = Parent(
+                            user=user,
+                            phone=self.parent_phone or self.email or "N/A",
+                            address=self.address or "Address not provided",
+                        )
+                        parent.save()  # Save first to get pk
+                    
+                    # Add the student to parent's students (ManyToMany relationship)
+                    if student not in parent.students.all():
+                        parent.students.add(student)
+                        parent.save()  # Save again to update school_id/school_name from student
+                    logger.info(f"Parent record linked to student: {student.student_id}")
+                
+                return student
+            except IntegrityError as e:
+                # Handle unique constraint violations (email or admission_number)
+                logger.error(f"IntegrityError creating student: {str(e)}")
+                # Try to get existing student by email or admission_number
+                if self.email:
+                    existing_student = Student.objects.filter(email=self.email).first()
+                    if existing_student:
+                        # Update the existing student
+                        logger.info(f"Found existing student, updating: {existing_student.student_id}")
+                        for key, value in student_data.items():
+                            if key != 'email':  # Don't update email if it's the same
+                                setattr(existing_student, key, value)
+                        existing_student.save()
+                        
+                        # Create or update Parent record for existing student
+                        if user:
+                            from student_parent.models import Parent
+                            parent, _ = Parent.objects.get_or_create(
+                                user=user,
+                                defaults={
+                                    'phone': self.parent_phone or self.email or "N/A",
+                                    'address': self.address or "Address not provided",
+                                }
+                            )
+                            
+                            # Add the student to parent's students if not already linked
+                            if existing_student not in parent.students.all():
+                                parent.students.add(existing_student)
+                                parent.save()  # Save again to update school_id/school_name from student
+                        
+                        return existing_student
+                
+                # If we can't find existing student, re-raise the error
+                logger.error(f"Could not recover from IntegrityError: {str(e)}")
+                raise
     
     class Meta:
         db_table = 'new_admissions'

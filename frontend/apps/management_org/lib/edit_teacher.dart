@@ -20,9 +20,9 @@ const List<String> bloodGroupOptions = [
 ];
 
 class EditTeacherPage extends StatefulWidget {
-  final int? teacherId;
+  final String? employeeNo;
 
-  const EditTeacherPage({super.key, this.teacherId});
+  const EditTeacherPage({super.key, this.employeeNo});
 
   @override
   State<EditTeacherPage> createState() => _EditTeacherPageState();
@@ -31,7 +31,6 @@ class EditTeacherPage extends StatefulWidget {
 class _EditTeacherPageState extends State<EditTeacherPage> {
   final _formKey = GlobalKey<FormState>();
 
-  final _teacherIdController = TextEditingController();
   final _employeeNoController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
@@ -40,7 +39,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
   final _emailController = TextEditingController();
   final _addressController = TextEditingController();
   final _nationalityController = TextEditingController();
-  final _classTeacherSectionIdController = TextEditingController();
   final _subjectSpecializationController = TextEditingController();
   final _emergencyContactController = TextEditingController();
 
@@ -133,12 +131,12 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
   }
 
   Future<void> _loadTeacherData() async {
-    if (widget.teacherId == null) return;
+    if (widget.employeeNo == null || widget.employeeNo!.isEmpty) return;
     try {
       // Use core ApiService for authenticated requests
       final apiService = ApiService();
       await apiService.initialize();
-      final response = await apiService.get('${Endpoints.teachers}${widget.teacherId}/');
+      final response = await apiService.get('${Endpoints.teachers}${widget.employeeNo}/');
       
       if (!response.success || response.data == null) {
         throw Exception(response.error ?? 'Failed to load teacher');
@@ -146,7 +144,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
       
       final data = response.data as Map<String, dynamic>;
       
-      _teacherIdController.text = data['teacher_id']?.toString() ?? '';
       _employeeNoController.text = data['employee_no'] as String? ?? '';
       _firstNameController.text = data['first_name'] as String? ?? '';
       _lastNameController.text = data['last_name'] as String? ?? '';
@@ -165,7 +162,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
       _addressController.text = data['address'] as String? ?? '';
       _bloodGroup = data['blood_group'] as String?;
       _nationalityController.text = data['nationality'] as String? ?? '';
-      _classTeacherSectionIdController.text = data['class_teacher_section_id'] as String? ?? '';
       _subjectSpecializationController.text = data['subject_specialization'] as String? ?? '';
       _emergencyContactController.text = data['emergency_contact'] as String? ?? '';
       _isClassTeacher = data['is_class_teacher'] as bool? ?? false;
@@ -190,7 +186,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
 
   @override
   void dispose() {
-    _teacherIdController.dispose();
     _employeeNoController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
@@ -199,7 +194,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
     _emailController.dispose();
       _addressController.dispose();
       _nationalityController.dispose();
-    _classTeacherSectionIdController.dispose();
     _subjectSpecializationController.dispose();
     _emergencyContactController.dispose();
     super.dispose();
@@ -227,40 +221,8 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
     });
 
     try {
-      // Upload profile photo if available
-      String? profilePhotoFileId;
-      if (_photoBytes != null && _photoBytes!.isNotEmpty) {
-        try {
-          // Generate a filename
-          final timestamp = DateTime.now().millisecondsSinceEpoch;
-          final fileName = 'teacher_photo_$timestamp.jpg';
-          
-          // Upload file first
-          final apiService = ApiService();
-          await apiService.initialize();
-          final uploadResponse = await apiService.uploadFile(
-            Endpoints.files,
-            fileBytes: _photoBytes!,
-            fileName: fileName,
-            fieldName: 'file',
-            additionalFields: {
-              'file_name': fileName,
-              'file_type': 'jpg',
-            },
-          );
-          
-          if (uploadResponse.success && uploadResponse.data is Map) {
-            final fileData = uploadResponse.data as Map<String, dynamic>;
-            profilePhotoFileId = fileData['file_id']?.toString();
-          } else {
-            // Log error but continue without photo
-            print('Failed to upload profile photo: ${uploadResponse.error ?? "Unknown error"}');
-          }
-        } catch (e) {
-          // Log error but continue without photo
-          print('Error uploading profile photo: $e');
-        }
-      }
+      // Note: Profile photo will be sent as multipart/form-data with the request
+      // The backend handles file upload directly
 
       final payload = <String, dynamic>{
         'employee_no': _employeeNoController.text.trim(),
@@ -279,7 +241,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
         'address': _addressController.text.trim(),
         if (_bloodGroup != null && _bloodGroup!.isNotEmpty) 'blood_group': _bloodGroup,
         'nationality': _nationalityController.text.trim(),
-        'class_teacher_section_id': _classTeacherSectionIdController.text.trim(),
         'is_class_teacher': _isClassTeacher,
         if (_isClassTeacher && _classTeacherClass != null && _classTeacherClass!.isNotEmpty) 
           'class_teacher_class': _classTeacherClass,
@@ -287,14 +248,34 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
           'class_teacher_grade': _classTeacherGrade,
         'subject_specialization': _subjectSpecializationController.text.trim(),
         'emergency_contact': _emergencyContactController.text.trim(),
-        if (profilePhotoFileId != null) 'profile_photo': profilePhotoFileId,
       };
 
-      if (widget.teacherId != null) {
+      if (widget.employeeNo != null && widget.employeeNo!.isNotEmpty) {
         // Use core ApiService for authenticated requests
         final apiService = ApiService();
         await apiService.initialize();
-        final response = await apiService.put('${Endpoints.teachers}${widget.teacherId}/', body: payload);
+        
+        // If photo is available, use multipart upload, otherwise use JSON
+        // Convert Map<String, dynamic> to Map<String, String> for uploadFile
+        Map<String, String>? additionalFieldsString;
+        if (_photoBytes != null && _photoBytes!.isNotEmpty) {
+          additionalFieldsString = <String, String>{};
+          payload.forEach((key, value) {
+            if (value != null) {
+              additionalFieldsString![key] = value.toString();
+            }
+          });
+        }
+        
+        final response = _photoBytes != null && _photoBytes!.isNotEmpty
+            ? await apiService.uploadFile(
+                '${Endpoints.teachers}${widget.employeeNo}/',
+                fileBytes: _photoBytes!,
+                fileName: 'teacher_photo_${DateTime.now().millisecondsSinceEpoch}.jpg',
+                fieldName: 'profile_photo',
+                additionalFields: additionalFieldsString,
+              )
+            : await apiService.put('${Endpoints.teachers}${widget.employeeNo}/', body: payload);
         
         if (!response.success) {
           throw Exception(response.error ?? 'Failed to update teacher');
@@ -328,7 +309,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _PreviewItem('Teacher ID', _teacherIdController.text),
               _PreviewItem('Employee No', _employeeNoController.text),
               _PreviewItem('Name', '${_firstNameController.text} ${_lastNameController.text}'.trim()),
               _PreviewItem('Department', _selectedDepartmentId != null 
@@ -341,7 +321,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
               _PreviewItem('Blood Group', _bloodGroup ?? 'Not provided'),
               _PreviewItem('Nationality', _nationalityController.text),
               _PreviewItem('Qualification', _qualificationController.text),
-              _PreviewItem('Class Teacher Section ID', _classTeacherSectionIdController.text),
               _PreviewItem('Subject Specialization', _subjectSpecializationController.text),
               _PreviewItem('Emergency Contact', _emergencyContactController.text),
             ],
@@ -384,7 +363,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
                       _FormCard(
                         formKey: _formKey,
                         gradient: gradient,
-                        teacherIdController: _teacherIdController,
                         employeeNoController: _employeeNoController,
                         firstNameController: _firstNameController,
                         lastNameController: _lastNameController,
@@ -421,7 +399,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
                         bloodGroup: _bloodGroup,
                         onBloodGroupChanged: (value) => setState(() => _bloodGroup = value),
                         nationalityController: _nationalityController,
-                        classTeacherSectionIdController: _classTeacherSectionIdController,
                         isClassTeacher: _isClassTeacher,
                         onIsClassTeacherChanged: (value) {
                           setState(() {
@@ -656,7 +633,6 @@ class _Header extends StatelessWidget {
 class _FormCard extends StatelessWidget {
   final GlobalKey<FormState> formKey;
   final LinearGradient gradient;
-  final TextEditingController teacherIdController;
   final TextEditingController employeeNoController;
   final TextEditingController firstNameController;
   final TextEditingController lastNameController;
@@ -677,7 +653,6 @@ class _FormCard extends StatelessWidget {
   final String? bloodGroup;
   final ValueChanged<String?> onBloodGroupChanged;
   final TextEditingController nationalityController;
-  final TextEditingController classTeacherSectionIdController;
   final bool isClassTeacher;
   final ValueChanged<bool> onIsClassTeacherChanged;
   final String? classTeacherClass;
@@ -698,7 +673,6 @@ class _FormCard extends StatelessWidget {
   const _FormCard({
     required this.formKey,
     required this.gradient,
-    required this.teacherIdController,
     required this.employeeNoController,
     required this.firstNameController,
     required this.lastNameController,
@@ -719,7 +693,6 @@ class _FormCard extends StatelessWidget {
     required this.bloodGroup,
     required this.onBloodGroupChanged,
     required this.nationalityController,
-    required this.classTeacherSectionIdController,
     required this.isClassTeacher,
     required this.onIsClassTeacherChanged,
     required this.classTeacherClass,
@@ -803,40 +776,18 @@ class _FormCard extends StatelessWidget {
               onPickPhoto: onPickPhoto,
             ),
             const SizedBox(height: 20),
-            // Teacher ID (read-only)
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: teacherIdController,
-                    enabled: false,
-                    decoration: InputDecoration(
-                      labelText: 'Teacher ID',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[100],
-                      prefixIcon: const Icon(Icons.badge),
-                    ),
-                  ),
+            // Employee Number
+            TextFormField(
+              controller: employeeNoController,
+              decoration: InputDecoration(
+                labelText: 'Employee Number',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: TextFormField(
-                    controller: employeeNoController,
-                    decoration: InputDecoration(
-                      labelText: 'Employee Number',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      prefixIcon: const Icon(Icons.work),
-                    ),
-                  ),
-                ),
-              ],
+                filled: true,
+                fillColor: Colors.white,
+                prefixIcon: const Icon(Icons.work),
+              ),
             ),
             const SizedBox(height: 20),
             // First Name and Last Name

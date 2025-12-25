@@ -14,10 +14,10 @@ class DepartmentAdmin(admin.ModelAdmin):
 
 @admin.register(Teacher)
 class TeacherAdmin(admin.ModelAdmin):
-    list_display = ['teacher_id', 'first_name', 'last_name', 'user', 'department', 'employee_no', 'joining_date', 'is_active']
+    list_display = ['employee_no', 'first_name', 'last_name', 'user', 'department', 'joining_date', 'is_active']
     list_filter = ['department', 'gender', 'is_active', 'joining_date']
-    search_fields = ['first_name', 'last_name', 'employee_no', 'email', 'user__username', 'user__email']
-    readonly_fields = ['teacher_id', 'created_at', 'updated_at']
+    search_fields = ['employee_no', 'first_name', 'last_name', 'email', 'user__username', 'user__email']
+    readonly_fields = ['created_at', 'updated_at']
 
 
 @admin.register(Student)

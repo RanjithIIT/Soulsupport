@@ -50,13 +50,22 @@ def populate_school_name_in_all_tables(apps, schema_editor):
                 [school_name, school_id]
             )
         
-        # Update Fees
-        print("Updating school_name in fees table...")
-        for school_id, school_name in school_name_map.items():
-            cursor.execute(
-                "UPDATE fees SET school_name = %s WHERE school_id = %s",
-                [school_name, school_id]
-            )
+        # Update Fees (only if school_name column exists)
+        print("Checking if fees table has school_name column...")
+        cursor.execute("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='fees' AND column_name='school_name'
+        """)
+        if cursor.fetchone():
+            print("Updating school_name in fees table...")
+            for school_id, school_name in school_name_map.items():
+                cursor.execute(
+                    "UPDATE fees SET school_name = %s WHERE school_id = %s",
+                    [school_name, school_id]
+                )
+        else:
+            print("Skipping fees table - school_name column does not exist")
         
         # Update BusStops
         print("Updating school_name in bus_stops table...")

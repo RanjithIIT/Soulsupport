@@ -8,7 +8,6 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db import transaction
 from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent
 from super_admin.models import School
 from .serializers import (
@@ -116,7 +115,6 @@ class TeacherViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                 teacher.school_id = school_id
                 teacher.save(update_fields=['school_id'])
     
-    @transaction.atomic
     def create(self, request, *args, **kwargs):
         """
         Override create to allow creation even if school_id is not found initially.
@@ -126,29 +124,36 @@ class TeacherViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         """
         # Handle profile photo upload if present
         profile_photo_file = request.FILES.get('profile_photo')
-        profile_photo_id = None
+        profile_photo_url = None
         
         if profile_photo_file:
-            # Create File record for the uploaded photo
-            from main_login.utils import get_user_school_id
-            school_id = get_user_school_id(request.user) if request.user.is_authenticated else None
+            # Save file and get the URL/path
+            from django.core.files.storage import default_storage
+            from django.utils import timezone
+            import os
             
-            file_obj = File.objects.create(
-                file=profile_photo_file,
-                file_name=profile_photo_file.name,
-                file_type=profile_photo_file.name.split('.')[-1].lower() if '.' in profile_photo_file.name else '',
-                file_size=profile_photo_file.size,
-                uploaded_by=request.user if request.user.is_authenticated else None,
-                school_id=school_id
-            )
-            profile_photo_id = file_obj.file_id
+            # Generate filename with timestamp to avoid conflicts
+            file_ext = os.path.splitext(profile_photo_file.name)[1]
+            timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+            filename = f'profile_photos/{timestamp}_{profile_photo_file.name}'
+            
+            # Save file using default storage
+            saved_path = default_storage.save(filename, profile_photo_file)
+            # Get the URL for the saved file
+            profile_photo_url = default_storage.url(saved_path)
         
-        # Prepare data for serializer (remove profile_photo file, use profile_photo_id)
+        # Prepare data for serializer
         data = request.data.copy()
         if 'profile_photo' in data:
-            del data['profile_photo']
-        if profile_photo_id:
-            data['profile_photo'] = str(profile_photo_id)
+            if profile_photo_file:
+                # Remove the file from data, we'll add the URL instead
+                del data['profile_photo']
+            elif isinstance(data['profile_photo'], str):
+                # If profile_photo is already a string (URL), use it
+                profile_photo_url = data['profile_photo']
+        
+        if profile_photo_url:
+            data['profile_photo'] = profile_photo_url
         
         # Get serializer
         serializer = self.get_serializer(data=data)
@@ -334,17 +339,30 @@ class NewAdmissionViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     ordering_fields = ['created_at', 'status', 'student_name']
     ordering = ['-created_at']
     
-    @transaction.atomic
     def create(self, request, *args, **kwargs):
         """Override create to provide better error messages"""
+        import logging
+        import traceback
+        logger = logging.getLogger(__name__)
+        
+        # Log incoming request data for debugging
+        logger.info(f"Admission creation request from user: {request.user.username}")
+        logger.debug(f"Request data: {request.data}")
+        
         serializer = self.get_serializer(data=request.data)
         
         if not serializer.is_valid():
+            # Log validation errors
+            logger.error(f"Validation failed for admission creation")
+            logger.error(f"Validation errors: {serializer.errors}")
+            logger.error(f"Request data received: {request.data}")
+            
             return Response(
                 {
                     'success': False,
                     'message': 'Validation error',
                     'errors': serializer.errors,
+                    'received_data': {k: v for k, v in request.data.items()},  # Include received data for debugging
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
@@ -366,6 +384,7 @@ class NewAdmissionViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                     'message': 'Please save these credentials. You can use them to login once admission is approved.'
                 }
             
+            logger.info(f"Admission created successfully: {serializer.data.get('student_id')}")
             return Response(
                 {
                     'success': True,
@@ -376,76 +395,33 @@ class NewAdmissionViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                 headers=headers
             )
         except Exception as e:
+            # Log exception details
+            logger.error(f"Exception during admission creation: {str(e)}")
+            logger.error(traceback.format_exc())
+            
             return Response(
                 {
                     'success': False,
                     'message': str(e),
                     'error': 'Failed to create admission',
+                    'error_type': type(e).__name__,
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
     
     def perform_create(self, serializer):
-        """Override to create user account for admission"""
-        from main_login.models import User, Role
-        
-        # Get email and student_name from validated data
-        email = serializer.validated_data.get('email')
-        student_name = serializer.validated_data.get('student_name', '')
-        
-        # Split student_name into first_name and last_name
-        name_parts = student_name.strip().split(maxsplit=1)
-        first_name = name_parts[0] if name_parts else student_name
-        last_name = name_parts[1] if len(name_parts) > 1 else ''
-        
-        # Generate 8-character random password (alphanumeric)
-        characters = string.ascii_letters + string.digits
-        generated_password = ''.join(random.choice(characters) for _ in range(8))
-        
-        # Get or create student_parent role
-        role, _ = Role.objects.get_or_create(
-            name='student_parent',
-            defaults={'description': 'Student/Parent role'}
-        )
-        
-        # Create username from email (part before @)
-        username = email.split('@')[0] if email else f'student_{random.randint(1000, 9999)}'
-        # Ensure username is unique
-        base_username = username
-        counter = 1
-        while User.objects.filter(username=username).exists():
-            username = f'{base_username}{counter}'
-            counter += 1
-        
-        # Create User account
-        user, user_created = User.objects.get_or_create(
-            email=email,
-            defaults={
-                'username': username,
-                'first_name': first_name,
-                'last_name': last_name,
-                'role': role,
-                'is_active': True,
-                'has_custom_password': False,  # User needs to create their own password
-            }
-        )
-        
-        # Set password_hash to the generated 8-character password
-        # Set password field to null/unusable so authentication backend checks password_hash
-        user.password_hash = generated_password
-        user.set_unusable_password()  # This sets password field to unusable (effectively null)
-        user.has_custom_password = False  # Ensure flag is set
-        user.save()
-        
-        # Store generated password in serializer context to return in response
-        serializer.context['generated_password'] = generated_password
-        
-        # Save the admission (without school and user links)
+        """Override to handle admission creation - user creation is done in serializer"""
+        # The serializer's create method already handles user creation
+        # Just save the admission (which will call serializer.create())
         admission = serializer.save()
+        
+        # Get generated password from serializer if set (the serializer's create method sets this)
+        generated_password = getattr(serializer, 'generated_password', None)
+        if generated_password:
+            serializer.context['generated_password'] = generated_password
         
         return admission
     
-    @transaction.atomic
     def update(self, request, *args, **kwargs):
         """Override update to provide better error messages and handle partial updates"""
         partial = kwargs.pop('partial', False)
@@ -519,7 +495,6 @@ class NewAdmissionViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
     
-    @transaction.atomic
     @action(detail=True, methods=['post'], url_path='approve')
     def approve(self, request, pk=None):
         """
@@ -544,13 +519,27 @@ class NewAdmissionViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         # Generate admission number if not provided
         if not admission.admission_number:
             import datetime
-            timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-            admission_number = f'ADM-{datetime.datetime.now().year}-{timestamp[-6:]}'
-            # Ensure uniqueness
-            while Student.objects.filter(admission_number=admission_number).exists() or \
-                  NewAdmission.objects.filter(admission_number=admission_number).exists():
-                timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')
-                admission_number = f'ADM-{datetime.datetime.now().year}-{timestamp[-6:]}'
+            counter = 0
+            max_attempts = 1000  # Prevent infinite loops
+            while counter < max_attempts:
+                # Use current timestamp with microseconds and add random component for uniqueness
+                now = datetime.datetime.now()
+                timestamp = now.strftime('%Y%m%d%H%M%S%f')
+                random_suffix = ''.join(random.choices(string.digits, k=3))  # Add 3 random digits
+                admission_number = f'ADM-{now.year}-{timestamp[-9:]}{random_suffix}'  # Use last 9 chars + 3 random
+                
+                # Check uniqueness
+                if not Student.objects.filter(admission_number=admission_number).exists() and \
+                   not NewAdmission.objects.filter(admission_number=admission_number).exists():
+                    break
+                counter += 1
+            
+            if counter >= max_attempts:
+                # Fallback: use timestamp with milliseconds and random string
+                now = datetime.datetime.now()
+                random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+                admission_number = f'ADM-{now.year}-{now.strftime("%m%d%H%M%S")}{random_str}'
+            
             admission.admission_number = admission_number
         
         admission.save()
@@ -695,7 +684,6 @@ class FeeViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
-    @transaction.atomic
     @action(detail=True, methods=['post'], url_path='record-payment')
     def record_payment(self, request, pk=None):
         """Record a payment for a fee and create payment history"""
@@ -928,7 +916,6 @@ class BusViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         ).select_related('school')
         return queryset
     
-    @transaction.atomic
     def create(self, request, *args, **kwargs):
         """Override create to automatically get school from logged-in user if not provided"""
         # Get school from request data if provided
@@ -1069,7 +1056,6 @@ class BusStopStudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     ordering_fields = ['created_at']
     ordering = ['bus_stop', 'student_name']
     
-    @transaction.atomic
     def create(self, request, *args, **kwargs):
         """Override create to fetch student by student_id and validate school match"""
         student_id = request.data.get('student_id')

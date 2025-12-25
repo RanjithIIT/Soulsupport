@@ -29,7 +29,6 @@ class AddTeacherPage extends StatefulWidget {
 class _AddTeacherPageState extends State<AddTeacherPage> {
   final _formKey = GlobalKey<FormState>();
 
-  final _teacherIdController = TextEditingController();
   final _employeeNoController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
@@ -38,7 +37,6 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
   final _emailController = TextEditingController();
   final _addressController = TextEditingController();
   final _nationalityController = TextEditingController();
-  final _classTeacherSectionIdController = TextEditingController();
   final _subjectSpecializationController = TextEditingController();
   final _emergencyContactController = TextEditingController();
 
@@ -74,7 +72,6 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
   String _errorMessage = '';
 
   TeacherPreviewData get _previewData => TeacherPreviewData(
-        teacherId: _teacherIdController.text,
         employeeNo: _employeeNoController.text,
         firstName: _firstNameController.text,
         lastName: _lastNameController.text,
@@ -84,7 +81,6 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
         mobileNo: _mobileNoController.text,
         email: _emailController.text,
         address: _addressController.text,
-        classTeacherSectionId: _classTeacherSectionIdController.text,
         qualification: _qualificationController.text,
         subjectSpecialization: _subjectSpecializationController.text,
       );
@@ -144,7 +140,6 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
 
   @override
   void dispose() {
-    _teacherIdController.dispose();
     _employeeNoController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
@@ -152,8 +147,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
     _mobileNoController.dispose();
     _emailController.dispose();
     _addressController.dispose();
-    _nationalityController.dispose();
-    _classTeacherSectionIdController.dispose();
+      _nationalityController.dispose();
     _subjectSpecializationController.dispose();
     _emergencyContactController.dispose();
     super.dispose();
@@ -252,57 +246,40 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
       final nationality = _nullIfEmpty(_nationalityController.text);
       if (nationality != null) teacherData['nationality'] = nationality;
       
-      final classTeacherSectionId = _nullIfEmpty(_classTeacherSectionIdController.text);
-      if (classTeacherSectionId != null) teacherData['class_teacher_section_id'] = classTeacherSectionId;
-      
       final subjectSpecialization = _nullIfEmpty(_subjectSpecializationController.text);
       if (subjectSpecialization != null) teacherData['subject_specialization'] = subjectSpecialization;
       
       final emergencyContact = _nullIfEmpty(_emergencyContactController.text);
       if (emergencyContact != null) teacherData['emergency_contact'] = emergencyContact;
 
-      // Upload profile photo if available
-      String? profilePhotoFileId;
-      if (_photoBytes != null && _photoBytes!.isNotEmpty) {
-        try {
-          // Generate a filename
-          final timestamp = DateTime.now().millisecondsSinceEpoch;
-          final fileName = 'teacher_photo_$timestamp.jpg';
-          
-          // Upload file first
-          final apiService = ApiService();
-          await apiService.initialize();
-          final uploadResponse = await apiService.uploadFile(
-            Endpoints.files,
-            fileBytes: _photoBytes!,
-            fileName: fileName,
-            fieldName: 'file',
-            additionalFields: {
-              'file_name': fileName,
-              'file_type': 'jpg',
-            },
-          );
-          
-          if (uploadResponse.success && uploadResponse.data is Map) {
-            final fileData = uploadResponse.data as Map<String, dynamic>;
-            profilePhotoFileId = fileData['file_id']?.toString();
-            if (profilePhotoFileId != null) {
-              teacherData['profile_photo'] = profilePhotoFileId;
-            }
-          } else {
-            // Log error but continue without photo
-            print('Failed to upload profile photo: ${uploadResponse.error ?? "Unknown error"}');
-          }
-        } catch (e) {
-          // Log error but continue without photo
-          print('Error uploading profile photo: $e');
-        }
-      }
+      // Note: Profile photo will be sent as multipart/form-data with the request
+      // The backend handles file upload directly
 
-      // Call API to create teacher using core ApiService
+      // Call API to create teacher using multipart/form-data for file upload
       final apiService = ApiService();
       await apiService.initialize();
-      final response = await apiService.post(Endpoints.teachers, body: teacherData);
+      
+      // If photo is available, use multipart upload, otherwise use JSON
+      // Convert Map<String, dynamic> to Map<String, String> for uploadFile
+      Map<String, String>? additionalFieldsString;
+      if (_photoBytes != null && _photoBytes!.isNotEmpty) {
+        additionalFieldsString = <String, String>{};
+        teacherData.forEach((key, value) {
+          if (value != null) {
+            additionalFieldsString![key] = value.toString();
+          }
+        });
+      }
+      
+      final response = _photoBytes != null && _photoBytes!.isNotEmpty
+          ? await apiService.uploadFile(
+              Endpoints.teachers,
+              fileBytes: _photoBytes!,
+              fileName: 'teacher_photo_${DateTime.now().millisecondsSinceEpoch}.jpg',
+              fieldName: 'profile_photo',
+              additionalFields: additionalFieldsString,
+            )
+          : await apiService.post(Endpoints.teachers, body: teacherData);
       
       if (!response.success) {
         // Get detailed error message from response
@@ -325,11 +302,6 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
       final responseData = response.data as Map<String, dynamic>? ?? {};
       
       if (!mounted) return;
-      
-      // Populate teacher_id from response if available
-      if (responseData['teacher_id'] != null) {
-        _teacherIdController.text = responseData['teacher_id'].toString();
-      }
       
       setState(() {
         _isSubmitting = false;
@@ -377,8 +349,6 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    if (data.teacherId != null && data.teacherId!.isNotEmpty)
-                      _PreviewRow(label: 'Teacher ID', value: data.teacherId),
                     if (data.employeeNo != null && data.employeeNo!.isNotEmpty)
                       _PreviewRow(label: 'Employee No', value: data.employeeNo),
                     _PreviewRow(
@@ -389,7 +359,6 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                     _PreviewRow(label: 'Mobile No', value: data.mobileNo),
                     _PreviewRow(label: 'Email', value: data.email),
                     _PreviewRow(label: 'Address', value: data.address),
-                    _PreviewRow(label: 'Class Teacher Section ID', value: data.classTeacherSectionId),
                     _PreviewRow(label: 'Qualification', value: data.qualification),
                     _PreviewRow(label: 'Subject Specialization', value: data.subjectSpecialization),
                     const SizedBox(height: 20),
@@ -624,22 +593,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                   spacing: 30,
                                   runSpacing: 30,
                                   children: [
-                                    // Teacher ID (read-only, auto-generated)
-                                    SizedBox(
-                                      width:
-                                          isTwoColumns ? (constraints.maxWidth - 30) / 2 : constraints.maxWidth,
-                                      child: _LabeledField(
-                                        label: 'Teacher ID',
-                                        child: TextFormField(
-                                          controller: _teacherIdController,
-                                          enabled: false,
-                                          decoration: _inputDecoration(
-                                            hint: 'Auto-generated',
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    // Employee No
+                                    // Employee No (required)
                                     SizedBox(
                                       width:
                                           isTwoColumns ? (constraints.maxWidth - 30) / 2 : constraints.maxWidth,
@@ -648,7 +602,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                         child: TextFormField(
                                           controller: _employeeNoController,
                                           decoration: _inputDecoration(
-                                            hint: 'Enter employee number (optional)',
+                                            hint: 'Enter employee number (auto-generated if empty)',
                                           ),
                                         ),
                                       ),
@@ -910,20 +864,6 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                           controller: _nationalityController,
                                           decoration: _inputDecoration(
                                             hint: 'Enter nationality',
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    // Class Teacher Section ID
-                                    SizedBox(
-                                      width:
-                                          isTwoColumns ? (constraints.maxWidth - 30) / 2 : constraints.maxWidth,
-                                      child: _LabeledField(
-                                        label: 'Class Teacher Section ID',
-                                        child: TextFormField(
-                                          controller: _classTeacherSectionIdController,
-                                          decoration: _inputDecoration(
-                                            hint: 'Enter class teacher section',
                                           ),
                                         ),
                                       ),
@@ -1313,7 +1253,6 @@ class _PreviewRow extends StatelessWidget {
 }
 
 class TeacherPreviewData {
-  final String? teacherId;
   final String? employeeNo;
   final String? firstName;
   final String? lastName;
@@ -1321,12 +1260,10 @@ class TeacherPreviewData {
   final String? mobileNo;
   final String? email;
   final String? address;
-  final String? classTeacherSectionId;
   final String? qualification;
   final String? subjectSpecialization;
 
   const TeacherPreviewData({
-    required this.teacherId,
     required this.employeeNo,
     required this.firstName,
     required this.lastName,
@@ -1334,7 +1271,6 @@ class TeacherPreviewData {
     required this.mobileNo,
     required this.email,
     required this.address,
-    required this.classTeacherSectionId,
     required this.qualification,
     required this.subjectSpecialization,
   });

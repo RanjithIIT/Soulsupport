@@ -45,10 +45,44 @@ class ParentViewSet(SchoolFilterMixin, viewsets.ReadOnlyModelViewSet):
                 return Response(serializer.data, status=status.HTTP_200_OK)
             else:
                 logger.warning(f'Parent profile not found for user: {request.user.username} (ID: {request.user.user_id}, Email: {request.user.email})')
-                # Check if parent exists at all for this user
-                parent_exists = Parent.objects.filter(user=request.user).exists()
-                if not parent_exists:
-                    logger.warning(f'No parent record exists in database for user: {request.user.username}')
+                
+                # Try to auto-create parent profile from Student record (student and parent are same user)
+                student = Student.objects.filter(user=request.user).first()
+                if not student and request.user.email:
+                    # Try to find student by email
+                    try:
+                        student = Student.objects.get(email=request.user.email)
+                        # Auto-link user if not already linked
+                        if not student.user:
+                            student.user = request.user
+                            student.save()
+                    except Student.DoesNotExist:
+                        pass
+                
+                if student:
+                    # Create parent profile from student data
+                    logger.info(f'Auto-creating parent profile for user: {request.user.username} from student record')
+                    try:
+                        # Create parent first without accessing students
+                        parent = Parent(
+                            user=request.user,
+                            phone=student.parent_phone or student.email or '',
+                            address=student.address or 'Address not provided'
+                        )
+                        parent.save()  # Save first to get pk
+                        # Now add the student to parent's students (ManyToMany)
+                        parent.students.add(student)
+                        # Save again to update school_id/school_name from student
+                        parent.save()
+                        
+                        logger.info(f'Successfully created parent profile: ID={parent.id}')
+                        serializer = self.get_serializer(parent)
+                        return Response(serializer.data, status=status.HTTP_200_OK)
+                    except Exception as e:
+                        logger.error(f'Error auto-creating parent profile: {str(e)}', exc_info=True)
+                
+                # If we still don't have a parent, return error
+                logger.warning(f'No parent record exists in database for user: {request.user.username}')
                 return Response(
                     {
                         'error': 'Parent profile not found for this user',

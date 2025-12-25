@@ -8,7 +8,7 @@ import 'dashboard.dart';
 import 'widgets/school_profile_header.dart';
 
 class Teacher {
-  final int id;
+  final String employeeNo;
   final String name;
   final String department;
   final String phone;
@@ -29,7 +29,7 @@ class Teacher {
   final String? profilePhotoUrl;
 
   Teacher({
-    required this.id,
+    required this.employeeNo,
     required this.name,
     required this.department,
     required this.phone,
@@ -58,15 +58,20 @@ class Teacher {
     
     // Get profile photo URL
     String? profilePhotoUrl;
-    if (json['profile_photo_url'] != null) {
+    if (json['profile_photo_url'] != null && json['profile_photo_url'].toString().isNotEmpty) {
       profilePhotoUrl = json['profile_photo_url'] as String;
-    } else if (json['profile_photo'] != null && json['profile_photo'] is Map) {
-      final profilePhoto = json['profile_photo'] as Map<String, dynamic>;
-      profilePhotoUrl = profilePhoto['file_url'] as String?;
+    } else if (json['profile_photo'] != null) {
+      if (json['profile_photo'] is Map) {
+        final profilePhoto = json['profile_photo'] as Map<String, dynamic>;
+        profilePhotoUrl = profilePhoto['file_url'] as String?;
+      } else if (json['profile_photo'] is String && (json['profile_photo'] as String).isNotEmpty) {
+        // profile_photo might be a direct URL string
+        profilePhotoUrl = json['profile_photo'] as String;
+      }
     }
     
     return Teacher(
-      id: json['teacher_id'] != null ? int.tryParse(json['teacher_id'].toString()) ?? 0 : (json['id'] as int? ?? 0),
+      employeeNo: json['employee_no'] as String? ?? '',
       name: fullName.isNotEmpty ? fullName : 'Unknown Teacher',
       department: json['department_name'] as String? ?? json['department']?['name'] as String? ?? 'No Department',
       phone: json['mobile_no'] as String? ?? json['phone'] as String? ?? '',
@@ -193,7 +198,7 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
   }
 
   void _editTeacher(Teacher teacher) {
-    app.SchoolManagementApp.navigatorKey.currentState?.pushNamed('/edit-teacher', arguments: teacher.id);
+    app.SchoolManagementApp.navigatorKey.currentState?.pushNamed('/edit-teacher', arguments: teacher.employeeNo);
   }
 
   void _deleteTeacher(Teacher teacher) {
@@ -213,7 +218,7 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
                 // Use the core ApiService for authenticated delete
                 final apiService = ApiService();
                 await apiService.initialize();
-                final response = await apiService.delete('${Endpoints.teachers}${teacher.id}/');
+                final response = await apiService.delete('${Endpoints.teachers}${teacher.employeeNo}/');
                 
                 if (!response.success) {
                   throw Exception(response.error ?? 'Failed to delete teacher');
@@ -222,7 +227,7 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
                 if (!mounted) return;
                 Navigator.of(context).pop();
                 setState(() {
-                  _teachers.removeWhere((t) => t.id == teacher.id);
+                  _teachers.removeWhere((t) => t.employeeNo == teacher.employeeNo);
                   _filterTeachers(_searchQuery);
                 });
                 final rootContext = app.SchoolManagementApp.navigatorKey.currentContext;
@@ -309,25 +314,60 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
                                                 Container(
                                                   width: 150,
                                                   height: 150,
-                                                  decoration: const BoxDecoration(
+                                                  decoration: BoxDecoration(
                                                     shape: BoxShape.circle,
-                                                    gradient: LinearGradient(
-                                                      colors: [
-                                                        Color(0xFF667EEA),
-                                                        Color(0xFF764BA2),
-                                                      ],
-                                                    ),
+                                                    gradient: teacher.profilePhotoUrl != null && teacher.profilePhotoUrl!.isNotEmpty
+                                                        ? null
+                                                        : const LinearGradient(
+                                                            colors: [
+                                                              Color(0xFF667EEA),
+                                                              Color(0xFF764BA2),
+                                                            ],
+                                                          ),
                                                   ),
-                                                  child: Center(
-                                                    child: Text(
-                                                      teacher.initials,
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 48,
-                                                        fontWeight: FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                  ),
+                                                  child: teacher.profilePhotoUrl != null && teacher.profilePhotoUrl!.isNotEmpty
+                                                      ? ClipOval(
+                                                          child: Image.network(
+                                                            teacher.profilePhotoUrl!,
+                                                            width: 150,
+                                                            height: 150,
+                                                            fit: BoxFit.cover,
+                                                            errorBuilder: (context, error, stackTrace) {
+                                                              // If image fails to load, show initials
+                                                              return Container(
+                                                                decoration: const BoxDecoration(
+                                                                  shape: BoxShape.circle,
+                                                                  gradient: LinearGradient(
+                                                                    colors: [
+                                                                      Color(0xFF667EEA),
+                                                                      Color(0xFF764BA2),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                                child: Center(
+                                                                  child: Text(
+                                                                    teacher.initials,
+                                                                    style: const TextStyle(
+                                                                      color: Colors.white,
+                                                                      fontSize: 48,
+                                                                      fontWeight: FontWeight.bold,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              );
+                                                            },
+                                                          ),
+                                                        )
+                                                      : Center(
+                                                          child: Text(
+                                                            teacher.initials,
+                                                            style: const TextStyle(
+                                                              color: Colors.white,
+                                                              fontSize: 48,
+                                                              fontWeight: FontWeight.bold,
+                                                            ),
+                                                          ),
+                                                        ),
                                                 ),
                                                 const SizedBox(height: 12),
                                                 Text(
@@ -873,22 +913,54 @@ class _TeacherCardWithHoverState extends State<_TeacherCardWithHover> {
                   Container(
                     width: 60,
                     height: 60,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                      ),
+                      gradient: widget.teacher.profilePhotoUrl != null && widget.teacher.profilePhotoUrl!.isNotEmpty
+                          ? null
+                          : const LinearGradient(
+                              colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                            ),
                     ),
-                    child: Center(
-                      child: Text(
-                        widget.teacher.initials,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                        ),
-                      ),
-                    ),
+                    child: widget.teacher.profilePhotoUrl != null && widget.teacher.profilePhotoUrl!.isNotEmpty
+                        ? ClipOval(
+                            child: Image.network(
+                              widget.teacher.profilePhotoUrl!,
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                // If image fails to load, show initials
+                                return Container(
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      widget.teacher.initials,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 20,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          )
+                        : Center(
+                            child: Text(
+                              widget.teacher.initials,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                              ),
+                            ),
+                          ),
                   ),
                   const SizedBox(width: 15),
                   Expanded(

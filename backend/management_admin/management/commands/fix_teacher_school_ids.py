@@ -31,22 +31,22 @@ class Command(BaseCommand):
                             teacher.save(update_fields=['school_id', 'school_name'])
                             fixed_count += 1
                             self.stdout.write(
-                                f'Fixed teacher {teacher.teacher_id}: school_id={teacher.school_id}'
+                                f'Fixed teacher {teacher.employee_no}: school_id={teacher.school_id}'
                             )
                     else:
                         skipped_count += 1
                         self.stdout.write(
-                            self.style.WARNING(f'Teacher {teacher.teacher_id} has department but no school')
+                            self.style.WARNING(f'Teacher {teacher.employee_no} has department but no school')
                         )
                 else:
                     skipped_count += 1
                     self.stdout.write(
-                        self.style.WARNING(f'Teacher {teacher.teacher_id} has no department')
+                        self.style.WARNING(f'Teacher {teacher.employee_no} has no department')
                     )
             except Exception as e:
                 skipped_count += 1
                 self.stdout.write(
-                    self.style.ERROR(f'Error processing teacher {teacher.teacher_id}: {e}')
+                    self.style.ERROR(f'Error processing teacher {teacher.employee_no}: {e}')
                 )
         
         self.stdout.write(

@@ -20,7 +20,8 @@ class Parent(models.Model):
     
     def save(self, *args, **kwargs):
         """Auto-populate school_id and school_name from first student's school"""
-        if self.students.exists():
+        # Only check students if parent already exists (has pk) to avoid accessing related objects before save
+        if self.pk and self.students.exists():
             first_student = self.students.first()
             if first_student and first_student.school:
                 if not self.school_id or self.school_id != first_student.school.school_id:
@@ -30,7 +31,13 @@ class Parent(models.Model):
         super().save(*args, **kwargs)
     
     def __str__(self):
-        return f"{self.user.get_full_name()}"
+        # Use first_name + last_name if available, otherwise use username or email
+        if self.user.first_name and self.user.last_name:
+            return f"{self.user.first_name} {self.user.last_name}"
+        elif self.user.first_name:
+            return self.user.first_name
+        else:
+            return self.user.username or self.user.email
     
     class Meta:
         db_table = 'parents'

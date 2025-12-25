@@ -348,12 +348,14 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
   }
 
   Future<void> _addNewAdmissionFromPage() async {
+    // Add email validation check
     if (_formKey.currentState!.validate() &&
         _firstNameController.text.trim().isNotEmpty &&
         _selectedDob != null &&
         _selectedGender != null &&
         _selectedClass != null &&
-        _selectedCategory != null) {
+        _selectedCategory != null &&
+        _emailController.text.trim().isNotEmpty) {  // Email is required
       
       setState(() {
         _isSubmitting = true;
@@ -367,9 +369,12 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
           'date_of_birth': DateFormat('yyyy-MM-dd').format(_selectedDob!),
           'gender': _selectedGender!,
           'applying_class': _selectedClass!,
-          'address': _addressController.text.trim(),
+          'address': _addressController.text.trim().isEmpty 
+              ? "Address not provided" 
+              : _addressController.text.trim(),  // Ensure address is never empty
           'category': _selectedCategory!,
           'status': 'Pending',
+          'email': _emailController.text.trim(),  // ALWAYS include email (required)
           // Only include admission_number if it's not empty
           if (_admissionNoController.text.trim().isNotEmpty)
             'admission_number': _admissionNoController.text.trim(),
@@ -378,8 +383,6 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
             'student_id': _studentIdController.text.trim(),
           if (_selectedGrade != null && _selectedGrade!.isNotEmpty)
             'grade': _selectedGrade!,
-          if (_emailController.text.trim().isNotEmpty)
-            'email': _emailController.text.trim(),
           if (_parentPhoneController.text.trim().isNotEmpty)
             'parent_phone': _parentPhoneController.text.trim(),
           if (_emergencyContactController.text.trim().isNotEmpty)
@@ -507,18 +510,25 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
           });
         }
       }
-    } else if (_admissionNoController.text.trim().isEmpty || _firstNameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please fill student ID, admission number, and first name."), backgroundColor: Colors.red),
-      );
-    } else if (_selectedDob == null) {
-       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select date of birth."), backgroundColor: Colors.red),
-      );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please fill all required fields."), backgroundColor: Colors.red),
-      );
+      // Update error message to include email
+      String missingFields = '';
+      if (_firstNameController.text.trim().isEmpty) missingFields += 'First Name, ';
+      if (_selectedDob == null) missingFields += 'Date of Birth, ';
+      if (_selectedGender == null) missingFields += 'Gender, ';
+      if (_selectedClass == null) missingFields += 'Class, ';
+      if (_selectedCategory == null) missingFields += 'Category, ';
+      if (_emailController.text.trim().isEmpty) missingFields += 'Email, ';
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Please fill all required fields: ${missingFields.replaceAll(RegExp(r', $'), '')}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
@@ -1333,13 +1343,24 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
-                      labelText: 'Email (Optional)',
+                      labelText: 'Email *',  // Mark as required
+                      hintText: 'student@example.com',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                       filled: true,
                       fillColor: Colors.grey[50],
                     ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Email is required';
+                      }
+                      // Basic email format validation
+                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value.trim())) {
+                        return 'Please enter a valid email address';
+                      }
+                      return null;
+                    },
                   ),
                 ),
               ],
