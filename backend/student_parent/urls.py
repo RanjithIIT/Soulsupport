@@ -12,6 +12,7 @@ router.register(r'parent', views.ParentViewSet, basename='parent')
 router.register(r'notifications', views.NotificationViewSet, basename='notification')
 router.register(r'fees', views.FeeViewSet, basename='fee')
 router.register(r'communications', views.CommunicationViewSet, basename='communication')
+router.register(r'chat-messages', views.ChatMessageViewSet, basename='chatmessage')
 router.register(r'dashboard', views.StudentDashboardViewSet, basename='dashboard')
 
 urlpatterns = [

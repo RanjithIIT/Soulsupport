@@ -22,6 +22,7 @@ class ManagementRoutes {
   static const String editTeacher = '/edit-teacher';
   static const String editBus = '/edit-bus';
   static const String editActivity = '/edit-activity';
+  static const String addActivity = '/add-activity';
   static const String addNewBus = '/add-new-bus';
 }
 

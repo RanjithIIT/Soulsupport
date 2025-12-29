@@ -4,16 +4,14 @@ import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
 import 'widgets/school_profile_header.dart';
 
-class EditActivityPage extends StatefulWidget {
-  final int? activityId;
-
-  const EditActivityPage({super.key, this.activityId});
+class AddNewActivityPage extends StatefulWidget {
+  const AddNewActivityPage({super.key});
 
   @override
-  State<EditActivityPage> createState() => _EditActivityPageState();
+  State<AddNewActivityPage> createState() => _AddNewActivityPageState();
 }
 
-class _EditActivityPageState extends State<EditActivityPage> {
+class _AddNewActivityPageState extends State<AddNewActivityPage> {
   final _formKey = GlobalKey<FormState>();
 
   final _nameController = TextEditingController();
@@ -36,79 +34,6 @@ class _EditActivityPageState extends State<EditActivityPage> {
   String _errorMessage = '';
 
   @override
-  void initState() {
-    super.initState();
-    if (widget.activityId != null) {
-      _loadActivityData();
-    }
-  }
-
-  Future<void> _loadActivityData() async {
-    if (widget.activityId == null) return;
-    
-    setState(() {
-      _isSubmitting = true; // Use as loading indicator
-    });
-    
-    try {
-      final apiService = ApiService();
-      await apiService.initialize();
-      final response = await apiService.get('${Endpoints.activities}${widget.activityId}/');
-      
-      if (!mounted) return;
-      
-      if (response.success && response.data != null) {
-        final activity = response.data as Map<String, dynamic>;
-        
-        _nameController.text = activity['name']?.toString() ?? '';
-        _category = activity['category']?.toString();
-        _instructorController.text = activity['instructor']?.toString() ?? '';
-        _participantsController.text = activity['max_participants']?.toString() ?? '';
-        _scheduleController.text = activity['schedule']?.toString() ?? '';
-        _locationController.text = activity['location']?.toString() ?? '';
-        _status = activity['status']?.toString();
-        
-        if (activity['start_date'] != null) {
-          try {
-            _startDate = DateTime.parse(activity['start_date']);
-          } catch (e) {
-            // Invalid date format, leave as null
-          }
-        }
-        if (activity['end_date'] != null) {
-          try {
-            _endDate = DateTime.parse(activity['end_date']);
-          } catch (e) {
-            // Invalid date format, leave as null
-          }
-        }
-        
-        _descriptionController.text = activity['description']?.toString() ?? '';
-        _requirementsController.text = activity['requirements']?.toString() ?? '';
-        _notesController.text = activity['notes']?.toString() ?? '';
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to load activity: ${response.error ?? "Unknown error"}')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading activity: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
-    }
-  }
-
-  @override
   void dispose() {
     _nameController.dispose();
     _instructorController.dispose();
@@ -123,7 +48,6 @@ class _EditActivityPageState extends State<EditActivityPage> {
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
-    if (widget.activityId == null) return;
 
     setState(() {
       _isSubmitting = true;
@@ -136,32 +60,45 @@ class _EditActivityPageState extends State<EditActivityPage> {
       final apiService = ApiService();
       await apiService.initialize();
       
-      // Prepare activity data
-      final activityData = {
+      // Prepare activity data - filter out empty strings and null values for optional fields
+      final activityData = <String, dynamic>{
         'name': _nameController.text.trim(),
-        'category': _category,
+        'category': _category ?? '',
         'instructor': _instructorController.text.trim(),
-        'max_participants': _participantsController.text.trim().isEmpty
-            ? null
-            : int.tryParse(_participantsController.text.trim()),
         'schedule': _scheduleController.text.trim(),
         'location': _locationController.text.trim(),
         'status': _status ?? 'Active',
-        'start_date': _startDate != null
-            ? DateFormat('yyyy-MM-dd').format(_startDate!)
-            : null,
-        'end_date': _endDate != null
-            ? DateFormat('yyyy-MM-dd').format(_endDate!)
-            : null,
         'description': _descriptionController.text.trim(),
-        'requirements': _requirementsController.text.trim(),
-        'notes': _notesController.text.trim(),
       };
       
-      final response = await apiService.put(
-        '${Endpoints.activities}${widget.activityId}/',
-        body: activityData
-      );
+      // Add optional fields only if they have values
+      final maxParticipants = _participantsController.text.trim();
+      if (maxParticipants.isNotEmpty) {
+        final parsed = int.tryParse(maxParticipants);
+        if (parsed != null && parsed > 0) {
+          activityData['max_participants'] = parsed;
+        }
+      }
+      
+      if (_startDate != null) {
+        activityData['start_date'] = DateFormat('yyyy-MM-dd').format(_startDate!);
+      }
+      
+      if (_endDate != null) {
+        activityData['end_date'] = DateFormat('yyyy-MM-dd').format(_endDate!);
+      }
+      
+      final requirements = _requirementsController.text.trim();
+      if (requirements.isNotEmpty) {
+        activityData['requirements'] = requirements;
+      }
+      
+      final notes = _notesController.text.trim();
+      if (notes.isNotEmpty) {
+        activityData['notes'] = notes;
+      }
+      
+      final response = await apiService.post(Endpoints.activities, body: activityData);
       
       if (!mounted) return;
       
@@ -176,11 +113,33 @@ class _EditActivityPageState extends State<EditActivityPage> {
         // Navigate back to activities page after success
         Navigator.pushReplacementNamed(context, '/activities');
       } else {
+        // Extract detailed error message
+        String errorMsg = 'Error creating activity. Please try again.';
+        if (response.data != null && response.data is Map) {
+          final errorData = response.data as Map<String, dynamic>;
+          if (errorData.containsKey('errors')) {
+            final errors = errorData['errors'] as Map<String, dynamic>;
+            final errorList = <String>[];
+            errors.forEach((key, value) {
+              if (value is List) {
+                errorList.add('$key: ${value.join(", ")}');
+              } else {
+                errorList.add('$key: $value');
+              }
+            });
+            errorMsg = errorList.join('\n');
+          } else if (errorData.containsKey('message')) {
+            errorMsg = errorData['message'].toString();
+          }
+        } else if (response.error != null) {
+          errorMsg = response.error!;
+        }
+        
         setState(() {
           _isSubmitting = false;
           _showSuccess = false;
           _showError = true;
-          _errorMessage = response.error ?? 'Error updating activity. Please try again.';
+          _errorMessage = errorMsg;
         });
       }
     } catch (e) {
@@ -189,7 +148,7 @@ class _EditActivityPageState extends State<EditActivityPage> {
         _isSubmitting = false;
         _showSuccess = false;
         _showError = true;
-        _errorMessage = 'Error updating activity: $e';
+        _errorMessage = 'Error creating activity: $e';
       });
     }
   }
@@ -406,7 +365,7 @@ class _EditActivityPageState extends State<EditActivityPage> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text(
-                              'Edit Activity',
+                              'Add New Activity',
                               style: TextStyle(
                                 fontSize: 28,
                                 fontWeight: FontWeight.w600,
@@ -465,7 +424,7 @@ class _EditActivityPageState extends State<EditActivityPage> {
                                 child: Column(
                                   children: [
                                     Text(
-                                      '🎯 Edit Activity Information',
+                                      '🎯 Add New Activity',
                                       style: TextStyle(
                                         fontSize: 28,
                                         fontWeight: FontWeight.bold,
@@ -474,7 +433,7 @@ class _EditActivityPageState extends State<EditActivityPage> {
                                     ),
                                     SizedBox(height: 10),
                                     Text(
-                                      'Update activity details and save changes',
+                                      'Fill in the details to create a new activity',
                                       style: TextStyle(
                                         color: Colors.grey,
                                         fontSize: 16,
@@ -504,7 +463,7 @@ class _EditActivityPageState extends State<EditActivityPage> {
                                       SizedBox(width: 10),
                                       Expanded(
                                         child: Text(
-                                          '✅ Activity information updated successfully!',
+                                          '✅ Activity created successfully!',
                                           style: TextStyle(
                                             color: Colors.white,
                                             fontSize: 16,
@@ -558,7 +517,7 @@ class _EditActivityPageState extends State<EditActivityPage> {
                                         ),
                                       ),
                                       SizedBox(height: 15),
-                                      Text('Updating activity information...'),
+                                      Text('Creating activity...'),
                                     ],
                                   ),
                                 ),
@@ -902,8 +861,8 @@ class _EditActivityPageState extends State<EditActivityPage> {
                                 children: [
                                   ElevatedButton.icon(
                                     onPressed: _isSubmitting ? null : _submitForm,
-                                    icon: const Icon(Icons.save),
-                                    label: const Text('Update Activity'),
+                                    icon: const Icon(Icons.add),
+                                    label: const Text('Create Activity'),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFF667EEA),
                                       foregroundColor: Colors.white,

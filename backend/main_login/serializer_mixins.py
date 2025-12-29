@@ -31,7 +31,14 @@ class SchoolIdMixin:
         super().__init__(*args, **kwargs)
         
         # school_id is always read-only for all users (fetched from schools table)
-        self.fields['school_id'].read_only = True
+        # Safely access the field - it may not exist if fields = '__all__' excludes the mixin's field
+        # or when the model has a school ForeignKey that creates its own school_id field
+        try:
+            self.fields['school_id'].read_only = True
+        except KeyError:
+            # Field doesn't exist - this is OK, it means the serializer is using
+            # the model's school_id field (from ForeignKey) instead of the mixin's field
+            pass
     
     def create(self, validated_data):
         """Auto-populate school_id from logged-in user"""

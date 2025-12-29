@@ -23,6 +23,7 @@ import 'edit_student.dart';
 import 'edit_teacher.dart';
 import 'edit_bus.dart';
 import 'edit_activity.dart';
+import 'add_newactivity.dart';
 import 'add_newBus.dart';
 
 class ManagementRoutePages {
@@ -63,6 +64,7 @@ class ManagementRoutePages {
       final activityId = args is int ? args : null;
       return EditActivityPage(activityId: activityId);
     },
+    ManagementRoutes.addActivity: (_) => const AddNewActivityPage(),
     ManagementRoutes.addNewBus: (_) => const AddNewBusPage(),
   };
 }

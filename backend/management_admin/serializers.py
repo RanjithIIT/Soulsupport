@@ -2,11 +2,12 @@
 Serializers for management_admin app
 """
 from rest_framework import serializers
-from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Activity
 from main_login.serializers import UserSerializer
 from main_login.serializer_mixins import SchoolIdMixin
 from main_login.utils import get_user_school_id
 from super_admin.serializers import SchoolSerializer
+from super_admin.models import School
 
 
 class FileSerializer(serializers.ModelSerializer):
@@ -130,9 +131,72 @@ class TeacherSerializer(SchoolIdMixin, serializers.ModelSerializer):
                 raise serializers.ValidationError({'employee_no': f'Employee number {employee_no} already exists.'})
             validated_data['employee_no'] = employee_no
         
-        # User will be created separately when teacher account is activated/approved
-        # For now, teacher is created without user account
+        # Create user account for the teacher if email is provided
         user = None
+        if email:
+            from django.db import IntegrityError, transaction
+            from main_login.models import User, Role
+            import logging
+            
+            logger = logging.getLogger(__name__)
+            
+            # Check if user already exists with this email
+            user = User.objects.filter(email=email).first()
+            
+            if not user:
+                # User doesn't exist, create it with credentials
+                try:
+                    with transaction.atomic():
+                        # Get or create teacher role (role_id should be 3)
+                        role, _ = Role.objects.get_or_create(
+                            name='teacher',
+                            defaults={'description': 'Teacher role'}
+                        )
+                        
+                        # Generate unique username
+                        username = email.split("@")[0]
+                        base_username = username
+                        # Add random suffix upfront to reduce collisions
+                        if User.objects.filter(username=username).exists():
+                            random_suffix = random.randint(1000, 9999)
+                            username = f'{base_username}{random_suffix}'
+                            # Double check and add more random if still exists (rare)
+                            if User.objects.filter(username=username).exists():
+                                username = f'{base_username}_{random.randint(10000, 99999)}'
+                        
+                        # Generate 8-character password for password_hash
+                        characters = string.ascii_letters + string.digits
+                        generated_password = ''.join(random.choice(characters) for _ in range(8))
+                        
+                        # Create user account
+                        user = User.objects.create(
+                            email=email,
+                            username=username,
+                            first_name=first_name,
+                            last_name=last_name or '',
+                            role=role,
+                            is_active=True,
+                            has_custom_password=False,
+                            password_hash=generated_password
+                        )
+                        
+                        # Set password field to unusable (user will login with password_hash first time)
+                        user.set_unusable_password()
+                        user.save()
+                        
+                        logger.info(f"User account created for teacher: {email} with role_id={role.id}")
+                        
+                except IntegrityError as e:
+                    # Handle race condition - user might have been created by another process
+                    logger.warning(f"IntegrityError creating user for teacher: {str(e)}")
+                    # Try to get the user that was just created
+                    user = User.objects.filter(email=email).first()
+                    if not user:
+                        raise serializers.ValidationError({
+                            'email': f'Failed to create user account. Please try again.'
+                        })
+            else:
+                logger.info(f"User account already exists for teacher email: {email}")
         
         if 'is_class_teacher' not in validated_data:
             validated_data['is_class_teacher'] = False
@@ -296,10 +360,31 @@ class FeeSerializer(SchoolIdMixin, serializers.ModelSerializer):
 class BusStopStudentSerializer(SchoolIdMixin, serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.student_name', read_only=True)
     bus_stop_name = serializers.CharField(source='bus_stop.stop_name', read_only=True)
+    bus_number = serializers.SerializerMethodField()
+    bus_stop_detail = serializers.SerializerMethodField()
 
     class Meta:
         model = BusStopStudent
         fields = '__all__'
+    
+    def get_bus_number(self, obj):
+        """Get bus number from bus_stop's bus"""
+        if obj.bus_stop and obj.bus_stop.bus:
+            return obj.bus_stop.bus.bus_number
+        return None
+    
+    def get_bus_stop_detail(self, obj):
+        """Get bus_stop details including bus information"""
+        if obj.bus_stop:
+            return {
+                'stop_id': obj.bus_stop.stop_id,
+                'stop_name': obj.bus_stop.stop_name,
+                'bus': {
+                    'bus_number': obj.bus_stop.bus.bus_number if obj.bus_stop.bus else None,
+                    'id': obj.bus_stop.bus.bus_number if obj.bus_stop.bus else None,
+                } if obj.bus_stop.bus else None,
+            }
+        return None
 
 
 class BusStopSerializer(SchoolIdMixin, serializers.ModelSerializer):
@@ -320,7 +405,150 @@ class BusSerializer(SchoolIdMixin, serializers.ModelSerializer):
         fields = '__all__'
 
     def get_morning_stops(self, obj):
-        return []
+        """Get morning stops with their students"""
+        # Get all morning stops for this bus, ordered by stop_order
+        morning_stops = obj.stops.filter(route_type='morning').order_by('stop_order')
+        
+        stops_data = []
+        for stop in morning_stops:
+            # Get students for this stop
+            students = stop.stop_students.all()
+            
+            # Serialize students
+            students_data = []
+            for student_link in students:
+                students_data.append({
+                    'id': str(student_link.id),
+                    'student_id_string': student_link.student_id_string or '',
+                    'student_name': student_link.student_name or '',
+                    'student_class': student_link.student_class or '',
+                    'student_grade': student_link.student_grade or '',
+                    'pickup_time': student_link.pickup_time.strftime('%H:%M:%S') if student_link.pickup_time else None,
+                    'dropoff_time': student_link.dropoff_time.strftime('%H:%M:%S') if student_link.dropoff_time else None,
+                    'bus_stop_name': stop.stop_name,
+                })
+            
+            # Serialize stop with students
+            stop_data = {
+                'stop_id': stop.stop_id,
+                'stop_name': stop.stop_name,
+                'stop_address': stop.stop_address,
+                'stop_time': stop.stop_time.strftime('%H:%M:%S') if stop.stop_time else None,
+                'route_type': stop.route_type,
+                'stop_order': stop.stop_order,
+                'latitude': float(stop.latitude) if stop.latitude else None,
+                'longitude': float(stop.longitude) if stop.longitude else None,
+                'students': students_data,
+                'student_count': len(students_data),
+                'created_at': stop.created_at.isoformat() if stop.created_at else None,
+                'updated_at': stop.updated_at.isoformat() if stop.updated_at else None,
+            }
+            stops_data.append(stop_data)
+        
+        return stops_data
 
     def get_afternoon_stops(self, obj):
-        return []
+        """Get afternoon stops with their students"""
+        # Get all afternoon stops for this bus, ordered by stop_order
+        afternoon_stops = obj.stops.filter(route_type='afternoon').order_by('stop_order')
+        
+        stops_data = []
+        for stop in afternoon_stops:
+            # For afternoon stops, get students from corresponding morning stop if exists
+            # Otherwise use the afternoon stop's own students
+            corresponding_morning_stop = obj.stops.filter(
+                route_type='morning',
+                stop_name=stop.stop_name
+            ).first()
+            
+            if corresponding_morning_stop:
+                # Use students from corresponding morning stop
+                students = corresponding_morning_stop.stop_students.all()
+            else:
+                # Fallback to afternoon stop's own students
+                students = stop.stop_students.all()
+            
+            # Serialize students
+            students_data = []
+            for student_link in students:
+                students_data.append({
+                    'id': str(student_link.id),
+                    'student_id_string': student_link.student_id_string or '',
+                    'student_name': student_link.student_name or '',
+                    'student_class': student_link.student_class or '',
+                    'student_grade': student_link.student_grade or '',
+                    'pickup_time': student_link.pickup_time.strftime('%H:%M:%S') if student_link.pickup_time else None,
+                    'dropoff_time': student_link.dropoff_time.strftime('%H:%M:%S') if student_link.dropoff_time else None,
+                    'bus_stop_name': stop.stop_name,
+                })
+            
+            # Serialize stop with students
+            stop_data = {
+                'stop_id': stop.stop_id,
+                'stop_name': stop.stop_name,
+                'stop_address': stop.stop_address,
+                'stop_time': stop.stop_time.strftime('%H:%M:%S') if stop.stop_time else None,
+                'route_type': stop.route_type,
+                'stop_order': stop.stop_order,
+                'latitude': float(stop.latitude) if stop.latitude else None,
+                'longitude': float(stop.longitude) if stop.longitude else None,
+                'students': students_data,
+                'student_count': len(students_data),
+                'created_at': stop.created_at.isoformat() if stop.created_at else None,
+                'updated_at': stop.updated_at.isoformat() if stop.updated_at else None,
+            }
+            stops_data.append(stop_data)
+        
+        return stops_data
+
+
+class ActivitySerializer(SchoolIdMixin, serializers.ModelSerializer):
+    school_name = serializers.CharField(source='school.school_name', read_only=True)
+    school_id = serializers.CharField(source='school.school_id', read_only=True)
+    school = serializers.PrimaryKeyRelatedField(
+        queryset=School.objects.all(),
+        required=False,
+        allow_null=True,
+        pk_field=serializers.CharField(),
+        help_text='School ID (auto-set from logged-in user if not provided)'
+    )
+    
+    class Meta:
+        model = Activity
+        fields = '__all__'
+    
+    def validate_name(self, value):
+        """Ensure name is not empty"""
+        if not value or not value.strip():
+            raise serializers.ValidationError('Activity name is required.')
+        return value.strip()
+    
+    def validate_category(self, value):
+        """Ensure category is provided"""
+        if not value:
+            raise serializers.ValidationError('Category is required.')
+        return value
+    
+    def validate_instructor(self, value):
+        """Ensure instructor is not empty"""
+        if not value or not value.strip():
+            raise serializers.ValidationError('Instructor name is required.')
+        return value.strip()
+    
+    def validate_schedule(self, value):
+        """Ensure schedule is not empty"""
+        if not value or not value.strip():
+            raise serializers.ValidationError('Schedule is required.')
+        return value.strip()
+    
+    def validate_location(self, value):
+        """Ensure location is not empty"""
+        if not value or not value.strip():
+            raise serializers.ValidationError('Location is required.')
+        return value.strip()
+    
+    def validate_description(self, value):
+        """Ensure description is not empty"""
+        if not value or not value.strip():
+            raise serializers.ValidationError('Description is required.')
+        return value.strip()

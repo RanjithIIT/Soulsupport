@@ -2,7 +2,7 @@
 Admin configuration for student_parent app
 """
 from django.contrib import admin
-from .models import Parent, Notification, Fee, Communication
+from .models import Parent, Notification, Fee, Communication, ChatMessage
 
 
 @admin.register(Parent)
@@ -32,4 +32,13 @@ class CommunicationAdmin(admin.ModelAdmin):
     list_display = ['sender', 'recipient', 'subject', 'is_read', 'created_at']
     list_filter = ['is_read', 'created_at']
     search_fields = ['subject', 'message', 'sender__username', 'recipient__username']
+
+
+@admin.register(ChatMessage)
+class ChatMessageAdmin(admin.ModelAdmin):
+    list_display = ['sender', 'recipient', 'message_type', 'is_read', 'is_deleted', 'created_at']
+    list_filter = ['message_type', 'is_read', 'is_deleted', 'created_at']
+    search_fields = ['message_text', 'attachment_name', 'sender__username', 'recipient__username']
+    readonly_fields = ['message_id', 'created_at', 'updated_at', 'read_at', 'deleted_at']
+    date_hierarchy = 'created_at'
 

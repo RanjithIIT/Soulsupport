@@ -128,7 +128,38 @@ class ApiService {
     }
   }
 
+  /// Fetch chat messages between two users using ChatMessage API (new WhatsApp/Telegram-like chat)
+  /// Uses the new ChatMessage model endpoint for real-time chat history
+  static Future<List<Map<String, dynamic>>> fetchChatMessages(String senderUsername, String recipientUsername) async {
+    try {
+      final headers = await _getAuthHeaders();
+      final uri = Uri.parse('http://localhost:8000/api/student-parent/chat-messages/').replace(
+        queryParameters: {
+          'sender': senderUsername,
+          'recipient': recipientUsername,
+        },
+      );
+      final resp = await http.get(uri, headers: headers).timeout(const Duration(seconds: 10));
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
+        if (data is Map && data.containsKey('results')) {
+          return List<Map<String, dynamic>>.from(data['results'] as List);
+        }
+        return [];
+      }
+      debugPrint('Failed to fetch chat messages: ${resp.statusCode}');
+      return [];
+    } catch (e) {
+      debugPrint('Failed to fetch chat messages: $e');
+      return [];
+    }
+  }
+
   /// Fetch chat history with a specific user
+  /// @deprecated Use fetchChatMessages instead for real-time chat. This is kept for backward compatibility.
   static Future<List<dynamic>> fetchChatHistory(String userId) async {
     try {
       final headers = await _getAuthHeaders();

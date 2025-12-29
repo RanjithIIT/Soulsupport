@@ -168,14 +168,24 @@ class Teacher(models.Model):
     
     def save(self, *args, **kwargs):
         """Auto-populate school_id and school_name from department's school and sync profile_photo_id"""
-        # Get school_id and school_name from department's school ForeignKey
-        if self.department and self.department.school:
-            department_school_id = self.department.school.school_id
-            department_school_name = self.department.school.school_name
-            if not self.school_id or self.school_id != department_school_id:
-                self.school_id = department_school_id
-            if not self.school_name or self.school_name != department_school_name:
-                self.school_name = department_school_name
+        # Get school_id and school_name from department's school ForeignKey (same pattern as Student)
+        # Try to access department.school - Django will lazy load if needed
+        if self.department_id:
+            try:
+                # Access department - Django will lazy load if not already loaded
+                department = self.department
+                if department and hasattr(department, 'school'):
+                    school = department.school
+                    if school:
+                        # Always update school_id if it's different
+                        if not self.school_id or self.school_id != school.school_id:
+                            self.school_id = school.school_id
+                        # Always update school_name if it's different or missing (same pattern as Student.save)
+                        if not self.school_name or self.school_name != school.school_name:
+                            self.school_name = school.school_name
+            except Exception:
+                # If accessing department fails, skip - will be handled in views or serializer
+                pass
         
         super().save(*args, **kwargs)
         
@@ -982,6 +992,64 @@ class BusStopStudent(models.Model):
             if not self.school_name or self.school_name != self.bus_stop.bus.school.school_name:
                 self.school_name = self.bus_stop.bus.school.school_name
         
+        # Auto-set pickup_time and dropoff_time based on stop's route_type and stop_time
+        if self.bus_stop and self.bus_stop.stop_time:
+            if self.bus_stop.route_type == 'morning':
+                # For morning stops, set pickup_time from stop's stop_time
+                if not self.pickup_time:
+                    self.pickup_time = self.bus_stop.stop_time
+                
+                # Also check if there's a corresponding afternoon stop with same stop_name
+                # and update its dropoff_time if this student is assigned there
+                try:
+                    corresponding_afternoon_stop = BusStop.objects.filter(
+                        bus=self.bus_stop.bus,
+                        route_type='afternoon',
+                        stop_name=self.bus_stop.stop_name
+                    ).first()
+                    
+                    if corresponding_afternoon_stop:
+                        # Update dropoff_time for this student's afternoon stop assignment
+                        afternoon_assignment = BusStopStudent.objects.filter(
+                            bus_stop=corresponding_afternoon_stop,
+                            student=self.student
+                        ).first()
+                        
+                        if afternoon_assignment:
+                            afternoon_assignment.dropoff_time = self.bus_stop.stop_time
+                            afternoon_assignment.save(update_fields=['dropoff_time', 'updated_at'])
+                except Exception:
+                    # Silently fail if there's any issue finding/updating afternoon stop
+                    pass
+                    
+            elif self.bus_stop.route_type == 'afternoon':
+                # For afternoon stops, set dropoff_time from stop's stop_time
+                if not self.dropoff_time:
+                    self.dropoff_time = self.bus_stop.stop_time
+                
+                # Also check if there's a corresponding morning stop with same stop_name
+                # and update its pickup_time if this student is assigned there
+                try:
+                    corresponding_morning_stop = BusStop.objects.filter(
+                        bus=self.bus_stop.bus,
+                        route_type='morning',
+                        stop_name=self.bus_stop.stop_name
+                    ).first()
+                    
+                    if corresponding_morning_stop:
+                        # Update pickup_time for this student's morning stop assignment
+                        morning_assignment = BusStopStudent.objects.filter(
+                            bus_stop=corresponding_morning_stop,
+                            student=self.student
+                        ).first()
+                        
+                        if morning_assignment:
+                            morning_assignment.pickup_time = self.bus_stop.stop_time
+                            morning_assignment.save(update_fields=['pickup_time', 'updated_at'])
+                except Exception:
+                    # Silently fail if there's any issue finding/updating morning stop
+                    pass
+        
         super().save(*args, **kwargs)
     
     def __str__(self):
@@ -993,3 +1061,57 @@ class BusStopStudent(models.Model):
         verbose_name_plural = 'Bus Stop Students'
         ordering = ['bus_stop', 'student_name']
         unique_together = ['bus_stop', 'student']
+
+
+class Activity(models.Model):
+    """Activity model for school activities"""
+    CATEGORY_CHOICES = [
+        ('Sports', 'Sports'),
+        ('Academic', 'Academic'),
+        ('Arts', 'Arts'),
+        ('Games', 'Games'),
+        ('Cultural', 'Cultural'),
+        ('Technical', 'Technical'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('Active', 'Active'),
+        ('Inactive', 'Inactive'),
+        ('Suspended', 'Suspended'),
+        ('Completed', 'Completed'),
+    ]
+    
+    id = models.AutoField(primary_key=True)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='school_activities', db_column='school_id')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
+    
+    name = models.CharField(max_length=255, help_text='Activity name')
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, help_text='Activity category')
+    instructor = models.CharField(max_length=255, help_text='Instructor name')
+    max_participants = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1)], help_text='Maximum number of participants')
+    schedule = models.CharField(max_length=255, help_text='Activity schedule (e.g., Monday, Wednesday 3:00 PM)')
+    location = models.CharField(max_length=255, help_text='Activity location')
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Active', help_text='Activity status')
+    start_date = models.DateField(null=True, blank=True, help_text='Activity start date')
+    end_date = models.DateField(null=True, blank=True, help_text='Activity end date')
+    description = models.TextField(help_text='Detailed activity description')
+    requirements = models.TextField(blank=True, help_text='Requirements or prerequisites')
+    notes = models.TextField(blank=True, help_text='Additional notes or comments')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def save(self, *args, **kwargs):
+        """Auto-populate school_name from school"""
+        if self.school:
+            self.school_name = self.school.school_name
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"{self.name} - {self.category}"
+    
+    class Meta:
+        db_table = 'school_activities'
+        verbose_name = 'School Activity'
+        verbose_name_plural = 'School Activities'
+        ordering = ['-created_at']

@@ -41,9 +41,7 @@ dependencies:
   google_fonts: ^6.1.0
   shared_preferences: ^2.2.2
 
-  # Removed `file_picker` and `image_picker` plugins to avoid Android
-  # embedding / compile errors in this demo build. Replace with a
-  # supported picker plugin when ready for production.
+  image_picker: ^1.1.2
 
   # Main login package for navigation
   main_login:

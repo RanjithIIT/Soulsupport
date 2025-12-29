@@ -8,7 +8,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Activity
 from super_admin.models import School
 from .serializers import (
     FileSerializer,
@@ -21,11 +21,13 @@ from .serializers import (
     FeeSerializer,
     BusSerializer,
     BusStopSerializer,
-    BusStopStudentSerializer
+    BusStopStudentSerializer,
+    ActivitySerializer
 )
 from main_login.permissions import IsManagementAdmin
 from main_login.mixins import SchoolFilterMixin
 from main_login.utils import get_user_school_id
+from django.conf import settings
 
 
 class FileViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
@@ -89,31 +91,68 @@ class TeacherViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                 # Super admin can set school_id manually or leave it
                 # If school_id is provided in data, use it; otherwise let it be set from department
                 super().perform_create(serializer)
-                # After save, ensure school_id is set from department if not already set
+                # After save, ensure school_id and school_name are set from department if not already set
                 teacher = serializer.instance
-                if teacher and teacher.department and teacher.department.school:
-                    department_school_id = teacher.department.school.school_id
-                    if not teacher.school_id or teacher.school_id != department_school_id:
-                        teacher.school_id = department_school_id
-                        teacher.save(update_fields=['school_id'])
+                if teacher and teacher.department_id:
+                    from management_admin.models import Department
+                    try:
+                        department = Department.objects.select_related('school').get(pk=teacher.department_id)
+                        if department.school:
+                            department_school_id = department.school.school_id
+                            department_school_name = department.school.school_name
+                            needs_save = False
+                            # Always update school_id if it's different
+                            if not teacher.school_id or teacher.school_id != department_school_id:
+                                teacher.school_id = department_school_id
+                                needs_save = True
+                            # Always update school_name if it's missing or different (even if school_id is already set)
+                            if not teacher.school_name or teacher.school_name != department_school_name:
+                                teacher.school_name = department_school_name
+                                needs_save = True
+                            if needs_save:
+                                teacher.save(update_fields=['school_id', 'school_name'])
+                    except Department.DoesNotExist:
+                        pass
                 return
         
         # For non-super-admin users, automatically set school_id
         serializer.save()
         
-        # After save, ensure school_id is set
+        # After save, ensure school_id and school_name are set
         teacher = serializer.instance
         if teacher:
-            # First, try to get school_id from department's school
-            if teacher.department and teacher.department.school:
-                department_school_id = teacher.department.school.school_id
-                if not teacher.school_id or teacher.school_id != department_school_id:
-                    teacher.school_id = department_school_id
-                    teacher.save(update_fields=['school_id'])
+            # First, try to get school_id and school_name from department's school
+            if teacher.department:
+                # Refresh department to ensure school relationship is loaded
+                from management_admin.models import Department
+                try:
+                    department = Department.objects.select_related('school').get(pk=teacher.department_id)
+                    if department.school:
+                        department_school_id = department.school.school_id
+                        department_school_name = department.school.school_name
+                        needs_save = False
+                        # Always update school_id if it's different
+                        if not teacher.school_id or teacher.school_id != department_school_id:
+                            teacher.school_id = department_school_id
+                            needs_save = True
+                        # Always update school_name if it's missing or different (even if school_id is already set)
+                        if not teacher.school_name or teacher.school_name != department_school_name:
+                            teacher.school_name = department_school_name
+                            needs_save = True
+                        if needs_save:
+                            teacher.save(update_fields=['school_id', 'school_name'])
+                except Department.DoesNotExist:
+                    pass
             # If no department or department has no school, use school_id from user context
             elif school_id and not teacher.school_id:
-                teacher.school_id = school_id
-                teacher.save(update_fields=['school_id'])
+                from super_admin.models import School
+                try:
+                    school = School.objects.get(school_id=school_id)
+                    teacher.school_id = school_id
+                    teacher.school_name = school.school_name
+                    teacher.save(update_fields=['school_id', 'school_name'])
+                except School.DoesNotExist:
+                    pass
     
     def create(self, request, *args, **kwargs):
         """
@@ -1141,6 +1180,24 @@ class BusStopStudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Check if student is already assigned to a DIFFERENT bus
+        different_bus_assignment = BusStopStudent.objects.filter(
+            student=student
+        ).exclude(
+            bus_stop__bus=bus
+        ).select_related('bus_stop', 'bus_stop__bus').first()
+        
+        if different_bus_assignment:
+            assigned_bus = different_bus_assignment.bus_stop.bus
+            return Response(
+                {
+                    'error': f'Student is already assigned to Bus Number: {assigned_bus.bus_number}. Please remove the student from that bus first before assigning to this bus.',
+                    'assigned_bus_number': assigned_bus.bus_number,
+                    'assigned_stop_name': different_bus_assignment.bus_stop.stop_name,
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         # Create the BusStopStudent
         bus_stop_student = BusStopStudent.objects.create(
             bus_stop=stop,
@@ -1192,3 +1249,199 @@ class SchoolViewSet(viewsets.ViewSet):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class ActivityViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
+    """ViewSet for Activity management"""
+    queryset = Activity.objects.all()
+    serializer_class = ActivitySerializer
+    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    
+    def get_permissions(self):
+        """Allow read/create/update/delete without auth for development - can be adjusted"""
+        if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
+            return [AllowAny()]
+        return [IsAuthenticated(), IsManagementAdmin()]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['category', 'status', 'school']
+    search_fields = ['name', 'instructor', 'location', 'description']
+    ordering_fields = ['created_at', 'start_date', 'name']
+    ordering = ['-created_at']
+    
+    def get_queryset(self):
+        """Override to ensure school_id filtering is applied"""
+        queryset = super().get_queryset()
+        
+        # Check if user is super admin
+        if hasattr(self.request.user, 'role') and self.request.user.role:
+            if self.request.user.role.name == 'super_admin':
+                return queryset.select_related('school')
+        
+        # Get school_id for filtering
+        school_id = self.get_school_id()
+        if school_id:
+            queryset = queryset.filter(school__school_id=school_id).select_related('school')
+        else:
+            if self.request.user.is_authenticated:
+                return queryset.none()
+        
+        return queryset
+    
+    def create(self, request, *args, **kwargs):
+        """Override create to automatically get school from logged-in user if not provided"""
+        # Get school from request data if provided
+        school_id = request.data.get('school')
+        
+        # If school_id not provided, try to get it from the logged-in user
+        if not school_id:
+            if request.user.is_authenticated:
+                try:
+                    school = School.objects.filter(user=request.user).first()
+                    if not school:
+                        # Try to get school_id from user's school relationship
+                        school_id_from_user = get_user_school_id(request.user)
+                        if school_id_from_user:
+                            try:
+                                school = School.objects.get(school_id=school_id_from_user)
+                            except School.DoesNotExist:
+                                school = None
+                    
+                    if school:
+                        # Create mutable copy of request data and add school_id
+                        mutable_data = request.data.copy()
+                        if hasattr(mutable_data, '_mutable'):
+                            mutable_data._mutable = True
+                        mutable_data['school'] = school.school_id
+                        # Update request data - use QueryDict for proper handling
+                        from django.http import QueryDict
+                        if isinstance(request.data, QueryDict):
+                            request._full_data = QueryDict('', mutable=True)
+                            request._full_data.update(mutable_data)
+                        else:
+                            request._full_data = mutable_data
+                    else:
+                        return Response(
+                            {
+                                'success': False,
+                                'message': 'No school found. Please contact administrator to assign a school to your account.',
+                                'error': 'School not found'
+                            },
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                except Exception as e:
+                    return Response(
+                        {
+                            'success': False,
+                            'message': f'Error getting school: {str(e)}',
+                            'error': 'Failed to get school'
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                # For unauthenticated requests (development), try to get school from first available school
+                # This is for development/testing only
+                try:
+                    school = School.objects.first()
+                    if school:
+                        mutable_data = request.data.copy()
+                        if hasattr(mutable_data, '_mutable'):
+                            mutable_data._mutable = True
+                        mutable_data['school'] = school.school_id
+                        # Update request data - use QueryDict for proper handling
+                        from django.http import QueryDict
+                        if isinstance(request.data, QueryDict):
+                            request._full_data = QueryDict('', mutable=True)
+                            request._full_data.update(mutable_data)
+                        else:
+                            request._full_data = mutable_data
+                    else:
+                        return Response(
+                            {
+                                'success': False,
+                                'message': 'No school found in database. Please create a school first.',
+                                'error': 'School required'
+                            },
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                except Exception as e:
+                    return Response(
+                        {
+                            'success': False,
+                            'message': f'Error getting school: {str(e)}',
+                            'error': 'Failed to get school'
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+        
+        # Call parent create method
+        try:
+            # Use request._full_data if it was modified, otherwise use request.data
+            data_to_use = getattr(request, '_full_data', None)
+            if data_to_use is None:
+                data_to_use = request.data
+            
+            # Convert QueryDict to dict if needed for better handling
+            if hasattr(data_to_use, 'dict'):
+                data_to_use = data_to_use.dict()
+            
+            serializer = self.get_serializer(data=data_to_use)
+            if not serializer.is_valid():
+                # Return validation errors
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f'Activity validation errors: {serializer.errors}')
+                logger.error(f'Received data: {data_to_use}')
+                return Response(
+                    {
+                        'success': False,
+                        'message': 'Validation error',
+                        'errors': serializer.errors,
+                        'received_data': {k: v for k, v in data_to_use.items()},
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(
+                {
+                    'success': True,
+                    'data': serializer.data
+                },
+                status=status.HTTP_201_CREATED,
+                headers=headers
+            )
+        except Exception as e:
+            # Return detailed error information
+            import traceback
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'Error creating activity: {str(e)}')
+            logger.error(traceback.format_exc())
+            return Response(
+                {
+                    'success': False,
+                    'message': f'Error creating activity: {str(e)}',
+                    'error': str(e),
+                    'traceback': traceback.format_exc() if settings.DEBUG else None
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    def perform_create(self, serializer):
+        """Set school when creating activity"""
+        # School should already be set in create() method
+        # But if not, try to get it from user
+        if 'school' not in serializer.validated_data:
+            if self.request.user.is_authenticated:
+                school_id = get_user_school_id(self.request.user)
+                if school_id:
+                    try:
+                        school = School.objects.get(school_id=school_id)
+                        serializer.save(school=school)
+                        return
+                    except School.DoesNotExist:
+                        pass
+        
+        # If school is in validated_data, use it
+        super().perform_create(serializer)

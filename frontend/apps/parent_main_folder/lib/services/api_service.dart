@@ -7,6 +7,7 @@ class ApiService {
   static const teachersEndpoint = '$_base/teachers/';
   static const studentsEndpoint = '$_base/students/';
   static const communicationsEndpoint = 'http://localhost:8000/api/student-parent/communications/';
+  static const chatMessagesEndpoint = 'http://localhost:8000/api/student-parent/chat-messages/';
   static const parentBase = 'http://localhost:8000/api/student-parent';
   static const parentEndpoint = '$parentBase/parent/';
 
@@ -35,7 +36,25 @@ class ApiService {
     return await _getAuthHeaders();
   }
 
+  /// Fetch chat messages between two users using ChatMessage API (new WhatsApp/Telegram-like chat)
+  /// Uses the new ChatMessage model endpoint for real-time chat history
+  static Future<List<Map<String, dynamic>>> fetchChatMessages(String senderUsername, String recipientUsername) async {
+    final uri = Uri.parse('$chatMessagesEndpoint?sender=$senderUsername&recipient=$recipientUsername');
+    final headers = await _getAuthHeaders();
+    final resp = await http.get(uri, headers: headers).timeout(const Duration(seconds: 10));
+    if (resp.statusCode == 200) {
+      final data = jsonDecode(resp.body);
+      if (data is List) return List<Map<String, dynamic>>.from(data);
+      if (data is Map && data.containsKey('results')) {
+        return List<Map<String, dynamic>>.from(data['results'] as List);
+      }
+      return [];
+    }
+    throw Exception('Failed to fetch chat messages: ${resp.statusCode}');
+  }
+
   /// Fetch chat messages between two users (sender and recipient usernames)
+  /// @deprecated Use fetchChatMessages instead for real-time chat. This is kept for backward compatibility.
   static Future<List<Map<String, dynamic>>> fetchCommunications(String senderUsername, String recipientUsername) async {
     final uri = Uri.parse('$communicationsEndpoint?sender=$senderUsername&recipient=$recipientUsername');
     final headers = await _getAuthHeaders();

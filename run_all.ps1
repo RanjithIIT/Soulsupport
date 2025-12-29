@@ -51,9 +51,35 @@ Write-Host "Device: $Device" -ForegroundColor Green
 Write-Host "Release Mode: $Release" -ForegroundColor Green
 Write-Host ""
 
-# Start Django backend
-Write-Host "Starting Django backend on http://127.0.0.1:8000..." -ForegroundColor Cyan
-$backendProcess = Start-Process -FilePath $pythonExe -ArgumentList 'manage.py', 'runserver', '127.0.0.1:8000' -WorkingDirectory $backendPath -NoNewWindow -PassThru
+# Check if port 8000 is already in use and kill the process
+Write-Host "Checking for processes using port 8000..." -ForegroundColor Cyan
+try {
+    $portOutput = netstat -ano | Select-String ":8000.*LISTENING"
+    if ($portOutput) {
+        # Extract PID from the last column (format: TCP    127.0.0.1:8000    0.0.0.0:0    LISTENING    12345)
+        $pidString = ($portOutput -split '\s+')[-1]
+        if ($pidString -match '^\d+$') {
+            $pid = [int]$pidString
+            Write-Host "Found process $pid using port 8000, terminating..." -ForegroundColor Yellow
+            try {
+                Stop-Process -Id $pid -Force -ErrorAction Stop
+                Start-Sleep -Seconds 1
+                Write-Host "Process terminated successfully." -ForegroundColor Green
+            } catch {
+                Write-Host "Trying taskkill for process $pid..." -ForegroundColor Yellow
+                $null = & taskkill /PID $pid /F 2>&1
+                Start-Sleep -Seconds 1
+            }
+        }
+    }
+} catch {
+    # If checking fails, continue anyway
+    Write-Host "Could not check for existing processes on port 8000. Continuing..." -ForegroundColor Yellow
+}
+
+# Start Django backend with daphne (ASGI) for WebSocket support
+Write-Host "Starting Django backend with daphne (ASGI) on http://127.0.0.1:8000..." -ForegroundColor Cyan
+$backendProcess = Start-Process -FilePath $pythonExe -ArgumentList '-m', 'daphne', '-b', '127.0.0.1', '-p', '8000', 'school_backend.asgi:application' -WorkingDirectory $backendPath -NoNewWindow -PassThru
 
 # Wait for backend to start
 Start-Sleep -Seconds 3

@@ -2,8 +2,10 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
 import 'main.dart' as app;
 import 'dashboard.dart';
+import 'management_routes.dart';
 import 'widgets/school_profile_header.dart';
 
 class Activity {
@@ -11,23 +13,37 @@ class Activity {
   final String name;
   final String category;
   final String instructor;
-  final int participants;
+  final int? participants;
   final String schedule;
   final String location;
   final String status;
   final String description;
 
-  const Activity({
+  Activity({
     required this.id,
     required this.name,
     required this.category,
     required this.instructor,
-    required this.participants,
+    this.participants,
     required this.schedule,
     required this.location,
     required this.status,
     required this.description,
   });
+
+  factory Activity.fromJson(Map<String, dynamic> json) {
+    return Activity(
+      id: json['id'] as int,
+      name: json['name']?.toString() ?? '',
+      category: json['category']?.toString() ?? '',
+      instructor: json['instructor']?.toString() ?? '',
+      participants: json['max_participants'] as int?,
+      schedule: json['schedule']?.toString() ?? '',
+      location: json['location']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'Active',
+      description: json['description']?.toString() ?? '',
+    );
+  }
 }
 
 class ActivitiesManagementPage extends StatefulWidget {
@@ -39,71 +55,64 @@ class ActivitiesManagementPage extends StatefulWidget {
 }
 
 class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
-  final List<Activity> _activities = [
-    const Activity(
-      id: 1,
-      name: 'Basketball Team',
-      category: 'Sports',
-      instructor: 'Coach Johnson',
-      participants: 15,
-      schedule: 'Mon, Wed, Fri 3:00 PM',
-      location: 'Gymnasium',
-      status: 'Active',
-      description: 'Competitive basketball team for grades 9-12',
-    ),
-    const Activity(
-      id: 2,
-      name: 'Science Club',
-      category: 'Academic',
-      instructor: 'Dr. Sarah Chen',
-      participants: 20,
-      schedule: 'Tue, Thu 4:00 PM',
-      location: 'Science Lab',
-      status: 'Active',
-      description: 'Advanced science experiments and projects',
-    ),
-    const Activity(
-      id: 3,
-      name: 'Music Band',
-      category: 'Arts',
-      instructor: 'Ms. Emily White',
-      participants: 12,
-      schedule: 'Mon, Wed 2:30 PM',
-      location: 'Music Room',
-      status: 'Active',
-      description: 'School band performing various genres',
-    ),
-    const Activity(
-      id: 4,
-      name: 'Debate Club',
-      category: 'Academic',
-      instructor: 'Mr. David Brown',
-      participants: 18,
-      schedule: 'Fri 3:30 PM',
-      location: 'Library',
-      status: 'Active',
-      description: 'Competitive debate and public speaking',
-    ),
-    const Activity(
-      id: 5,
-      name: 'Chess Club',
-      category: 'Games',
-      instructor: 'Prof. Michael Wilson',
-      participants: 25,
-      schedule: 'Tue, Thu 3:00 PM',
-      location: 'Classroom 201',
-      status: 'Active',
-      description: 'Strategic thinking and chess tournaments',
-    ),
-  ];
-
+  List<Activity> _activities = [];
   final TextEditingController _searchController = TextEditingController();
   late List<Activity> _visibleActivities;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _visibleActivities = List<Activity>.from(_activities);
+    _visibleActivities = [];
+    _fetchActivities();
+  }
+
+  Future<void> _fetchActivities() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.get(Endpoints.activities);
+
+      if (response.success && response.data != null) {
+        List<dynamic> data = [];
+        if (response.data is List) {
+          data = response.data as List;
+        } else if (response.data is Map && (response.data as Map)['results'] != null) {
+          data = (response.data as Map)['results'] as List;
+        }
+
+        final activities = data
+            .map((item) => Activity.fromJson(item as Map<String, dynamic>))
+            .toList();
+
+        if (!mounted) return;
+        setState(() {
+          _activities = activities;
+          _visibleActivities = List<Activity>.from(_activities);
+          _isLoading = false;
+        });
+      } else {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to fetch activities: ${response.error ?? "Unknown error"}')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching activities: $e')),
+      );
+    }
   }
 
   @override
@@ -117,7 +126,7 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
       _activities.where((activity) => activity.status == 'Active').length;
   int get _totalParticipants => _activities.fold(
         0,
-        (sum, activity) => sum + activity.participants,
+        (sum, activity) => sum + (activity.participants ?? 0),
       );
   int get _activityCategories =>
       _activities.map((activity) => activity.category).toSet().length;
@@ -152,7 +161,7 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
               Text('Instructor: ${activity.instructor}'),
               Text('Schedule: ${activity.schedule}'),
               Text('Location: ${activity.location}'),
-              Text('Participants: ${activity.participants}'),
+              Text('Participants: ${activity.participants ?? 'Not specified'}'),
             ],
           ),
           actions: [
@@ -170,27 +179,20 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
     Navigator.pushNamed(context, '/edit-activity', arguments: activity.id);
   }
 
-  void _deleteActivity(Activity activity) {
-    showDialog<void>(
+  Future<void> _deleteActivity(Activity activity) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Confirm Deletion'),
-          content: Text('Delete ${activity.name}?'),
+          content: Text('Are you sure you want to delete "${activity.name}"? This action cannot be undone.'),
           actions: [
             TextButton(
-              onPressed: Navigator.of(context).pop,
+              onPressed: () => Navigator.of(context).pop(false),
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
-                setState(() {
-                  _activities.removeWhere((a) => a.id == activity.id);
-                });
-                _filterActivities(_searchController.text);
-                Navigator.of(context).pop();
-                _showSnack('Activity deleted successfully!');
-              },
+              onPressed: () => Navigator.of(context).pop(true),
               child: const Text(
                 'Delete',
                 style: TextStyle(color: Colors.red),
@@ -200,13 +202,33 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
         );
       },
     );
+
+    if (confirmed != true) return;
+
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.delete('${Endpoints.activities}${activity.id}/');
+
+      if (!mounted) return;
+
+      if (response.success) {
+        setState(() {
+          _activities.removeWhere((a) => a.id == activity.id);
+        });
+        _filterActivities(_searchController.text);
+        _showSnack('Activity deleted successfully!');
+      } else {
+        _showSnack('Failed to delete activity: ${response.error ?? "Unknown error"}');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack('Error deleting activity: $e');
+    }
   }
 
   void _addActivity() {
-    // Navigate to add activity page (can be created later)
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add activity feature coming soon')),
-    );
+    Navigator.pushNamed(context, ManagementRoutes.addActivity);
   }
 
   void _showSnack(String message) {
@@ -568,14 +590,35 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
               return Wrap(
                 spacing: 20,
                 runSpacing: 20,
-                children: _visibleActivities
-                    .map(
-                      (activity) => SizedBox(
-                        width: cardWidth,
-                        child: _buildActivityCard(activity),
-                      ),
-                    )
-                    .toList(),
+                children: _isLoading
+                    ? [
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(40.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+                      ]
+                    : _visibleActivities.isEmpty
+                        ? [
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(40.0),
+                                child: Text(
+                                  'No activities found',
+                                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                                ),
+                              ),
+                            ),
+                          ]
+                        : _visibleActivities
+                            .map(
+                              (activity) => SizedBox(
+                                width: cardWidth,
+                                child: _buildActivityCard(activity),
+                              ),
+                            )
+                            .toList(),
               );
             },
           ),
@@ -728,7 +771,7 @@ class _ActivityCardWithHoverState extends State<_ActivityCardWithHover> {
                         width: itemWidth,
                         child: _DetailItem(
                           title: 'Participants',
-                          value: '${widget.activity.participants}',
+                          value: '${widget.activity.participants ?? 'Not specified'}',
                         ),
                       ),
                       SizedBox(

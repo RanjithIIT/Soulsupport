@@ -18,6 +18,7 @@ router.register(r'fees', views.FeeViewSet, basename='fee')
 router.register(r'buses', views.BusViewSet, basename='bus')
 router.register(r'bus-stops', views.BusStopViewSet, basename='busstop')
 router.register(r'bus-stop-students', views.BusStopStudentViewSet, basename='busstopstudent')
+router.register(r'activities', views.ActivityViewSet, basename='activity')
 router.register(r'schools', views.SchoolViewSet, basename='school')
 
 urlpatterns = [

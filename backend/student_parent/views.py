@@ -7,12 +7,13 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
-from .models import Parent, Notification, Fee, Communication
+from .models import Parent, Notification, Fee, Communication, ChatMessage
 from .serializers import (
     ParentSerializer, NotificationSerializer,
-    FeeSerializer, CommunicationSerializer
+    FeeSerializer, CommunicationSerializer, ChatMessageSerializer
 )
-from main_login.permissions import IsStudentParent
+from main_login.permissions import IsStudentParent, IsTeacher
+from rest_framework import permissions
 from main_login.mixins import SchoolFilterMixin
 from management_admin.models import Student
 from management_admin.serializers import StudentSerializer
@@ -191,7 +192,7 @@ class CommunicationViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     serializer_class = CommunicationSerializer
     permission_classes = [IsAuthenticated, IsStudentParent]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['sender', 'recipient', 'is_read']
+    filterset_fields = ['is_read']  # Removed 'sender' and 'recipient' - handled manually in get_queryset
     search_fields = ['subject', 'message']
     ordering_fields = ['created_at']
     ordering = ['-created_at']
@@ -201,35 +202,55 @@ class CommunicationViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         from main_login.models import User
         from django.db.models import Q
         
+        # Base queryset: only messages where current user is sender or recipient
         queryset = Communication.objects.filter(
             Q(recipient=self.request.user) | Q(sender=self.request.user)
         )
         
         # Handle sender and recipient filters (expects username or email)
+        # IMPORTANT: Both sender AND recipient must be specified and matched together
+        # to ensure we only get messages between the specific pair
         sender_param = self.request.query_params.get('sender')
         recipient_param = self.request.query_params.get('recipient')
         
-        if sender_param:
-            # Try to find user by username or email
+        # If both sender and recipient are provided, filter for messages between them
+        if sender_param and recipient_param:
+            # Find both users
+            sender_user = User.objects.filter(
+                Q(username=sender_param) | Q(email=sender_param)
+            ).first()
+            recipient_user = User.objects.filter(
+                Q(username=recipient_param) | Q(email=recipient_param)
+            ).first()
+            
+            if sender_user and recipient_user:
+                # Filter for messages between these two specific users (in either direction)
+                queryset = queryset.filter(
+                    (Q(sender=sender_user) & Q(recipient=recipient_user)) |
+                    (Q(sender=recipient_user) & Q(recipient=sender_user))
+                )
+            else:
+                # If either user not found, return empty queryset
+                queryset = queryset.none()
+        elif sender_param:
+            # Only sender specified - filter by sender (but still restricted to current user's conversations)
             sender_user = User.objects.filter(
                 Q(username=sender_param) | Q(email=sender_param)
             ).first()
             if sender_user:
                 queryset = queryset.filter(sender=sender_user)
             else:
-                # If not found, return empty queryset
                 queryset = queryset.none()
-        
-        if recipient_param:
-            # Try to find user by username or email
+        elif recipient_param:
+            # Only recipient specified - filter by recipient (but still restricted to current user's conversations)
             recipient_user = User.objects.filter(
                 Q(username=recipient_param) | Q(email=recipient_param)
             ).first()
             if recipient_user:
                 queryset = queryset.filter(recipient=recipient_user)
             else:
-                # If not found, return empty queryset
                 queryset = queryset.none()
+        # If neither sender nor recipient specified, return all messages for current user
         
         return queryset
     
@@ -241,6 +262,108 @@ class CommunicationViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
             communication.is_read = True
             communication.save()
             return Response({'message': 'Communication marked as read'})
+        return Response(
+            {'error': 'You can only mark your received messages as read'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+
+class IsTeacherOrStudentParent(permissions.BasePermission):
+    """Allow both teachers and student/parent to access"""
+    def has_permission(self, request, view):
+        return (
+            request.user and
+            request.user.is_authenticated and
+            request.user.role and
+            (request.user.role.name == 'teacher' or request.user.role.name == 'student_parent')
+        )
+
+
+class IsTeacherOrStudentParent(permissions.BasePermission):
+    """Allow both teachers and student/parent to access ChatMessage API"""
+    def has_permission(self, request, view):
+        return (
+            request.user and
+            request.user.is_authenticated and
+            request.user.role and
+            (request.user.role.name == 'teacher' or request.user.role.name == 'student_parent')
+        )
+
+
+class ChatMessageViewSet(SchoolFilterMixin, viewsets.ReadOnlyModelViewSet):
+    """ViewSet for ChatMessage model - Real-time chat messages (WhatsApp/Telegram-like)"""
+    queryset = ChatMessage.objects.all()
+    serializer_class = ChatMessageSerializer
+    permission_classes = [IsAuthenticated, IsTeacherOrStudentParent]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['message_type', 'is_read']
+    search_fields = ['message_text']
+    ordering_fields = ['created_at']
+    ordering = ['-created_at']
+    
+    def get_queryset(self):
+        """Filter chat messages by current user, with support for username/email-based filtering"""
+        from main_login.models import User
+        from django.db.models import Q
+        
+        # Base queryset: only messages where current user is sender or recipient
+        queryset = ChatMessage.objects.filter(
+            Q(recipient=self.request.user) | Q(sender=self.request.user)
+        ).filter(is_deleted=False)  # Exclude deleted messages
+        
+        # Handle sender and recipient filters (expects username or email)
+        # IMPORTANT: Both sender AND recipient must be specified and matched together
+        # to ensure we only get messages between the specific pair
+        sender_param = self.request.query_params.get('sender')
+        recipient_param = self.request.query_params.get('recipient')
+        
+        # If both sender and recipient are provided, filter for messages between them
+        if sender_param and recipient_param:
+            # Find both users
+            sender_user = User.objects.filter(
+                Q(username=sender_param) | Q(email=sender_param)
+            ).first()
+            recipient_user = User.objects.filter(
+                Q(username=recipient_param) | Q(email=recipient_param)
+            ).first()
+            
+            if sender_user and recipient_user:
+                # Filter for messages between these two specific users (in either direction)
+                queryset = queryset.filter(
+                    (Q(sender=sender_user) & Q(recipient=recipient_user)) |
+                    (Q(sender=recipient_user) & Q(recipient=sender_user))
+                )
+            else:
+                # If either user not found, return empty queryset
+                queryset = queryset.none()
+        elif sender_param:
+            # Only sender specified
+            sender_user = User.objects.filter(
+                Q(username=sender_param) | Q(email=sender_param)
+            ).first()
+            if sender_user:
+                queryset = queryset.filter(sender=sender_user)
+            else:
+                queryset = queryset.none()
+        elif recipient_param:
+            # Only recipient specified
+            recipient_user = User.objects.filter(
+                Q(username=recipient_param) | Q(email=recipient_param)
+            ).first()
+            if recipient_user:
+                queryset = queryset.filter(recipient=recipient_user)
+            else:
+                queryset = queryset.none()
+        
+        return queryset
+    
+    @action(detail=True, methods=['post'])
+    def mark_read(self, request, pk=None):
+        """Mark chat message as read"""
+        chat_message = self.get_object()
+        if chat_message.recipient == request.user:
+            chat_message.mark_as_read()
+            return Response({'message': 'Message marked as read'})
         return Response(
             {'error': 'You can only mark your received messages as read'},
             status=status.HTTP_403_FORBIDDEN
