@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
 import 'dart:ui' as ui;
@@ -114,7 +115,8 @@ class Teacher {
   final String subject;
   final String avatar;
   final bool isOnline;
-  final String? className; // For students: their class, for teachers: assigned class
+  final String?
+  className; // For students: their class, for teachers: assigned class
   final String? grade; // For students: their grade
 
   Teacher({
@@ -240,7 +242,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _dashboardData = fetchDashboardData();
     _loadTeacherProfile();
   }
-  
+
   Future<void> _loadTeacherProfile() async {
     try {
       final teacherProfile = await api.ApiService.fetchTeacherProfile();
@@ -248,17 +250,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final user = teacherProfile['user'] as Map<String, dynamic>?;
         _currentTeacherUsername = user?['username'] as String?;
         _currentTeacherUserId = user?['user_id']?.toString();
-        
+
         // Extract school_id and school_name from profile
-        _schoolId = teacherProfile['school_id']?.toString() ?? 
-                    teacherProfile['department']?['school']?['school_id']?.toString();
+        _schoolId =
+            teacherProfile['school_id']?.toString() ??
+            teacherProfile['department']?['school']?['school_id']?.toString();
         _schoolName = teacherProfile['school_name']?.toString();
-        
+
         debugPrint('Teacher username loaded: $_currentTeacherUsername');
         debugPrint('Teacher user_id loaded: $_currentTeacherUserId');
         debugPrint('School ID loaded: $_schoolId');
         debugPrint('School Name loaded: $_schoolName');
-        
+
         // Update UI if school name is available
         if (_schoolName != null && _schoolName!.isNotEmpty) {
           setState(() {});
@@ -277,15 +280,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadSchoolName() async {
     try {
       if (_schoolId == null || _schoolId!.isEmpty) return;
-      
+
       final headers = await api.ApiService.getAuthHeaders();
-      
+
       // Try super-admin endpoint to get school by school_id
-      final response = await http.get(
-        Uri.parse('http://localhost:8000/api/super-admin/schools/$_schoolId/'),
-        headers: headers,
-      ).timeout(const Duration(seconds: 10));
-      
+      final response = await http
+          .get(
+            Uri.parse(
+              'http://localhost:8000/api/super-admin/schools/$_schoolId/',
+            ),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 10));
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data is Map) {
@@ -295,7 +302,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           return;
         }
       }
-      
+
       // Fallback: try to extract from teacher profile if department.school is available
       try {
         final teacherProfile = await api.ApiService.fetchTeacherProfile();
@@ -314,7 +321,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       } catch (e) {
         debugPrint('Failed to extract school from profile: $e');
       }
-      
+
       setState(() {
         _schoolName = 'School';
       });
@@ -341,7 +348,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 'add-assignment':
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const AssignmentDashboardScreen()),
+          MaterialPageRoute(
+            builder: (context) => const AssignmentDashboardScreen(),
+          ),
         );
         break;
       case 'attendance':
@@ -353,7 +362,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 'class-students':
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const StudentDashboardScreen()),
+          MaterialPageRoute(
+            builder: (context) => const StudentDashboardScreen(),
+          ),
         );
         break;
       case 'classes':
@@ -400,13 +411,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 'study materials':
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const study_material.DashboardScreen()),
+          MaterialPageRoute(
+            builder: (context) => const study_material.DashboardScreen(),
+          ),
         );
         break;
       case 'time-table':
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const timetable.TeacherTimetableScreen()),
+          MaterialPageRoute(
+            builder: (context) => const timetable.TeacherTimetableScreen(),
+          ),
         );
         break;
       default:
@@ -415,7 +430,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
     }
   }
-
 
   // Get attendance data based on selected period
   Map<String, String> _getAttendanceData(String period) {
@@ -567,31 +581,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.all(20).copyWith(top: 20 - 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(icon, style: const TextStyle(fontSize: 28)),
-                const SizedBox(height: 10),
-                Text(
-                  number,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF333333),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.center,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(icon, style: const TextStyle(fontSize: 28)),
+                  const SizedBox(height: 10),
+                  Text(
+                    number,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF333333),
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF666666),
+                  const SizedBox(height: 5),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF666666),
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -1052,176 +1070,180 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Navigator.of(context).pop();
       },
       child: Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(100.0),
-        child: _buildHeader(),
-      ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: EdgeInsets.symmetric(
-              horizontal: horizontalPadding,
-              vertical: 20,
-            ),
-            child: FutureBuilder<DashboardData>(
-              future: _dashboardData,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return _buildLoadingIndicator();
-                } else if (snapshot.hasError) {
-                  return _buildErrorWidget(snapshot.error.toString());
-                } else if (snapshot.hasData) {
-                  final data = snapshot.data!;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Dashboard Title
-                      _buildDashboardTitle(),
-                      const SizedBox(height: 30),
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(100.0),
+          child: _buildHeader(),
+        ),
+        body: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+                vertical: 20,
+              ),
+              child: FutureBuilder<DashboardData>(
+                future: _dashboardData,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return _buildLoadingIndicator();
+                  } else if (snapshot.hasError) {
+                    return _buildErrorWidget(snapshot.error.toString());
+                  } else if (snapshot.hasData) {
+                    final data = snapshot.data!;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Calendar Section (At the Top)
+                        _buildCalendarSection(context),
+                        const SizedBox(height: 40),
 
-                      // Calendar Section (At the Top)
-                      _buildCalendarSection(context),
-                      const SizedBox(height: 40),
-
-                      // Stats Grid (Responsive)
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: isDesktop ? 5 : statCardCount,
-                          crossAxisSpacing: 20,
-                          mainAxisSpacing: 20,
-                          childAspectRatio: 1.2,
-                        ),
-                        itemCount:
-                            11, // FIX: Increased to 11 for all modules + Profile
-                        itemBuilder: (context, index) {
-                          // Build stats defensively to avoid runtime null errors
-                          List<Map<String, String>> stats;
-                          try {
-                            final dyn = data as dynamic;
-                            // Build stats with exact labels requested by the user
-                            stats = [
-                              {
-                                'icon': '📝',
-                                'number': _safeNumber(dyn.pendingAssignments),
-                                'label': 'Add-Assignment',
-                              },
-                              {
-                                'icon': '✅',
-                                'number': _safeNumber(
-                                  dyn.totalAttendanceRecords,
-                                ),
-                                'label': 'Attendance',
-                              },
-                              {
-                                'icon': '👨‍🎓',
-                                'number': _safeNumber(dyn.totalStudents),
-                                'label': 'Class-students',
-                              },
-                              {
-                                'icon': '🏫',
-                                'number': _safeNumber(dyn.totalClasses),
-                                'label': 'classes',
-                              },
-                              {
-                                'icon': '💬',
-                                'number': _safeNumber(dyn.totalCommunication),
-                                'label': 'communication',
-                              },
-                              {
-                                'icon': '📅',
-                                'number': _safeNumber(dyn.upcomingExams),
-                                'label': 'exam',
-                              },
-                              {
-                                'icon': '📊',
-                                'number': _safeNumber(dyn.totalGradesPending),
-                                'label': 'grades',
-                              },
-                              {
-                                'icon': '👤',
-                                'number': _safeNumber(dyn.profileCompleteness),
-                                'label': 'profile',
-                              },
-                              {
-                                'icon': '📈',
-                                'number': _safeNumber(dyn.totalResults),
-                                'label': 'results',
-                              },
-                              {
-                                'icon': '📖',
-                                'number': _safeNumber(dyn.totalStudyMaterials),
-                                'label': 'study materials',
-                              },
-                              {
-                                'icon': '⏰',
-                                'number': _safeNumber(dyn.totalTimetableSlots),
-                                'label': 'time-table',
-                              },
-                            ];
-                          } catch (e) {
-                            stats = List.generate(
-                              11,
-                              (i) => {
-                                'icon': 'ℹ️',
-                                'number': '0',
-                                'label': 'N/A',
-                              },
-                            );
-                          }
-                          return _buildStatCard(
-                            stats[index]['icon']!,
-                            stats[index]['number']!,
-                            stats[index]['label']!,
-                            onTap: () => _navigateToScreen(stats[index]['label']!),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 40),
-
-                      // Main Content Grid (2 Columns Desktop, 1 Column Mobile)
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          if (isDesktop) {
-                            return Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  flex: 2,
-                                  child: _buildMainSection(
-                                    data,
-                                    classesGridCount,
+                        // Stats Grid (Responsive)
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: isDesktop ? 5 : statCardCount,
+                                crossAxisSpacing: 20,
+                                mainAxisSpacing: 20,
+                                childAspectRatio: 1.2,
+                              ),
+                          itemCount:
+                              11, // FIX: Increased to 11 for all modules + Profile
+                          itemBuilder: (context, index) {
+                            // Build stats defensively to avoid runtime null errors
+                            List<Map<String, String>> stats;
+                            try {
+                              final dyn = data as dynamic;
+                              // Build stats with exact labels requested by the user
+                              stats = [
+                                {
+                                  'icon': '📝',
+                                  'number': _safeNumber(dyn.pendingAssignments),
+                                  'label': 'Add-Assignment',
+                                },
+                                {
+                                  'icon': '✅',
+                                  'number': _safeNumber(
+                                    dyn.totalAttendanceRecords,
                                   ),
-                                ),
-                                const SizedBox(width: 30),
-                                Expanded(
-                                  flex: 1,
-                                  child: _buildSidebarSection(),
-                                ),
-                              ],
+                                  'label': 'Attendance',
+                                },
+                                {
+                                  'icon': '👨‍🎓',
+                                  'number': _safeNumber(dyn.totalStudents),
+                                  'label': 'Class-students',
+                                },
+                                {
+                                  'icon': '🏫',
+                                  'number': _safeNumber(dyn.totalClasses),
+                                  'label': 'classes',
+                                },
+                                {
+                                  'icon': '💬',
+                                  'number': _safeNumber(dyn.totalCommunication),
+                                  'label': 'communication',
+                                },
+                                {
+                                  'icon': '📅',
+                                  'number': _safeNumber(dyn.upcomingExams),
+                                  'label': 'exam',
+                                },
+                                {
+                                  'icon': '📊',
+                                  'number': _safeNumber(dyn.totalGradesPending),
+                                  'label': 'grades',
+                                },
+                                {
+                                  'icon': '👤',
+                                  'number': _safeNumber(
+                                    dyn.profileCompleteness,
+                                  ),
+                                  'label': 'profile',
+                                },
+                                {
+                                  'icon': '📈',
+                                  'number': _safeNumber(dyn.totalResults),
+                                  'label': 'results',
+                                },
+                                {
+                                  'icon': '📖',
+                                  'number': _safeNumber(
+                                    dyn.totalStudyMaterials,
+                                  ),
+                                  'label': 'study materials',
+                                },
+                                {
+                                  'icon': '⏰',
+                                  'number': _safeNumber(
+                                    dyn.totalTimetableSlots,
+                                  ),
+                                  'label': 'time-table',
+                                },
+                              ];
+                            } catch (e) {
+                              stats = List.generate(
+                                11,
+                                (i) => {
+                                  'icon': 'ℹ️',
+                                  'number': '0',
+                                  'label': 'N/A',
+                                },
+                              );
+                            }
+                            return _buildStatCard(
+                              stats[index]['icon']!,
+                              stats[index]['number']!,
+                              stats[index]['label']!,
+                              onTap: () =>
+                                  _navigateToScreen(stats[index]['label']!),
                             );
-                          } else {
-                            return Column(
-                              children: [
-                                _buildMainSection(data, classesGridCount),
-                                const SizedBox(height: 30),
-                                _buildSidebarSection(),
-                              ],
-                            );
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                  );
-                }
-                return Container();
-              },
+                          },
+                        ),
+                        const SizedBox(height: 40),
+
+                        // Main Content Grid (2 Columns Desktop, 1 Column Mobile)
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            if (isDesktop) {
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    flex: 2,
+                                    child: _buildMainSection(
+                                      data,
+                                      classesGridCount,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 30),
+                                  Expanded(
+                                    flex: 1,
+                                    child: _buildSidebarSection(),
+                                  ),
+                                ],
+                              );
+                            } else {
+                              return Column(
+                                children: [
+                                  _buildMainSection(data, classesGridCount),
+                                  const SizedBox(height: 30),
+                                  _buildSidebarSection(),
+                                ],
+                              );
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                    );
+                  }
+                  return Container();
+                },
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -1244,83 +1266,128 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      padding: const EdgeInsets.only(top: 40, bottom: 20, left: 20, right: 20),
+      padding: const EdgeInsets.only(top: 20, bottom: 12, left: 24, right: 24),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Title - allow to shrink with ellipsis on small widths
+          // Logo and School Name
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      '🏫 ',
-              style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final double side = (constraints.maxHeight * 0.9).clamp(
+                      60.0,
+                      120.0,
+                    );
+                    return Container(
+                      decoration: BoxDecoration(
+                        // border: Border.all(color: const Color(0xFFFFD700), width: 1.5), // Removed border
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black26, 
+                            blurRadius: 4, 
+                            offset: Offset(0, 2)
+                          ),
+                        ],
                       ),
-                    ),
-                    Flexible(
-                      child: Text(
-                        _schoolName ?? 'School Management System',
-                        style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Transform.scale(
+                          scale: 1.2, // Zoom in to crop out the baked-in border
+                          child: Image.asset(
+                            'assets/images/vidhyarambh_logo.png',
+                            package: 'teacher_app',
+                            fit: BoxFit.cover,
+                            width: side,
+                            height: side,
+                            errorBuilder: (context, error, stackTrace) {
+                              debugPrint('LOGO LOAD ERROR: $error');
+                              return const Icon(
+                                Icons.school, // Fallback icon
+                                size: 40,
+                                color: Color(0xFFFFD700),
+                              );
+                            },
+                          ),
+                        ),
                       ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 16),
+                const Flexible(
+                  child: Text(
+                    'Vignan School',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black26,
+                          offset: Offset(0, 2),
+                          blurRadius: 4,
+                        ),
+                      ],
                     ),
-                  ],
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          // User info - keep to minimal intrinsic size and allow wrapping inside
-          Flexible(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircleAvatar(
-                  backgroundColor: Colors.white24,
-                  child: Text('👨‍🏫', style: TextStyle(fontSize: 18)),
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Text(
-                        'Teacher User', // user.name
-                        style: TextStyle(color: Colors.white),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
+          
+          // User Info and Logout
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Avatar with Navigation
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const TeacherProfilePage(),
                       ),
-                      Text(
-                        'Teacher',
-                        style: TextStyle(fontSize: 12, color: Colors.white70),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
-                    ],
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(30),
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
+                    ),
+                    child: const CircleAvatar(
+                      radius: 20,
+                      backgroundColor: Color(0xFFE1BEE7),
+                      child: Text('👩‍🏫', style: TextStyle(fontSize: 22)),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                TextButton(
-                  onPressed: () {
+              ),
+              const SizedBox(width: 20),
+              
+              // Logout Button
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
                     showDialog(
                       context: context,
                       builder: (BuildContext dialogContext) {
                         return AlertDialog(
                           title: const Text('Logout'),
-                          content: const Text('Are you sure you want to logout?'),
+                          content: const Text(
+                            'Are you sure you want to logout?',
+                          ),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.of(dialogContext).pop(),
@@ -1332,26 +1399,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 Navigator.pushAndRemoveUntil(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => const main_login.LoginScreen(),
+                                    builder: (context) =>
+                                        const main_login.LoginScreen(),
                                   ),
                                   (route) => false,
                                 );
                               },
-                              child: const Text('Logout', style: TextStyle(color: Colors.red)),
+                              child: const Text(
+                                'Logout',
+                                style: TextStyle(color: Colors.red),
+                              ),
                             ),
                           ],
                         );
                       },
                     );
                   },
-                  style: TextButton.styleFrom(backgroundColor: Colors.white24),
-                  child: const Text(
-                    'Logout',
-                    style: TextStyle(color: Colors.white),
+                  borderRadius: BorderRadius.circular(30),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF8A80), Color(0xFFF48FB1)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.logout, color: Colors.white, size: 22),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1469,7 +1555,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       onPressed: () {
                         setState(() {
-                          _currentDate = DateTime(_currentDate.year, _currentDate.month - 1, 1);
+                          _currentDate = DateTime(
+                            _currentDate.year,
+                            _currentDate.month - 1,
+                            1,
+                          );
                         });
                       },
                     ),
@@ -1502,7 +1592,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       onPressed: () {
                         setState(() {
-                          _currentDate = DateTime(_currentDate.year, _currentDate.month + 1, 1);
+                          _currentDate = DateTime(
+                            _currentDate.year,
+                            _currentDate.month + 1,
+                            1,
+                          );
                         });
                       },
                     ),
@@ -1678,6 +1772,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildSidebarSection() {
     return Column(
       children: [
+        // Logo - Fixed at top (same as management sidebar)
+        // Logo Container removed as per request
         // Performance & Charts (Moved to Top)
         Card(
           elevation: 5,
@@ -1924,29 +2020,71 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildActionButton(String label, IconData icon, {VoidCallback? onPressed}) {
+  Widget _buildActionButton(
+    String label,
+    IconData icon, {
+    VoidCallback? onPressed,
+  }) {
     return ElevatedButton(
-      onPressed: onPressed ?? () {
-        // Default navigation based on label
-        if (label.contains('Assignment')) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const AssignmentDashboardScreen()));
-        } else if (label.contains('Exam')) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const TeacherDashboard()));
-        } else if (label.contains('Grades')) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const GradesDashboard()));
-        } else if (label.contains('Results')) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const EnterResultsScreen()));
-        } else if (label.contains('Timetable')) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const timetable.TeacherTimetableScreen()));
-        } else if (label.contains('Profile')) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const TeacherProfilePage()));
-        } else if (label.contains('Communication')) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => TeacherCommunicationScreen(
-            onToggleTheme: () {},
-            initialThemeMode: ThemeMode.light,
-          )));
-        }
-      },
+      onPressed:
+          onPressed ??
+          () {
+            // Default navigation based on label
+            if (label.contains('Assignment')) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AssignmentDashboardScreen(),
+                ),
+              );
+            } else if (label.contains('Exam')) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TeacherDashboard(),
+                ),
+              );
+            } else if (label.contains('Grades')) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const GradesDashboard(),
+                ),
+              );
+            } else if (label.contains('Results')) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const EnterResultsScreen(),
+                ),
+              );
+            } else if (label.contains('Timetable')) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      const timetable.TeacherTimetableScreen(),
+                ),
+              );
+            } else if (label.contains('Profile')) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TeacherProfilePage(),
+                ),
+              );
+            } else if (label.contains('Communication')) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => TeacherCommunicationScreen(
+                    onToggleTheme: () {},
+                    initialThemeMode: ThemeMode.light,
+                  ),
+                ),
+              );
+            }
+          },
       style: ElevatedButton.styleFrom(
         padding: const EdgeInsets.all(15),
         backgroundColor: const Color(0xFF667eea),
@@ -2187,41 +2325,44 @@ class StatDetailScreen extends StatelessWidget {
           backgroundColor: const Color(0xFF667eea),
         ),
         body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Current Value: $value',
-              style: const TextStyle(fontSize: 24, color: Color(0xFF667eea)),
-            ),
-            const SizedBox(height: 40),
-            const Padding(
-              padding: EdgeInsets.all(20.0),
-              child: Text(
-                'This screen would typically show detailed analytics, historical trends, and management tools for this specific metric.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Color(0xFF666666)),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF764ba2),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 40,
-                  vertical: 15,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              child: const Text('Go Back'),
-            ),
-          ],
+              const SizedBox(height: 20),
+              Text(
+                'Current Value: $value',
+                style: const TextStyle(fontSize: 24, color: Color(0xFF667eea)),
+              ),
+              const SizedBox(height: 40),
+              const Padding(
+                padding: EdgeInsets.all(20.0),
+                child: Text(
+                  'This screen would typically show detailed analytics, historical trends, and management tools for this specific metric.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, color: Color(0xFF666666)),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF764ba2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 40,
+                    vertical: 15,
+                  ),
+                ),
+                child: const Text('Go Back'),
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
