@@ -51,7 +51,7 @@
     },
     {
       "name": "flutter",
-      "rootUri": "file:///C:/src/flutter/packages/flutter",
+      "rootUri": "file:///C:/Users/D-IT/Downloads/flutter_windows_3.35.7-stable/flutter/packages/flutter",
       "packageUri": "lib/",
       "languageVersion": "3.8"
     },
@@ -63,13 +63,13 @@
     },
     {
       "name": "flutter_test",
-      "rootUri": "file:///C:/src/flutter/packages/flutter_test",
+      "rootUri": "file:///C:/Users/D-IT/Downloads/flutter_windows_3.35.7-stable/flutter/packages/flutter_test",
       "packageUri": "lib/",
       "languageVersion": "3.8"
     },
     {
       "name": "flutter_web_plugins",
-      "rootUri": "file:///C:/src/flutter/packages/flutter_web_plugins",
+      "rootUri": "file:///C:/Users/D-IT/Downloads/flutter_windows_3.35.7-stable/flutter/packages/flutter_web_plugins",
       "packageUri": "lib/",
       "languageVersion": "3.8"
     },
@@ -207,7 +207,7 @@
     },
     {
       "name": "sky_engine",
-      "rootUri": "file:///C:/src/flutter/bin/cache/pkg/sky_engine",
+      "rootUri": "file:///C:/Users/D-IT/Downloads/flutter_windows_3.35.7-stable/flutter/bin/cache/pkg/sky_engine",
       "packageUri": "lib/",
       "languageVersion": "3.8"
     },
@@ -286,7 +286,7 @@
   ],
   "generator": "pub",
   "generatorVersion": "3.10.1",
-  "flutterRoot": "file:///C:/src/flutter",
+  "flutterRoot": "file:///C:/Users/D-IT/Downloads/flutter_windows_3.35.7-stable/flutter",
   "flutterVersion": "3.38.3",
   "pubCache": "file:///C:/Users/D-IT/AppData/Local/Pub/Cache"
 }

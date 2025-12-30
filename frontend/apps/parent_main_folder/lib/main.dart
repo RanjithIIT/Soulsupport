@@ -1577,88 +1577,204 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              '🏫 ',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-            Flexible(
-              child: Text(
-                _schoolName ?? 'School Management System',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-              ),
-            ),
-          ],
+  Widget _buildHeader() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF667eea), Color(0xFF764ba2), Color(0xFFf093fb)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        actions: [
-          Row(
-            children: [
-              const CircleAvatar(
-                backgroundColor: Colors.white24,
-                child: Text('👨‍👩‍👧‍👦'),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                mockData.userName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ), // Bolder username
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.logout, color: Colors.white),
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (BuildContext dialogContext) {
-                      return AlertDialog(
-                        title: const Text('Logout'),
-                        content: const Text('Are you sure you want to logout?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(dialogContext).pop(),
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(dialogContext).pop();
-                              Navigator.pushAndRemoveUntil(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const main_login.LoginScreen(),
-                                ),
-                                (route) => false,
-                              );
-                            },
-                            child: const Text('Logout', style: TextStyle(color: Colors.red)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.only(top: 20, bottom: 12, left: 24, right: 24),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Logo and School Name
+          Expanded(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final double side = (constraints.maxHeight * 0.9).clamp(
+                      60.0,
+                      120.0,
+                    );
+                    return Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black26, 
+                            blurRadius: 4, 
+                            offset: Offset(0, 2)
                           ),
                         ],
-                      );
-                    },
-                  );
-                },
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Transform.scale(
+                          scale: 1.2, // Zoom in to crop out the baked-in border
+                          child: Image.asset(
+                            'assets/images/vidhyarambh_logo.png',
+                            package: 'parent_app',
+                            fit: BoxFit.cover,
+                            width: side,
+                            height: side,
+                            errorBuilder: (context, error, stackTrace) {
+                              debugPrint('LOGO LOAD ERROR: $error');
+                              return const Icon(
+                                Icons.school, // Fallback icon
+                                size: 40,
+                                color: Color(0xFFFFD700),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 16),
+                Flexible(
+                  child: Text(
+                    _schoolName ?? 'School',
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black26,
+                          offset: Offset(0, 2),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // User Info and Logout
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Avatar with Navigation
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const StudentProfilePage(),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(30),
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
+                    ),
+                    child: const CircleAvatar(
+                      radius: 20,
+                      backgroundColor: Color(0xFFE1BEE7),
+                      child: Text('👨‍👩‍👧', style: TextStyle(fontSize: 22)),
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 20),
+              
+              // Logout Button
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext dialogContext) {
+                        return AlertDialog(
+                          title: const Text('Logout'),
+                          content: const Text(
+                            'Are you sure you want to logout?',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(dialogContext).pop(),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(dialogContext).pop();
+                                Navigator.pushAndRemoveUntil(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const main_login.LoginScreen(),
+                                  ),
+                                  (route) => false,
+                                );
+                              },
+                              child: const Text(
+                                'Logout',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(30),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF8A80), Color(0xFFFF5252)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.red.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.logout, color: Colors.white, size: 22),
+                  ),
+                ),
+              ),
             ],
           ),
         ],
+      ),
+    );
+  }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(100.0), // Matching Teacher App size
+        child: _buildHeader(),
       ),
       // Add Floating Action Button for Chat
       body: SingleChildScrollView(

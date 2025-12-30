@@ -78,6 +78,7 @@ class _SplashScreenState extends State<SplashScreen>
               scale: _scaleAnimation,
               child: Center(
                 child: Image.asset(
+<<<<<<< HEAD
                   'packages/management_org/assets/Vidyarambh.png',
                   width: MediaQuery.of(context).size.width * 0.6,
                   height: MediaQuery.of(context).size.height * 0.6,
@@ -99,6 +100,12 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                     );
                   },
+=======
+                  'assets/images/splash_v2.jpg',
+                  width: MediaQuery.of(context).size.width * 0.8,
+                  height: MediaQuery.of(context).size.height * 0.8,
+                  fit: BoxFit.contain,
+>>>>>>> vamshi
                 ),
               ),
             ),
