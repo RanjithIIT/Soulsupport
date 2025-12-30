@@ -79,7 +79,7 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
   bool _isSubmitting = false;
   bool _isLoading = false;
   int _currentStep = 0;
-  bool _autoSyncAfternoonStops = true; // Auto-sync afternoon stops from morning
+  final bool _autoSyncAfternoonStops = true; // Auto-sync afternoon stops from morning
   
   @override
   void initState() {
@@ -174,7 +174,7 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
           allStudents[studentId] = {
             'student': student,
             'stop_name': stop.name,
-            'stop_index': _morningStops.indexOf(stop) >= 0 
+            'stop_index': _morningStops.contains(stop) 
                 ? _morningStops.indexOf(stop) + 1
                 : _afternoonStops.indexOf(stop) + 1,
             'route_type': _morningStops.contains(stop) ? 'morning' : 'afternoon',
@@ -467,7 +467,7 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                       labelText: 'Bus Type *',
                       border: OutlineInputBorder(),
                     ),
-                    value: _busType,
+                    initialValue: _busType,
                     items: ['Mini Bus', 'Standard Bus', 'Large Bus', 'AC Bus']
                         .map((type) => DropdownMenuItem(
                               value: type,
@@ -797,7 +797,7 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                 },
                 onAddStudents: () => _showAddStudentsDialog(stop, routeType, index),
               );
-            }).toList(),
+            }),
         ],
       ),
     );
@@ -973,7 +973,7 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                         },
                       ),
                     );
-                  }).toList(),
+                  }),
                 const SizedBox(height: 8),
                 if (!isAfternoon)
                   Row(
@@ -1247,7 +1247,7 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                                   title: const Text('Student Already Assigned'),
                                   content: Text(
                                     'This student is already assigned to:\n'
-                                    'Stop ${assignedStopIndex} (${assignedRouteType == 'morning' ? 'Morning' : 'Afternoon'} Route): $assignedStopName\n\n'
+                                    'Stop $assignedStopIndex (${assignedRouteType == 'morning' ? 'Morning' : 'Afternoon'} Route): $assignedStopName\n\n'
                                     'Please remove the student from that stop first before assigning to a different stop.',
                                   ),
                                   actions: [

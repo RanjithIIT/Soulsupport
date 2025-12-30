@@ -643,7 +643,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
     // Navigate to admissions screen and refresh when returning
     await Navigator.push(
       context, 
-      MaterialPageRoute(builder: (_) => const AdmissionsScreen())
+      MaterialPageRoute(builder: (_) => const AdmissionsManagementPage())
     );
     // Refresh students list when returning from admissions
     if (mounted) {
@@ -705,7 +705,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
     );
 
     // Safe navigation helper for sidebar
-    void _navigateToRoute(String route) {
+    void navigateToRoute(String route) {
       final navigator = app.SchoolManagementApp.navigatorKey.currentState;
       if (navigator != null) {
         if (navigator.canPop() || route != '/dashboard') {
@@ -733,38 +733,41 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
           children: [
             Container(
               margin: const EdgeInsets.all(20),
-              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.24),
-                  width: 1,
+                  color: Colors.white.withValues(alpha: 0.2),
+                  width: 1.5,
                 ),
-              ),
-              child: const Column(
-                children: [
-                  Text(
-                    '🏫 SMS',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 5),
-                  Text(
-                    'School Management System',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  'packages/management_org/assets/Vidyarambh.png',
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.school,
+                        size: 56,
+                        color: Color(0xFF667EEA),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
             Expanded(
@@ -775,48 +778,48 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                     icon: '📊',
                     title: 'Overview',
                     isActive: false,
-                    onTap: () => _navigateToRoute('/dashboard'),
+                    onTap: () => navigateToRoute('/dashboard'),
                   ),
                   _NavItem(
                     icon: '👨‍🏫',
                     title: 'Teachers',
-                    onTap: () => _navigateToRoute('/teachers'),
+                    onTap: () => navigateToRoute('/teachers'),
                   ),
                   _NavItem(
                     icon: '👥',
                     title: 'Students',
                     isActive: true,
-                    onTap: () => _navigateToRoute('/students'),
+                    onTap: () => navigateToRoute('/students'),
                   ),
                   _NavItem(
                     icon: '🚌',
                     title: 'Buses',
-                    onTap: () => _navigateToRoute('/buses'),
+                    onTap: () => navigateToRoute('/buses'),
                   ),
                   _NavItem(
                     icon: '🎯',
                     title: 'Activities',
-                    onTap: () => _navigateToRoute('/activities'),
+                    onTap: () => navigateToRoute('/activities'),
                   ),
                   _NavItem(
                     icon: '📅',
                     title: 'Events',
-                    onTap: () => _navigateToRoute('/events'),
+                    onTap: () => navigateToRoute('/events'),
                   ),
                   _NavItem(
                     icon: '📆',
                     title: 'Calendar',
-                    onTap: () => _navigateToRoute('/calendar'),
+                    onTap: () => navigateToRoute('/calendar'),
                   ),
                   _NavItem(
                     icon: '🔔',
                     title: 'Notifications',
-                    onTap: () => _navigateToRoute('/notifications'),
+                    onTap: () => navigateToRoute('/notifications'),
                   ),
                   _NavItem(
                     icon: '🛣️',
                     title: 'Bus Routes',
-                    onTap: () => _navigateToRoute('/bus-routes'),
+                    onTap: () => navigateToRoute('/bus-routes'),
                   ),
                 ],
               ),

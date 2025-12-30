@@ -558,7 +558,7 @@ class _StudentFeesPageState extends State<StudentFeesPage> {
                 ),
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );

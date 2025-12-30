@@ -14,28 +14,7 @@ import 'calendar.dart';
 import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
 
-void main() {
-  runApp(const AdmissionsManagementPage());
-}
-
-class AdmissionsManagementPage extends StatelessWidget {
-  const AdmissionsManagementPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'School Management - Admissions',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        fontFamily: 'Segoe UI',
-        primaryColor: const Color(0xFF667EEA),
-        scaffoldBackgroundColor: const Color(0xFFF5F7FA),
-        useMaterial3: true,
-      ),
-      home: const AdmissionsScreen(),
-    );
-  }
-}
+// --- Data Model (Enhanced from Block 2) ---
 
 // --- Data Model (Enhanced from Block 2) ---
 class Admission {
@@ -123,14 +102,14 @@ class Admission {
 }
 
 // --- Main Screen ---
-class AdmissionsScreen extends StatefulWidget {
-  const AdmissionsScreen({super.key});
+class AdmissionsManagementPage extends StatefulWidget {
+  const AdmissionsManagementPage({super.key});
 
   @override
-  State<AdmissionsScreen> createState() => _AdmissionsScreenState();
+  State<AdmissionsManagementPage> createState() => _AdmissionsManagementPageState();
 }
 
-class _AdmissionsScreenState extends State<AdmissionsScreen> {
+class _AdmissionsManagementPageState extends State<AdmissionsManagementPage> {
   // -- State Variables --
   List<Admission> _allAdmissions = [];
   List<Admission> _filteredAdmissions = [];
@@ -933,7 +912,7 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
     );
 
     // Safe navigation helper for sidebar
-    void _navigateToRoute(String route) {
+    void navigateToRoute(String route) {
       final navigator = app.SchoolManagementApp.navigatorKey.currentState;
       if (navigator != null) {
         if (navigator.canPop() || route != '/dashboard') {
@@ -961,38 +940,41 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
           children: [
             Container(
               margin: const EdgeInsets.all(20),
-              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.24),
-                  width: 1,
+                  color: Colors.white.withValues(alpha: 0.2),
+                  width: 1.5,
                 ),
-              ),
-              child: const Column(
-                children: [
-                  Text(
-                    '🏫 SMS',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 5),
-                  Text(
-                    'School Management System',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  'packages/management_org/assets/Vidyarambh.png',
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.school,
+                        size: 56,
+                        color: Color(0xFF667EEA),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
             Expanded(
@@ -1003,47 +985,47 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
                     icon: '📊',
                     title: 'Overview',
                     isActive: false,
-                    onTap: () => _navigateToRoute('/dashboard'),
+                    onTap: () => navigateToRoute('/dashboard'),
                   ),
                   _NavItem(
                     icon: '👨‍🏫',
                     title: 'Teachers',
-                    onTap: () => _navigateToRoute('/teachers'),
+                    onTap: () => navigateToRoute('/teachers'),
                   ),
                   _NavItem(
                     icon: '👥',
                     title: 'Students',
-                    onTap: () => _navigateToRoute('/students'),
+                    onTap: () => navigateToRoute('/students'),
                   ),
                   _NavItem(
                     icon: '🚌',
                     title: 'Buses',
-                    onTap: () => _navigateToRoute('/buses'),
+                    onTap: () => navigateToRoute('/buses'),
                   ),
                   _NavItem(
                     icon: '🎯',
                     title: 'Activities',
-                    onTap: () => _navigateToRoute('/activities'),
+                    onTap: () => navigateToRoute('/activities'),
                   ),
                   _NavItem(
                     icon: '📅',
                     title: 'Events',
-                    onTap: () => _navigateToRoute('/events'),
+                    onTap: () => navigateToRoute('/events'),
                   ),
                   _NavItem(
                     icon: '📆',
                     title: 'Calendar',
-                    onTap: () => _navigateToRoute('/calendar'),
+                    onTap: () => navigateToRoute('/calendar'),
                   ),
                   _NavItem(
                     icon: '🔔',
                     title: 'Notifications',
-                    onTap: () => _navigateToRoute('/notifications'),
+                    onTap: () => navigateToRoute('/notifications'),
                   ),
                   _NavItem(
                     icon: '🛣️',
                     title: 'Bus Routes',
-                    onTap: () => _navigateToRoute('/bus-routes'),
+                    onTap: () => navigateToRoute('/bus-routes'),
                   ),
                 ],
               ),
@@ -1263,7 +1245,7 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
                       filled: true,
                       fillColor: Colors.grey[50],
                     ),
-                    value: _selectedGender,
+                    initialValue: _selectedGender,
                     items: const [
                       DropdownMenuItem(value: 'Male', child: Text('Male')),
                       DropdownMenuItem(value: 'Female', child: Text('Female')),
@@ -1292,7 +1274,7 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
                       filled: true,
                       fillColor: Colors.grey[50],
                     ),
-                    value: _selectedClass,
+                    initialValue: _selectedClass,
                     items: List.generate(12, (i) {
                       final className = 'Class ${i + 1}';
                       return DropdownMenuItem(
@@ -1310,7 +1292,7 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
                 const SizedBox(width: 15),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _selectedGrade,
+                    initialValue: _selectedGrade,
                     decoration: InputDecoration(
                       labelText: 'Grade (Optional)',
                       border: OutlineInputBorder(
@@ -1379,7 +1361,7 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
                       filled: true,
                       fillColor: Colors.grey[50],
                     ),
-                    value: _selectedBloodGroup,
+                    initialValue: _selectedBloodGroup,
                     items: const [
                       DropdownMenuItem(value: 'A+', child: Text('A+')),
                       DropdownMenuItem(value: 'A-', child: Text('A-')),
@@ -1458,7 +1440,7 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
                       filled: true,
                       fillColor: Colors.grey[50],
                     ),
-                    value: _selectedCategory,
+                    initialValue: _selectedCategory,
                     items: const [
                       DropdownMenuItem(value: 'General', child: Text('General')),
                       DropdownMenuItem(value: 'OBC', child: Text('OBC')),
@@ -1586,7 +1568,7 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
                     filled: true,
                     fillColor: Colors.grey[50],
                   ),
-                  value: _filterStatus.isEmpty ? null : _filterStatus,
+                  initialValue: _filterStatus.isEmpty ? null : _filterStatus,
                   items: const [
                     DropdownMenuItem(value: '', child: Text('All Status')),
                     DropdownMenuItem(value: 'Pending', child: Text('Pending')),
@@ -1613,7 +1595,7 @@ class _AdmissionsScreenState extends State<AdmissionsScreen> {
                     filled: true,
                     fillColor: Colors.grey[50],
                   ),
-                  value: _filterClass.isEmpty ? null : _filterClass,
+                  initialValue: _filterClass.isEmpty ? null : _filterClass,
                   items: [
                     const DropdownMenuItem(value: '', child: Text('All Classes')),
                     ...List.generate(12, (i) {
@@ -1962,8 +1944,9 @@ class _AdmissionCard extends StatelessWidget {
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, color: Colors.grey),
                 onSelected: (value) {
-                  if (value == 'edit') onEdit();
-                  else if (value == 'delete') {
+                  if (value == 'edit') {
+                    onEdit();
+                  } else if (value == 'delete') {
                      showDialog(
                       context: context,
                       builder: (context) => AlertDialog(
@@ -2288,7 +2271,7 @@ class _AdmissionFormDialogState extends State<_AdmissionFormDialog> {
   Widget _buildDropdown(String label, List<String> items, String? val, Function(String?) onChanged) {
     return DropdownButtonFormField<String>(
       decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
-      value: val,
+      initialValue: val,
       items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
       onChanged: onChanged,
     );

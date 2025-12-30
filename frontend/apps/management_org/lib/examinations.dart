@@ -732,38 +732,41 @@ class _Sidebar extends StatelessWidget {
           children: [
             Container(
               margin: const EdgeInsets.all(20),
-              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.24),
-                  width: 1,
+                  color: Colors.white.withValues(alpha: 0.2),
+                  width: 1.5,
                 ),
-              ),
-              child: const Column(
-                children: [
-                  Text(
-                    '🏫 SMS',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 5),
-                  Text(
-                    'School Management System',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  'packages/management_org/assets/Vidyarambh.png',
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.school,
+                        size: 56,
+                        color: Color(0xFF667EEA),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
             Expanded(
@@ -1282,7 +1285,7 @@ class _AddExamSection extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: DropdownButtonFormField<String>(
-        value: value,
+        initialValue: value,
         decoration: InputDecoration(
           labelText: label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -1433,7 +1436,7 @@ class _SearchFilterSection extends StatelessWidget {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: statusFilter,
+                  initialValue: statusFilter,
                   decoration: InputDecoration(
                     labelText: 'Status',
                     border: OutlineInputBorder(
@@ -1452,7 +1455,7 @@ class _SearchFilterSection extends StatelessWidget {
               const SizedBox(width: 16),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: classFilter,
+                  initialValue: classFilter,
                   decoration: InputDecoration(
                     labelText: 'Class',
                     border: OutlineInputBorder(

@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'main.dart' as app;
 import 'dashboard.dart';
+import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
 
 class Department {
   final int id;
+  final String? schoolId;
+  final String? schoolName;
   final String name;
   final String code;
   final String head;
@@ -18,6 +22,8 @@ class Department {
 
   Department({
     required this.id,
+    this.schoolId,
+    this.schoolName,
     required this.name,
     required this.code,
     required this.head,
@@ -30,8 +36,49 @@ class Department {
     this.establishedDate,
   });
 
+  factory Department.fromJson(Map<String, dynamic> json) {
+    return Department(
+      id: json['id'],
+      schoolId: json['school_id'],
+      schoolName: json['school_name'],
+      name: json['name'] ?? '',
+      code: json['code'] ?? '',
+      head: json['head_name'] ?? '',
+      email: json['email'] ?? '',
+      faculty: json['faculty_count'] ?? 0,
+      students: json['student_count'] ?? 0,
+      courses: json['course_count'] ?? 0,
+      description: json['description'],
+      phone: json['phone'],
+      establishedDate: json['established_date'] != null
+          ? DateTime.parse(json['established_date'])
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'code': code,
+      'head_name': head,
+      'email': email,
+      'faculty_count': faculty,
+      'student_count': students,
+      'course_count': courses,
+      'description': description,
+      'phone': phone,
+      'established_date': established_date_str,
+    };
+  }
+  
+  String? get established_date_str => establishedDate != null 
+    ? "${establishedDate!.year}-${establishedDate!.month.toString().padLeft(2, '0')}-${establishedDate!.day.toString().padLeft(2, '0')}"
+    : null;
+
   Department copyWith({
     int? id,
+    String? schoolId,
+    String? schoolName,
     String? name,
     String? code,
     String? head,
@@ -45,6 +92,8 @@ class Department {
   }) {
     return Department(
       id: id ?? this.id,
+      schoolId: schoolId ?? this.schoolId,
+      schoolName: schoolName ?? this.schoolName,
       name: name ?? this.name,
       code: code ?? this.code,
       head: head ?? this.head,
@@ -68,103 +117,55 @@ class DepartmentsManagementPage extends StatefulWidget {
 }
 
 class _DepartmentsManagementPageState extends State<DepartmentsManagementPage> {
-  final List<Department> _allDepartments = [
-    Department(
-      id: 1,
-      name: 'Computer Science',
-      code: 'CS',
-      head: 'Dr. Sarah Johnson',
-      email: 'cs@school.edu',
-      faculty: 12,
-      students: 180,
-      courses: 8,
-      description:
-          'Leading department in computer science education with state-of-the-art facilities.',
-      phone: '+1-234-567-8901',
-      establishedDate: DateTime(2010, 1, 15),
-    ),
-    Department(
-      id: 2,
-      name: 'Mechanical Engineering',
-      code: 'ME',
-      head: 'Prof. Michael Chen',
-      email: 'me@school.edu',
-      faculty: 15,
-      students: 220,
-      courses: 10,
-      description:
-          'Comprehensive mechanical engineering program with modern laboratories.',
-      phone: '+1-234-567-8902',
-      establishedDate: DateTime(2008, 3, 20),
-    ),
-    Department(
-      id: 3,
-      name: 'Electrical Engineering',
-      code: 'EE',
-      head: 'Dr. Emily Davis',
-      email: 'ee@school.edu',
-      faculty: 14,
-      students: 200,
-      courses: 9,
-      description:
-          'Excellence in electrical engineering with focus on innovation and research.',
-      phone: '+1-234-567-8903',
-      establishedDate: DateTime(2009, 5, 10),
-    ),
-    Department(
-      id: 4,
-      name: 'Mathematics',
-      code: 'MATH',
-      head: 'Prof. Robert Wilson',
-      email: 'math@school.edu',
-      faculty: 8,
-      students: 120,
-      courses: 6,
-      description:
-          'Strong foundation in mathematical sciences and applied mathematics.',
-      phone: '+1-234-567-8904',
-      establishedDate: DateTime(2007, 8, 1),
-    ),
-    Department(
-      id: 5,
-      name: 'Physics',
-      code: 'PHY',
-      head: 'Dr. Lisa Thompson',
-      email: 'physics@school.edu',
-      faculty: 10,
-      students: 150,
-      courses: 7,
-      description:
-          'Advanced physics research and education with cutting-edge equipment.',
-      phone: '+1-234-567-8905',
-      establishedDate: DateTime(2006, 9, 15),
-    ),
-    Department(
-      id: 6,
-      name: 'Chemistry',
-      code: 'CHEM',
-      head: 'Prof. David Brown',
-      email: 'chemistry@school.edu',
-      faculty: 9,
-      students: 130,
-      courses: 5,
-      description:
-          'Comprehensive chemistry program with well-equipped laboratories.',
-      phone: '+1-234-567-8906',
-      establishedDate: DateTime(2007, 2, 28),
-    ),
-  ];
-
+  List<Department> _allDepartments = [];
   List<Department> _filteredDepartments = [];
   String _searchQuery = '';
   String _sortBy = 'name'; // 'name', 'code', 'faculty', 'students'
   bool _sortAscending = true;
+  bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _filteredDepartments = _allDepartments;
-    _sortDepartments();
+    _loadDepartments();
+  }
+
+  Future<void> _loadDepartments() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.get(Endpoints.departments);
+      if (response.success && response.data != null) {
+        List<dynamic> data = [];
+        if (response.data is List) {
+          data = response.data as List;
+        } else if (response.data is Map && (response.data as Map)['results'] != null) {
+          data = (response.data as Map)['results'] as List;
+        }
+        
+        setState(() {
+          _allDepartments = data.map((d) => Department.fromJson(d)).toList();
+          _filterDepartments();
+        });
+      } else {
+        setState(() {
+          _errorMessage = response.error ?? 'Failed to load departments';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error loading departments: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   void _filterDepartments() {
@@ -210,7 +211,7 @@ class _DepartmentsManagementPageState extends State<DepartmentsManagementPage> {
         _allDepartments.fold(0, (sum, dept) => sum + dept.students);
     final totalCourses =
         _allDepartments.fold(0, (sum, dept) => sum + dept.courses);
-    final avgFacultyPerDept = totalFaculty / _allDepartments.length;
+    final avgFacultyPerDept = _allDepartments.isEmpty ? 0 : totalFaculty / _allDepartments.length;
 
     return {
       'totalDepartments': _allDepartments.length,
@@ -223,29 +224,108 @@ class _DepartmentsManagementPageState extends State<DepartmentsManagementPage> {
     };
   }
 
-  void _addDepartment(Department department) {
+  Future<void> _addDepartment(Department department) async {
     setState(() {
-      _allDepartments.add(department);
-      _filterDepartments();
+      _isLoading = true;
     });
-  }
-
-  void _updateDepartment(Department updatedDepartment) {
-    setState(() {
-      final index = _allDepartments
-          .indexWhere((d) => d.id == updatedDepartment.id);
-      if (index != -1) {
-        _allDepartments[index] = updatedDepartment;
-        _filterDepartments();
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.post(Endpoints.departments, body: department.toJson());
+      if (response.success) {
+        await _loadDepartments();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.error ?? 'Failed to add department'), backgroundColor: Colors.red),
+          );
+        }
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error adding department: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
-  void _deleteDepartment(int id) {
+  Future<void> _updateDepartment(Department updatedDepartment) async {
     setState(() {
-      _allDepartments.removeWhere((d) => d.id == id);
-      _filterDepartments();
+      _isLoading = true;
     });
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.put('${Endpoints.departments}${updatedDepartment.id}/', body: updatedDepartment.toJson());
+      if (response.success) {
+        await _loadDepartments();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.error ?? 'Failed to update department'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating department: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _deleteDepartment(int id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: const Text('Are you sure you want to delete this department?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.delete('${Endpoints.departments}$id/');
+      if (response.success) {
+        await _loadDepartments();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.error ?? 'Failed to delete department'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting department: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   void _exportData() {
@@ -471,52 +551,70 @@ class _DepartmentsManagementPageState extends State<DepartmentsManagementPage> {
                         // Departments Grid
                         Expanded(
                           flex: 2,
-                          child: _filteredDepartments.isEmpty
-                              ? Container(
-                                  padding: const EdgeInsets.all(20),
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.business_outlined,
-                                            size: 64, color: Colors.grey[400]),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          'No departments found',
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            color: Colors.grey[600],
+                          child: _isLoading
+                              ? const Center(child: CircularProgressIndicator())
+                              : _errorMessage != null
+                                  ? Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                                          const SizedBox(height: 16),
+                                          Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+                                          const SizedBox(height: 16),
+                                          ElevatedButton(
+                                            onPressed: _loadDepartments,
+                                            child: const Text('Retry'),
                                           ),
+                                        ],
+                                      ),
+                                    )
+                                  : _filteredDepartments.isEmpty
+                                      ? Container(
+                                          padding: const EdgeInsets.all(20),
+                                          child: Center(
+                                            child: Column(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Icon(Icons.business_outlined,
+                                                    size: 64, color: Colors.grey[400]),
+                                                const SizedBox(height: 16),
+                                                Text(
+                                                  'No departments found',
+                                                  style: TextStyle(
+                                                    fontSize: 18,
+                                                    color: Colors.grey[600],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        )
+                                      : GridView.builder(
+                                          shrinkWrap: true,
+                                          physics: const NeverScrollableScrollPhysics(),
+                                          padding: const EdgeInsets.all(20),
+                                          gridDelegate:
+                                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                            crossAxisCount: 2,
+                                            crossAxisSpacing: 20,
+                                            mainAxisSpacing: 20,
+                                            mainAxisExtent: 210,
+                                          ),
+                                          itemCount: _filteredDepartments.length,
+                                          itemBuilder: (context, index) {
+                                            return _DepartmentCard(
+                                              department: _filteredDepartments[index],
+                                              onView: () => _viewDepartment(
+                                                  context, _filteredDepartments[index]),
+                                              onEdit: () => _showEditDepartmentDialog(
+                                                  context,
+                                                  _filteredDepartments[index]),
+                                              onDelete: () => _deleteDepartment(
+                                                  _filteredDepartments[index].id),
+                                            );
+                                          },
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                              : GridView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  padding: const EdgeInsets.all(20),
-                                  gridDelegate:
-                                      const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2,
-                                    crossAxisSpacing: 20,
-                                    mainAxisSpacing: 20,
-                                    mainAxisExtent: 210,
-                                  ),
-                                  itemCount: _filteredDepartments.length,
-                                  itemBuilder: (context, index) {
-                                    return _DepartmentCard(
-                                      department: _filteredDepartments[index],
-                                      onView: () => _viewDepartment(
-                                          context, _filteredDepartments[index]),
-                                      onEdit: () => _showEditDepartmentDialog(
-                                          context,
-                                          _filteredDepartments[index]),
-                                      onDelete: () => _deleteDepartment(
-                                          _filteredDepartments[index].id),
-                                    );
-                                  },
-                                ),
                         ),
                         // Sidebar
                         Container(
@@ -635,7 +733,7 @@ class _DepartmentsManagementPageState extends State<DepartmentsManagementPage> {
     );
 
     // Safe navigation helper for sidebar
-    void _navigateToRoute(String route) {
+    void navigateToRoute(String route) {
       final navigator = app.SchoolManagementApp.navigatorKey.currentState;
       if (navigator != null) {
         if (navigator.canPop() || route != '/dashboard') {
@@ -663,38 +761,41 @@ class _DepartmentsManagementPageState extends State<DepartmentsManagementPage> {
           children: [
             Container(
               margin: const EdgeInsets.all(20),
-              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.24),
-                  width: 1,
+                  color: Colors.white.withValues(alpha: 0.2),
+                  width: 1.5,
                 ),
-              ),
-              child: const Column(
-                children: [
-                  Text(
-                    '🏫 SMS',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 5),
-                  Text(
-                    'School Management System',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  'packages/management_org/assets/Vidyarambh.png',
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.school,
+                        size: 56,
+                        color: Color(0xFF667EEA),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
             Expanded(
@@ -705,47 +806,47 @@ class _DepartmentsManagementPageState extends State<DepartmentsManagementPage> {
                     icon: '📊',
                     title: 'Overview',
                     isActive: false,
-                    onTap: () => _navigateToRoute('/dashboard'),
+                    onTap: () => navigateToRoute('/dashboard'),
                   ),
                   _NavItem(
                     icon: '👨‍🏫',
                     title: 'Teachers',
-                    onTap: () => _navigateToRoute('/teachers'),
+                    onTap: () => navigateToRoute('/teachers'),
                   ),
                   _NavItem(
                     icon: '👥',
                     title: 'Students',
-                    onTap: () => _navigateToRoute('/students'),
+                    onTap: () => navigateToRoute('/students'),
                   ),
                   _NavItem(
                     icon: '🚌',
                     title: 'Buses',
-                    onTap: () => _navigateToRoute('/buses'),
+                    onTap: () => navigateToRoute('/buses'),
                   ),
                   _NavItem(
                     icon: '🎯',
                     title: 'Activities',
-                    onTap: () => _navigateToRoute('/activities'),
+                    onTap: () => navigateToRoute('/activities'),
                   ),
                   _NavItem(
                     icon: '📅',
                     title: 'Events',
-                    onTap: () => _navigateToRoute('/events'),
+                    onTap: () => navigateToRoute('/events'),
                   ),
                   _NavItem(
                     icon: '📆',
                     title: 'Calendar',
-                    onTap: () => _navigateToRoute('/calendar'),
+                    onTap: () => navigateToRoute('/calendar'),
                   ),
                   _NavItem(
                     icon: '🔔',
                     title: 'Notifications',
-                    onTap: () => _navigateToRoute('/notifications'),
+                    onTap: () => navigateToRoute('/notifications'),
                   ),
                   _NavItem(
                     icon: '🛣️',
                     title: 'Bus Routes',
-                    onTap: () => _navigateToRoute('/bus-routes'),
+                    onTap: () => navigateToRoute('/bus-routes'),
                   ),
                 ],
               ),
