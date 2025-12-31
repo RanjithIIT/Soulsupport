@@ -995,7 +995,7 @@ class _QuickActionsCard extends StatelessWidget {
                 icon: action['icon'] as IconData,
                 onPressed: () => onAction(action['label'] as String),
               );
-            }).toList(),
+            }),
             // The last button already has padding from its internal margin.
           ],
         ),

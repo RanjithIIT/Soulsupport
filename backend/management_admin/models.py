@@ -82,8 +82,12 @@ class File(models.Model):
 class Department(models.Model):
     """Department model"""
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='departments')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False)
+    
     name = models.CharField(max_length=255)
+    code = models.CharField(max_length=50, blank=True)
     description = models.TextField(blank=True)
+    head_name = models.CharField(max_length=255, blank=True, help_text="Name of the department head")
     head = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -91,16 +95,78 @@ class Department(models.Model):
         blank=True,
         related_name='headed_departments'
     )
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=20, blank=True)
+    faculty_count = models.IntegerField(default=0)
+    student_count = models.IntegerField(default=0)
+    course_count = models.IntegerField(default=0)
+    established_date = models.DateField(null=True, blank=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    def save(self, *args, **kwargs):
+        if self.school and not self.school_name:
+            self.school_name = self.school.school_name
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.name} - {self.school.school_name}"
+        return f"{self.name} - {self.school_name or self.school.school_name}"
     
     class Meta:
         db_table = 'departments'
         verbose_name = 'Department'
         verbose_name_plural = 'Departments'
+        unique_together = ['school', 'name']
+
+
+class CampusFeature(models.Model):
+    """Model for school campus features and facilities"""
+    
+    CATEGORY_CHOICES = [
+        ('academic', 'Academic Facilities'),
+        ('sports', 'Sports & Recreation'),
+        ('technology', 'Technology & Labs'),
+        ('arts', 'Arts & Culture'),
+        ('infrastructure', 'Infrastructure'),
+        ('amenities', 'Amenities'),
+        ('speciality', 'Campus Speciality'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('under-construction', 'Under Construction'),
+        ('planned', 'Planned'),
+        ('maintenance', 'Under Maintenance'),
+    ]
+
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='campus_features', null=True)
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False)
+    
+    name = models.CharField(max_length=255)
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='academic')
+    description = models.TextField(blank=True)
+    location = models.CharField(max_length=255)
+    capacity = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='active')
+    date_added = models.DateField(auto_now_add=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if self.school and not self.school_name:
+            self.school_name = self.school.school_name
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.name} ({self.category})"
+
+    class Meta:
+        db_table = 'campus_features'
+        verbose_name = 'Campus Feature'
+        verbose_name_plural = 'Campus Features'
+        ordering = ['-date_added', '-created_at']
         unique_together = ['school', 'name']
 
 
@@ -993,3 +1059,149 @@ class BusStopStudent(models.Model):
         verbose_name_plural = 'Bus Stop Students'
         ordering = ['bus_stop', 'student_name']
         unique_together = ['bus_stop', 'student']
+
+
+class Event(models.Model):
+    """Event model for managing school events"""
+    
+    CATEGORY_CHOICES = [
+        ('Academic', 'Academic'),
+        ('Sports', 'Sports'),
+        ('Cultural', 'Cultural'),
+        ('Administrative', 'Administrative'),
+        ('Career', 'Career'),
+        ('Other', 'Other'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('Upcoming', 'Upcoming'),
+        ('Completed', 'Completed'),
+        ('Cancelled', 'Cancelled'),
+        ('Postponed', 'Postponed'),
+    ]
+    
+    school_id = models.CharField(
+        max_length=100, 
+        db_index=True, 
+        null=True, 
+        blank=True, 
+        editable=False, 
+        help_text='School ID for filtering (read-only, fetched from schools table)'
+    )
+    school_name = models.CharField(
+        max_length=255, 
+        null=True, 
+        blank=True, 
+        editable=False, 
+        help_text='School name (read-only, auto-populated from schools table)'
+    )
+    name = models.CharField(max_length=255, help_text='Event name')
+    category = models.CharField(
+        max_length=50, 
+        choices=CATEGORY_CHOICES, 
+        default='Other',
+        help_text='Event category'
+    )
+    date = models.DateField(help_text='Event date')
+    time = models.CharField(max_length=100, blank=True, help_text='Event time (e.g., 09:00 AM - 12:00 PM)')
+    location = models.CharField(max_length=255, blank=True, help_text='Event location')
+    organizer = models.CharField(max_length=255, blank=True, help_text='Event organizer')
+    participants = models.IntegerField(
+        default=0,
+        validators=[MinValueValidator(0)],
+        help_text='Estimated number of participants'
+    )
+    status = models.CharField(
+        max_length=50, 
+        choices=STATUS_CHOICES, 
+        default='Upcoming',
+        help_text='Event status'
+    )
+    description = models.TextField(blank=True, help_text='Event description')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.name} - {self.date}"
+    
+    class Meta:
+        db_table = 'events'
+        verbose_name = 'Event'
+        verbose_name_plural = 'Events'
+        ordering = ['-date', '-created_at']
+
+
+class Award(models.Model):
+    """Award model for managing school achievements and recognitions"""
+    
+    LEVEL_CHOICES = [
+        ('School', 'School'),
+        ('District', 'District'),
+        ('State', 'State'),
+        ('National', 'National'),
+        ('International', 'International'),
+    ]
+    
+    CATEGORY_CHOICES = [
+        ('Academic', 'Academic'),
+        ('Sports', 'Sports'),
+        ('Arts', 'Arts'),
+        ('Leadership', 'Leadership'),
+        ('Innovation', 'Innovation'),
+        ('Community', 'Community'),
+        ('Other', 'Other'),
+    ]
+    
+    school_id = models.CharField(
+        max_length=100, 
+        db_index=True, 
+        null=True, 
+        blank=True, 
+        editable=False, 
+        help_text='School ID for filtering'
+    )
+    school_name = models.CharField(
+        max_length=255, 
+        null=True, 
+        blank=True, 
+        editable=False, 
+        help_text='School name'
+    )
+    
+    title = models.CharField(max_length=255, help_text='Award title')
+    category = models.CharField(
+        max_length=50, 
+        choices=CATEGORY_CHOICES, 
+        default='Other',
+        help_text='Award category'
+    )
+    recipient = models.CharField(max_length=255, help_text='Recipient name')
+    student_ids = models.TextField(
+        blank=True, 
+        help_text='Comma-separated student IDs (for team awards)'
+    )
+    date = models.DateField(help_text='Award date')
+    description = models.TextField(blank=True, help_text='Award description')
+    level = models.CharField(
+        max_length=50, 
+        choices=LEVEL_CHOICES, 
+        default='School',
+        help_text='Award level'
+    )
+    presented_by = models.CharField(
+        max_length=255, 
+        blank=True, 
+        help_text='Presented by (organization or person)'
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.title} - {self.recipient}"
+    
+    class Meta:
+        db_table = 'awards'
+        verbose_name = 'Award'
+        verbose_name_plural = 'Awards'
+        ordering = ['-date', '-created_at']

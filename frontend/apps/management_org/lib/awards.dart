@@ -1,31 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'dart:async';
 import 'main.dart' as app;
 import 'dashboard.dart';
+import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
 
-void main() {
-  runApp(const AwardsManagementPage());
-}
-
-class AwardsManagementPage extends StatelessWidget {
-  const AwardsManagementPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'School Management - Awards',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        fontFamily: 'Segoe UI',
-        primaryColor: const Color(0xFF667eea),
-        scaffoldBackgroundColor: const Color(0xFFFFFFFF), // White background
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF667eea)),
-      ),
-      home: const AwardsScreen(),
-    );
-  }
-}
+// --- Data Model ---
 
 // --- Data Model ---
 class Award {
@@ -33,6 +14,7 @@ class Award {
   final String title;
   final String category;
   final String recipient;
+  final String? studentId; // Mapping student_ids from backend
   final DateTime date;
   final String description;
   final String level;
@@ -43,45 +25,54 @@ class Award {
     required this.title,
     required this.category,
     required this.recipient,
+    this.studentId,
     required this.date,
     required this.description,
     required this.level,
     required this.presentedBy,
   });
+
+  factory Award.fromJson(Map<String, dynamic> json) {
+    return Award(
+      id: json['id'] as int,
+      title: json['title'] ?? '',
+      category: json['category'] ?? '',
+      recipient: json['recipient'] ?? '',
+      studentId: json['student_ids'],
+      date: json['date'] != null ? DateTime.parse(json['date']) : DateTime.now(),
+      description: json['description'] ?? '',
+      level: json['level'] ?? '',
+      presentedBy: json['presented_by'] ?? '',
+    );
+  }
 }
 
 // --- Main Screen ---
-class AwardsScreen extends StatefulWidget {
-  const AwardsScreen({super.key});
+class AwardsManagementPage extends StatefulWidget {
+  const AwardsManagementPage({super.key});
 
   @override
-  State<AwardsScreen> createState() => _AwardsScreenState();
+  State<AwardsManagementPage> createState() => _AwardsManagementPageState();
 }
 
-class _AwardsScreenState extends State<AwardsScreen> {
-  // -- Mock Data (From HTML) --
-  final List<Award> _allAwards = [
-    Award(id: 1, title: "Best Academic Performance", category: "Academic", recipient: "Rahul Sharma", date: DateTime(2024, 1, 15), description: "Outstanding academic performance in Class 12 with 98% marks", level: "School", presentedBy: "Principal"),
-    Award(id: 2, title: "State Level Science Olympiad Winner", category: "Academic", recipient: "Priya Patel", date: DateTime(2024, 2, 20), description: "First place in State Level Science Olympiad", level: "State", presentedBy: "State Education Board"),
-    Award(id: 3, title: "District Football Championship", category: "Sports", recipient: "Amit Kumar", date: DateTime(2024, 3, 10), description: "Captain of winning football team in district championship", level: "District", presentedBy: "District Sports Authority"),
-    Award(id: 4, title: "National Art Competition Winner", category: "Arts", recipient: "Sneha Reddy", date: DateTime(2024, 1, 25), description: "First prize in National Art Competition for painting", level: "National", presentedBy: "National Art Council"),
-    Award(id: 5, title: "Student Council President", category: "Leadership", recipient: "Arjun Singh", date: DateTime(2024, 2, 1), description: "Exemplary leadership as Student Council President", level: "School", presentedBy: "School Management"),
-    Award(id: 6, title: "Innovation in Science Project", category: "Innovation", recipient: "Kavya Iyer", date: DateTime(2024, 3, 5), description: "Innovative science project on renewable energy", level: "State", presentedBy: "State Science Council"),
-    Award(id: 7, title: "Community Service Excellence", category: "Community", recipient: "Team Green Earth", date: DateTime(2024, 2, 15), description: "Outstanding contribution to environmental conservation", level: "District", presentedBy: "District Administration"),
-    Award(id: 8, title: "International Mathematics Olympiad", category: "Academic", recipient: "Vikram Malhotra", date: DateTime(2024, 1, 30), description: "Bronze medal in International Mathematics Olympiad", level: "International", presentedBy: "International Mathematical Union"),
-  ];
-
+class _AwardsManagementPageState extends State<AwardsManagementPage> {
+  List<Award> _awards = [];
   List<Award> _filteredAwards = [];
+  bool _isLoading = false;
+  bool _isSearchingStudent = false;
+  String _errorMessage = '';
 
   // -- Form Controllers --
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _recipientController = TextEditingController();
+  final TextEditingController _studentIdController = TextEditingController(); // Added student ID controller
   final TextEditingController _descController = TextEditingController();
   final TextEditingController _presentedByController = TextEditingController();
   DateTime? _selectedDate;
   String? _selectedCategory;
   String? _selectedLevel;
+  bool _studentIdHasError = false; // Track student ID validation state
 
   // -- Filter Controllers --
   final TextEditingController _searchController = TextEditingController();
@@ -91,14 +82,99 @@ class _AwardsScreenState extends State<AwardsScreen> {
   @override
   void initState() {
     super.initState();
-    _filteredAwards = List.from(_allAwards);
+    _loadAwards();
   }
 
   // -- Logic --
 
+  Future<void> _loadAwards() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.get(Endpoints.awards);
+
+      if (response.success) {
+        List<dynamic> awardsJson = [];
+        if (response.data is List) {
+          awardsJson = response.data;
+        } else if (response.data is Map) {
+          final dataMap = response.data as Map<String, dynamic>;
+          if (dataMap.containsKey('results')) {
+            awardsJson = dataMap['results'];
+          } else if (dataMap.containsKey('data')) {
+            awardsJson = dataMap['data'];
+          }
+        }
+        
+        setState(() {
+          _awards = awardsJson.map((json) => Award.fromJson(json)).toList();
+          _filterData();
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _errorMessage = response.error ?? 'Failed to load awards';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _fetchStudentNames(String studentIds) async {
+    if (studentIds.isEmpty) return;
+    
+    setState(() => _isSearchingStudent = true);
+    try {
+      final ids = studentIds.split(',').map((id) => id.trim()).where((id) => id.isNotEmpty).toList();
+      if (ids.isEmpty) {
+        setState(() => _isSearchingStudent = false);
+        return;
+      }
+
+      final apiService = ApiService();
+      await apiService.initialize();
+      
+      List<String> names = [];
+      for (final id in ids) {
+        // Look up each student by ID
+        final response = await apiService.get('${Endpoints.students}$id/');
+        if (response.success && response.data != null) {
+          final data = response.data as Map<String, dynamic>;
+          final name = data['name'] ?? data['full_name'] ?? '';
+          if (name.isNotEmpty) {
+            names.add(name);
+          }
+        }
+      }
+
+      if (names.isNotEmpty && mounted) {
+        setState(() {
+          _recipientController.text = names.join(', ');
+          _isSearchingStudent = false;
+        });
+      } else {
+        setState(() => _isSearchingStudent = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isSearchingStudent = false);
+    }
+  }
+
+
+  Timer? _debounceTimer;
+
   void _filterData() {
     setState(() {
-      _filteredAwards = _allAwards.where((award) {
+      _filteredAwards = _awards.where((award) {
         final matchesSearch = award.title.toLowerCase().contains(_searchController.text.toLowerCase()) ||
             award.recipient.toLowerCase().contains(_searchController.text.toLowerCase()) ||
             award.description.toLowerCase().contains(_searchController.text.toLowerCase());
@@ -111,35 +187,145 @@ class _AwardsScreenState extends State<AwardsScreen> {
     });
   }
 
-  void _addNewAward() {
+  Future<void> _addNewAward() async {
     if (_formKey.currentState!.validate() && _selectedDate != null && _selectedCategory != null && _selectedLevel != null) {
-      setState(() {
-        _allAwards.insert(0, Award(
-          id: _allAwards.length + 1,
-          title: _titleController.text,
-          category: _selectedCategory!,
-          recipient: _recipientController.text,
-          date: _selectedDate!,
-          description: _descController.text,
-          level: _selectedLevel!,
-          presentedBy: _presentedByController.text,
-        ));
+      setState(() => _isLoading = true);
+      try {
+        final apiService = ApiService();
+        await apiService.initialize();
         
-        // Reset Form
-        _titleController.clear();
-        _recipientController.clear();
-        _descController.clear();
-        _presentedByController.clear();
-        _selectedDate = null;
-        _selectedCategory = null;
-        _selectedLevel = null;
-      });
-      _filterData();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Award added successfully!'), backgroundColor: Color(0xFF667eea)),
-      );
+        final awardData = {
+          'title': _titleController.text,
+          'category': _selectedCategory!,
+          'recipient': _recipientController.text,
+          'student_ids': _studentIdController.text,
+          'date': DateFormat('yyyy-MM-dd').format(_selectedDate!),
+          'description': _descController.text,
+          'level': _selectedLevel!,
+          'presented_by': _presentedByController.text,
+        };
+
+        final response = await apiService.post(Endpoints.awards, body: awardData);
+
+        if (response.success) {
+          // Reset Form
+          _titleController.clear();
+          _recipientController.clear();
+          _studentIdController.clear(); // Clear student ID
+          _descController.clear();
+          _presentedByController.clear();
+          _selectedDate = null;
+          _selectedCategory = null;
+          _selectedLevel = null;
+          
+          await _loadAwards(); // Reload from server
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Award added successfully!'), backgroundColor: Color(0xFF667eea)),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(response.error ?? 'Failed to add award'), backgroundColor: Colors.red),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
     } else if (_selectedDate == null) {
        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a date'), backgroundColor: Colors.red));
+    }
+  }
+
+  void _onStudentIdChanged(String value) {
+    // Validate student ID format
+    setState(() {
+      final validPattern = RegExp(r'^[A-Za-z0-9\-,\s]*$');
+      _studentIdHasError = value.isNotEmpty && !validPattern.hasMatch(value);
+    });
+
+    if (_studentIdHasError || value.isEmpty) {
+      _debounceTimer?.cancel();
+      return;
+    }
+
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 800), () {
+      _fetchStudentNames(value);
+    });
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    _titleController.dispose();
+    _recipientController.dispose();
+    _studentIdController.dispose();
+    _descController.dispose();
+    _presentedByController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _deleteAward(Award award) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: Text('Are you sure you want to delete the award "${award.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() => _isLoading = true);
+      try {
+        final apiService = ApiService();
+        await apiService.initialize();
+        final response = await apiService.delete('${Endpoints.awards}${award.id}/');
+
+        if (response.success) {
+          await _loadAwards();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Award deleted successfully!')),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(response.error ?? 'Failed to delete award'), backgroundColor: Colors.red),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -220,7 +406,7 @@ class _AwardsScreenState extends State<AwardsScreen> {
     );
 
     // Safe navigation helper for sidebar
-    void _navigateToRoute(String route) {
+    void navigateToRoute(String route) {
       final navigator = app.SchoolManagementApp.navigatorKey.currentState;
       if (navigator != null) {
         if (navigator.canPop() || route != '/dashboard') {
@@ -293,47 +479,47 @@ class _AwardsScreenState extends State<AwardsScreen> {
                     icon: '📊',
                     title: 'Overview',
                     isActive: false,
-                    onTap: () => _navigateToRoute('/dashboard'),
+                    onTap: () => navigateToRoute('/dashboard'),
                   ),
                   _NavItem(
                     icon: '👨‍🏫',
                     title: 'Teachers',
-                    onTap: () => _navigateToRoute('/teachers'),
+                    onTap: () => navigateToRoute('/teachers'),
                   ),
                   _NavItem(
                     icon: '👥',
                     title: 'Students',
-                    onTap: () => _navigateToRoute('/students'),
+                    onTap: () => navigateToRoute('/students'),
                   ),
                   _NavItem(
                     icon: '🚌',
                     title: 'Buses',
-                    onTap: () => _navigateToRoute('/buses'),
+                    onTap: () => navigateToRoute('/buses'),
                   ),
                   _NavItem(
                     icon: '🎯',
                     title: 'Activities',
-                    onTap: () => _navigateToRoute('/activities'),
+                    onTap: () => navigateToRoute('/activities'),
                   ),
                   _NavItem(
                     icon: '📅',
                     title: 'Events',
-                    onTap: () => _navigateToRoute('/events'),
+                    onTap: () => navigateToRoute('/events'),
                   ),
                   _NavItem(
                     icon: '📆',
                     title: 'Calendar',
-                    onTap: () => _navigateToRoute('/calendar'),
+                    onTap: () => navigateToRoute('/calendar'),
                   ),
                   _NavItem(
                     icon: '🔔',
                     title: 'Notifications',
-                    onTap: () => _navigateToRoute('/notifications'),
+                    onTap: () => navigateToRoute('/notifications'),
                   ),
                   _NavItem(
                     icon: '🛣️',
                     title: 'Bus Routes',
-                    onTap: () => _navigateToRoute('/bus-routes'),
+                    onTap: () => navigateToRoute('/bus-routes'),
                   ),
                 ],
               ),
@@ -421,10 +607,10 @@ class _AwardsScreenState extends State<AwardsScreen> {
   }
 
   Widget _buildStatsOverview() {
-    final total = _allAwards.length;
-    final thisYear = _allAwards.where((a) => a.date.year == DateTime.now().year).length;
-    final academic = _allAwards.where((a) => a.category == "Academic").length;
-    final sports = _allAwards.where((a) => a.category == "Sports").length;
+    final total = _awards.length;
+    final thisYear = _awards.where((a) => a.date.year == DateTime.now().year).length;
+    final academic = _awards.where((a) => a.category == "Academic").length;
+    final sports = _awards.where((a) => a.category == "Sports").length;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 20),
@@ -527,13 +713,17 @@ class _AwardsScreenState extends State<AwardsScreen> {
                   const SizedBox(height: 15),
                   _buildFormRow([
                     _buildTextField("Recipient Name", _recipientController),
+                    _buildStudentIdField(), // Use specialized student ID field
+                  ]),
+                  const SizedBox(height: 15),
+                  _buildFormRow([
                     _buildDateField("Award Date"),
+                    _buildDropdownField("Level", ["School", "District", "State", "National", "International"], _selectedLevel, (val) => setState(() => _selectedLevel = val)),
                   ]),
                   const SizedBox(height: 15),
                   _buildTextField("Description", _descController, maxLines: 3, hint: "Describe the achievement and criteria..."),
                   const SizedBox(height: 15),
                   _buildFormRow([
-                    _buildDropdownField("Level", ["School", "District", "State", "National", "International"], _selectedLevel, (val) => setState(() => _selectedLevel = val)),
                     _buildTextField("Presented By", _presentedByController, isRequired: false, hint: "Organization/Person"),
                   ]),
                   const SizedBox(height: 20),
@@ -605,7 +795,7 @@ class _AwardsScreenState extends State<AwardsScreen> {
               const SizedBox(width: 15),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _filterCategory,
+                  initialValue: _filterCategory,
                   decoration: InputDecoration(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -622,7 +812,7 @@ class _AwardsScreenState extends State<AwardsScreen> {
               const SizedBox(width: 15),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _filterLevel,
+                  initialValue: _filterLevel,
                   decoration: InputDecoration(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -644,6 +834,35 @@ class _AwardsScreenState extends State<AwardsScreen> {
   }
 
   Widget _buildAwardsGrid() {
+    if (_isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_errorMessage.isNotEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Column(
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(_errorMessage, style: const TextStyle(fontSize: 16, color: Colors.red)),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadAwards,
+                child: const Text("Retry"),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (_filteredAwards.isEmpty) {
       return const Center(
         child: Padding(
@@ -706,16 +925,28 @@ class _AwardsScreenState extends State<AwardsScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF667eea), Color(0xFF764ba2)]),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  award.category,
-                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
-                ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF667eea), Color(0xFF764ba2)]),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      award.category,
+                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                    onPressed: () => _deleteAward(award),
+                    tooltip: "Delete Award",
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
               ),
             ],
           ),
@@ -727,6 +958,14 @@ class _AwardsScreenState extends State<AwardsScreen> {
             overflow: TextOverflow.ellipsis,
           ),
           const Spacer(),
+          if (award.studentId != null && award.studentId!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                "🆔 ${award.studentId}",
+                style: const TextStyle(fontSize: 12, color: Color(0xFF667EEA), fontWeight: FontWeight.bold),
+              ),
+            ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -808,7 +1047,7 @@ class _AwardsScreenState extends State<AwardsScreen> {
         Text(label, style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF333333))),
         const SizedBox(height: 5),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           hint: Text("Select $label"),
           items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
           onChanged: onChanged,
@@ -852,6 +1091,76 @@ class _AwardsScreenState extends State<AwardsScreen> {
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  // Specialized Student ID field with validation
+  Widget _buildStudentIdField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Student ID(s)", style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF333333))),
+        const SizedBox(height: 5),
+        TextFormField(
+          controller: _studentIdController,
+          onChanged: _onStudentIdChanged,
+          decoration: InputDecoration(
+            hintText: "e.g., STUD-001, STUD-002",
+            helperText: "Add one or more Student IDs (comma-separated)",
+            helperStyle: const TextStyle(color: Color(0xFF666666), fontSize: 12),
+            suffixIcon: _isSearchingStudent 
+                ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(10), child: CircularProgressIndicator(strokeWidth: 2)))
+                : (_studentIdHasError
+                    ? const Icon(Icons.error_outline, color: Colors.red)
+                    : (_studentIdController.text.isNotEmpty
+                        ? const Icon(Icons.check_circle_outline, color: Colors.green)
+                        : null)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: _studentIdHasError ? Colors.red : const Color(0xFFE0E0E0),
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: _studentIdHasError ? Colors.red : const Color(0xFFE0E0E0),
+                width: 2,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: _studentIdHasError ? Colors.red : const Color(0xFF667eea),
+                width: 2,
+              ),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.red, width: 2),
+            ),
+            contentPadding: const EdgeInsets.all(12),
+            fillColor: Colors.white,
+            filled: true,
+          ),
+        ),
+        if (_studentIdHasError)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(
+              children: const [
+                Icon(Icons.warning, size: 14, color: Colors.red),
+                SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    "Invalid format. Use only letters, numbers, hyphens, and commas",
+                    style: TextStyle(color: Colors.red, fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }

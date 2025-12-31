@@ -520,10 +520,7 @@ class _FeesManagementPageState extends State<FeesManagementPage> {
       if (json['due_date'] != null) {
         if (json['due_date'] is String) {
           dueDate = DateTime.tryParse(json['due_date']);
-          if (dueDate == null) {
-            // Try parsing with time component
-            dueDate = DateTime.tryParse('${json['due_date']}T00:00:00');
-          }
+          dueDate ??= DateTime.tryParse('${json['due_date']}T00:00:00');
         } else if (json['due_date'] is DateTime) {
           dueDate = json['due_date'];
         }
@@ -583,9 +580,7 @@ class _FeesManagementPageState extends State<FeesManagementPage> {
             if (item['payment_date'] != null) {
               if (item['payment_date'] is String) {
                 historyDate = DateTime.tryParse(item['payment_date']);
-                if (historyDate == null) {
-                  historyDate = DateTime.tryParse('${item['payment_date']}T00:00:00');
-                }
+                historyDate ??= DateTime.tryParse('${item['payment_date']}T00:00:00');
               } else if (item['payment_date'] is DateTime) {
                 historyDate = item['payment_date'];
               }
@@ -622,9 +617,7 @@ class _FeesManagementPageState extends State<FeesManagementPage> {
       if (json['last_paid_date'] != null) {
         if (json['last_paid_date'] is String) {
           lastPaidDate = DateTime.tryParse(json['last_paid_date']);
-          if (lastPaidDate == null) {
-            lastPaidDate = DateTime.tryParse('${json['last_paid_date']}T00:00:00');
-          }
+          lastPaidDate ??= DateTime.tryParse('${json['last_paid_date']}T00:00:00');
         } else if (json['last_paid_date'] is DateTime) {
           lastPaidDate = json['last_paid_date'];
         }
@@ -980,7 +973,7 @@ class _FeesManagementPageState extends State<FeesManagementPage> {
       }
       
       // If user chose to update existing fee
-      if (action == 'update' && existingFee != null) {
+      if (action == 'update') {
         final newAmount = double.tryParse(_totalAmountController.text.trim()) ?? 0.0;
         final currentTotal = existingFee.totalAmount;
         final updatedTotal = currentTotal + newAmount;
@@ -1005,7 +998,7 @@ class _FeesManagementPageState extends State<FeesManagementPage> {
           
           if (updateResponse.success && updateResponse.data != null) {
             final updatedFee = _parseFeeFromJson(updateResponse.data);
-            if (updatedFee != null && existingFee != null) {
+            if (updatedFee != null) {
               final feeId = existingFee.id;
               setState(() {
                 final index = _allFees.indexWhere((f) => f.id == feeId);
@@ -2105,7 +2098,7 @@ class _AddFeeSection extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             DropdownButtonFormField<String>(
-              value: selectedGrade,
+              initialValue: selectedGrade,
               decoration: InputDecoration(
                 labelText: 'Grade',
                 border: OutlineInputBorder(
@@ -2128,7 +2121,7 @@ class _AddFeeSection extends StatelessWidget {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: feeType,
+                    initialValue: feeType,
                     decoration: InputDecoration(
                       labelText: 'Fee Type',
                       border: OutlineInputBorder(
@@ -2174,7 +2167,7 @@ class _AddFeeSection extends StatelessWidget {
                 const SizedBox(width: 15),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: frequency,
+                    initialValue: frequency,
                     decoration: InputDecoration(
                       labelText: 'Frequency',
                       border: OutlineInputBorder(
@@ -2379,7 +2372,7 @@ class _SearchFilterSection extends StatelessWidget {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: feeTypeFilter,
+                  initialValue: feeTypeFilter,
                   decoration: InputDecoration(
                     labelText: 'Fee Type',
                     border: OutlineInputBorder(
@@ -2404,7 +2397,7 @@ class _SearchFilterSection extends StatelessWidget {
               const SizedBox(width: 15),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: statusFilter,
+                  initialValue: statusFilter,
                   decoration: InputDecoration(
                     labelText: 'Status',
                     border: OutlineInputBorder(
@@ -2423,7 +2416,7 @@ class _SearchFilterSection extends StatelessWidget {
               const SizedBox(width: 15),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: classFilter,
+                  initialValue: classFilter,
                   decoration: InputDecoration(
                     labelText: 'Class',
                     border: OutlineInputBorder(
@@ -2533,9 +2526,7 @@ class _FeeCardState extends State<_FeeCard> {
       DateTime? dueDate;
       if (json['due_date'] != null) {
         dueDate = DateTime.tryParse(json['due_date']);
-        if (dueDate == null) {
-          dueDate = DateTime.tryParse('${json['due_date']}T00:00:00');
-        }
+        dueDate ??= DateTime.tryParse('${json['due_date']}T00:00:00');
       }
       
       DateTime? lastPaidDate;
@@ -3187,7 +3178,7 @@ class _FeeCardState extends State<_FeeCard> {
                         ),
                       ),
                     );
-                  }).toList(),
+                  }),
                 ],
               ),
             ),

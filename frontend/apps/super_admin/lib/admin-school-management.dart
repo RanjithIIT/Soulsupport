@@ -1046,7 +1046,7 @@ class _SchoolDashboardState extends State<SchoolDashboard> {
   void _showActionDialog(String title, String content) {
     // Dialog removed; show a SnackBar instead to avoid navigation
     ScaffoldMessenger.of(
-      this.context,
+      context,
     ).showSnackBar(SnackBar(content: Text('$title — $content')));
   }
 

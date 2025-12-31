@@ -176,7 +176,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
     try {
       // Prepare teacher data for API
       // Helper function to convert empty strings to null
-      String? _nullIfEmpty(String? value) {
+      String? nullIfEmpty(String? value) {
         if (value == null || value.trim().isEmpty) return null;
         return value.trim();
       }
@@ -188,8 +188,8 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
         'first_name': _firstNameController.text.trim().isNotEmpty 
             ? _firstNameController.text.trim() 
             : '',
-        'last_name': _nullIfEmpty(_lastNameController.text),
-        'qualification': _nullIfEmpty(_qualificationController.text),
+        'last_name': nullIfEmpty(_lastNameController.text),
+        'qualification': nullIfEmpty(_qualificationController.text),
         'joining_date': _joiningDate != null 
             ? DateFormat('yyyy-MM-dd').format(_joiningDate!) 
             : null,
@@ -230,26 +230,26 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
       }
       
       // Add optional fields only if they have values
-      final mobileNo = _nullIfEmpty(_mobileNoController.text);
+      final mobileNo = nullIfEmpty(_mobileNoController.text);
       if (mobileNo != null) teacherData['mobile_no'] = mobileNo;
       
-      final email = _nullIfEmpty(_emailController.text);
+      final email = nullIfEmpty(_emailController.text);
       if (email != null) teacherData['email'] = email;
       
-      final address = _nullIfEmpty(_addressController.text);
+      final address = nullIfEmpty(_addressController.text);
       if (address != null) teacherData['address'] = address;
       
       if (_bloodGroup != null && _bloodGroup!.isNotEmpty) {
         teacherData['blood_group'] = _bloodGroup;
       }
       
-      final nationality = _nullIfEmpty(_nationalityController.text);
+      final nationality = nullIfEmpty(_nationalityController.text);
       if (nationality != null) teacherData['nationality'] = nationality;
       
-      final subjectSpecialization = _nullIfEmpty(_subjectSpecializationController.text);
+      final subjectSpecialization = nullIfEmpty(_subjectSpecializationController.text);
       if (subjectSpecialization != null) teacherData['subject_specialization'] = subjectSpecialization;
       
-      final emergencyContact = _nullIfEmpty(_emergencyContactController.text);
+      final emergencyContact = nullIfEmpty(_emergencyContactController.text);
       if (emergencyContact != null) teacherData['emergency_contact'] = emergencyContact;
 
       // Note: Profile photo will be sent as multipart/form-data with the request
@@ -680,7 +680,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                       child: _LabeledField(
                                         label: 'Gender',
                                         child: DropdownButtonFormField<String>(
-                                          value: _gender,
+                                          initialValue: _gender,
                                           items: const [
                                             DropdownMenuItem(value: 'Male', child: Text('Male')),
                                             DropdownMenuItem(value: 'Female', child: Text('Female')),
@@ -753,7 +753,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                                 child: CircularProgressIndicator(),
                                               ))
                                             : DropdownButtonFormField<String>(
-                                                value: _selectedDepartmentId,
+                                                initialValue: _selectedDepartmentId,
                                                 items: [
                                                   const DropdownMenuItem<String>(
                                                     value: null,
@@ -837,7 +837,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                       child: _LabeledField(
                                         label: 'Blood Group',
                                         child: DropdownButtonFormField<String>(
-                                          value: _bloodGroup,
+                                          initialValue: _bloodGroup,
                                           items: [
                                             const DropdownMenuItem<String>(
                                               value: null,

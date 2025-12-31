@@ -2066,7 +2066,7 @@ class _LineChartPainter extends CustomPainter {
     }
 
     // If there is only one point, draw a point but no line, and no need for spacing calculation.
-    if (months.length < 1) return;
+    if (months.isEmpty) return;
 
     // Draw line
     final path = Path();

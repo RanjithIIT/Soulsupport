@@ -2,9 +2,11 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
 import 'main.dart' as app;
 import 'dashboard.dart';
 import 'widgets/school_profile_header.dart';
+import 'management_routes.dart';
 
 class Event {
   final int id;
@@ -30,6 +32,21 @@ class Event {
     required this.status,
     required this.description,
   });
+
+  factory Event.fromJson(Map<String, dynamic> json) {
+    return Event(
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      category: json['category'] ?? 'Other',
+      date: json['date'] ?? '',
+      time: json['time'] ?? '',
+      location: json['location'] ?? '',
+      organizer: json['organizer'] ?? '',
+      participants: json['participants'] ?? 0,
+      status: json['status'] ?? 'Upcoming',
+      description: json['description'] ?? '',
+    );
+  }
 }
 
 class EventsManagementPage extends StatefulWidget {
@@ -40,68 +57,9 @@ class EventsManagementPage extends StatefulWidget {
 }
 
 class _EventsManagementPageState extends State<EventsManagementPage> {
-  final List<Event> _events = [
-    const Event(
-      id: 1,
-      name: 'Annual Sports Day',
-      category: 'Sports',
-      date: '2024-03-15',
-      time: '09:00 AM - 04:00 PM',
-      location: 'School Ground',
-      organizer: 'Sports Department',
-      participants: 450,
-      status: 'Upcoming',
-      description: 'Annual sports competition with various athletic events',
-    ),
-    const Event(
-      id: 2,
-      name: 'Science Fair',
-      category: 'Academic',
-      date: '2024-03-20',
-      time: '10:00 AM - 02:00 PM',
-      location: 'Science Lab & Auditorium',
-      organizer: 'Science Department',
-      participants: 200,
-      status: 'Upcoming',
-      description: 'Student science projects and experiments exhibition',
-    ),
-    const Event(
-      id: 3,
-      name: 'Parent-Teacher Meeting',
-      category: 'Administrative',
-      date: '2024-03-10',
-      time: '02:00 PM - 05:00 PM',
-      location: 'Classrooms',
-      organizer: 'School Administration',
-      participants: 300,
-      status: 'Completed',
-      description: 'Quarterly parent-teacher conference',
-    ),
-    const Event(
-      id: 4,
-      name: 'Music Concert',
-      category: 'Cultural',
-      date: '2024-03-25',
-      time: '06:00 PM - 08:00 PM',
-      location: 'Auditorium',
-      organizer: 'Music Department',
-      participants: 150,
-      status: 'Upcoming',
-      description: 'Annual music performance by school bands and choirs',
-    ),
-    const Event(
-      id: 5,
-      name: 'Career Fair',
-      category: 'Career',
-      date: '2024-03-30',
-      time: '11:00 AM - 03:00 PM',
-      location: 'Gymnasium',
-      organizer: 'Career Counseling',
-      participants: 400,
-      status: 'Upcoming',
-      description: 'Career guidance and college information session',
-    ),
-  ];
+  List<Event> _events = [];
+  bool _isLoading = true;
+  String _errorMessage = '';
 
   final TextEditingController _searchController = TextEditingController();
   late List<Event> _visibleEvents;
@@ -109,7 +67,60 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
   @override
   void initState() {
     super.initState();
-    _visibleEvents = List<Event>.from(_events);
+    _visibleEvents = [];
+    _loadEvents();
+  }
+
+  Future<void> _loadEvents() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.get(Endpoints.events);
+
+      if (response.success && response.data != null) {
+        // Handle different response formats
+        List<dynamic> eventsJson;
+        
+        if (response.data is List) {
+          // Direct list response
+          eventsJson = response.data as List<dynamic>;
+        } else if (response.data is Map) {
+          // Wrapped response (e.g., {"results": [...]} or {"data": [...]})
+          final dataMap = response.data as Map<String, dynamic>;
+          if (dataMap.containsKey('results')) {
+            eventsJson = dataMap['results'] as List<dynamic>;
+          } else if (dataMap.containsKey('data')) {
+            eventsJson = dataMap['data'] as List<dynamic>;
+          } else {
+            // If it's a single object, wrap it in a list
+            eventsJson = [dataMap];
+          }
+        } else {
+          eventsJson = [];
+        }
+        
+        setState(() {
+          _events = eventsJson.map((json) => Event.fromJson(json as Map<String, dynamic>)).toList();
+          _visibleEvents = List<Event>.from(_events);
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _errorMessage = response.error ?? 'Failed to load events';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error loading events: $e';
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -178,15 +189,17 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
     );
   }
 
-  void _editEvent(Event event) {
-    // Navigate to edit event page (can be created later)
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Edit event feature coming soon for ${event.name}')),
+  void _editEvent(Event event) async {
+    await Navigator.pushNamed(
+      context,
+      ManagementRoutes.editEvent,
+      arguments: event.id,
     );
+    _loadEvents(); // Reload events after returning from edit page
   }
 
-  void _deleteEvent(Event event) {
-    showDialog<void>(
+  void _deleteEvent(Event event) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
@@ -194,20 +207,11 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
           content: Text('Delete ${event.name}?'),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.of(context).pop(false),
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
-                setState(() {
-                  _events.removeWhere((e) => e.id == event.id);
-                });
-                _filterEvents(_searchController.text);
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Event deleted successfully!')),
-                );
-              },
+              onPressed: () => Navigator.of(context).pop(true),
               child: const Text(
                 'Delete',
                 style: TextStyle(color: Colors.red),
@@ -217,13 +221,40 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
         );
       },
     );
+
+    if (confirmed == true) {
+      try {
+        final apiService = ApiService();
+        await apiService.initialize();
+        final response = await apiService.delete('${Endpoints.events}${event.id}/');
+
+        if (response.success) {
+          await _loadEvents(); // Reload events from server
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Event deleted successfully!')),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to delete event: ${response.error}')),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error deleting event: $e')),
+          );
+        }
+      }
+    }
   }
 
-  void _addEvent() {
-    // Navigate to add event page (can be created later)
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add event feature coming soon')),
-    );
+  void _addEvent() async {
+    await Navigator.pushNamed(context, ManagementRoutes.addEvent);
+    _loadEvents(); // Reload events after returning from add page
   }
 
   @override
@@ -280,7 +311,7 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
     );
 
     // Safe navigation helper for sidebar
-    void _navigateToRoute(String route) {
+    void navigateToRoute(String route) {
       final navigator = app.SchoolManagementApp.navigatorKey.currentState;
       if (navigator != null) {
         if (navigator.canPop() || route != '/dashboard') {
@@ -353,48 +384,48 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
                     icon: '📊',
                     title: 'Overview',
                     isActive: false,
-                    onTap: () => _navigateToRoute('/dashboard'),
+                    onTap: () => navigateToRoute('/dashboard'),
                   ),
                   _NavItem(
                     icon: '👨‍🏫',
                     title: 'Teachers',
-                    onTap: () => _navigateToRoute('/teachers'),
+                    onTap: () => navigateToRoute('/teachers'),
                   ),
                   _NavItem(
                     icon: '👥',
                     title: 'Students',
-                    onTap: () => _navigateToRoute('/students'),
+                    onTap: () => navigateToRoute('/students'),
                   ),
                   _NavItem(
                     icon: '🚌',
                     title: 'Buses',
-                    onTap: () => _navigateToRoute('/buses'),
+                    onTap: () => navigateToRoute('/buses'),
                   ),
                   _NavItem(
                     icon: '🎯',
                     title: 'Activities',
-                    onTap: () => _navigateToRoute('/activities'),
+                    onTap: () => navigateToRoute('/activities'),
                   ),
                   _NavItem(
                     icon: '📅',
                     title: 'Events',
                     isActive: true,
-                    onTap: () => _navigateToRoute('/events'),
+                    onTap: () => navigateToRoute('/events'),
                   ),
                   _NavItem(
                     icon: '📆',
                     title: 'Calendar',
-                    onTap: () => _navigateToRoute('/calendar'),
+                    onTap: () => navigateToRoute('/calendar'),
                   ),
                   _NavItem(
                     icon: '🔔',
                     title: 'Notifications',
-                    onTap: () => _navigateToRoute('/notifications'),
+                    onTap: () => navigateToRoute('/notifications'),
                   ),
                   _NavItem(
                     icon: '🛣️',
                     title: 'Bus Routes',
-                    onTap: () => _navigateToRoute('/bus-routes'),
+                    onTap: () => navigateToRoute('/bus-routes'),
                   ),
                 ],
               ),
@@ -580,24 +611,75 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
               ],
             ),
           ),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final spacing = 20.0;
-              final cardWidth = (constraints.maxWidth - spacing) / 2;
-              return Wrap(
-                spacing: spacing,
-                runSpacing: spacing,
-                children: _visibleEvents.map((event) {
-                  return ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: cardWidth,
+          if (_isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(50.0),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (_errorMessage.isNotEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(50.0),
+                child: Column(
+                  children: [
+                    const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text(
+                      _errorMessage,
+                      style: const TextStyle(color: Colors.red, fontSize: 16),
+                      textAlign: TextAlign.center,
                     ),
-                    child: _buildEventCard(event),
-                  );
-                }).toList(),
-              );
-            },
-          ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _loadEvents,
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (_visibleEvents.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(50.0),
+                child: Column(
+                  children: [
+                    const Icon(Icons.event_busy, size: 64, color: Colors.grey),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'No events found',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Add your first event to get started',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final spacing = 20.0;
+                final cardWidth = (constraints.maxWidth - spacing) / 2;
+                return Wrap(
+                  spacing: spacing,
+                  runSpacing: spacing,
+                  children: _visibleEvents.map((event) {
+                    return ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: cardWidth,
+                      ),
+                      child: _buildEventCard(event),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
         ],
       ),
     );

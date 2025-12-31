@@ -1285,7 +1285,7 @@ class _AddExamSection extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: DropdownButtonFormField<String>(
-        value: value,
+        initialValue: value,
         decoration: InputDecoration(
           labelText: label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -1436,7 +1436,7 @@ class _SearchFilterSection extends StatelessWidget {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: statusFilter,
+                  initialValue: statusFilter,
                   decoration: InputDecoration(
                     labelText: 'Status',
                     border: OutlineInputBorder(
@@ -1455,7 +1455,7 @@ class _SearchFilterSection extends StatelessWidget {
               const SizedBox(width: 16),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: classFilter,
+                  initialValue: classFilter,
                   decoration: InputDecoration(
                     labelText: 'Class',
                     border: OutlineInputBorder(

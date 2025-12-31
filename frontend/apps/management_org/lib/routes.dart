@@ -24,6 +24,8 @@ import 'edit_teacher.dart';
 import 'edit_bus.dart';
 import 'edit_activity.dart';
 import 'add_newBus.dart';
+import 'add_event.dart';
+import 'edit_event.dart';
 
 class ManagementRoutePages {
   static Map<String, WidgetBuilder> routes = {
@@ -41,6 +43,7 @@ class ManagementRoutePages {
     ManagementRoutes.admissions: (_) => const AdmissionsManagementPage(),
     ManagementRoutes.departments: (_) => const DepartmentsManagementPage(),
     ManagementRoutes.awards: (_) => const AwardsManagementPage(),
+    ManagementRoutes.busRoutes: (_) => const BusesManagementPage(), // Mapping bus-routes to Buses page
     ManagementRoutes.campusLife: (_) => const CampusLifeManagementPage(),
     ManagementRoutes.addTeacher: (_) => const AddTeacherPage(),
     ManagementRoutes.editStudent: (context) {
@@ -64,6 +67,12 @@ class ManagementRoutePages {
       return EditActivityPage(activityId: activityId);
     },
     ManagementRoutes.addNewBus: (_) => const AddNewBusPage(),
+    ManagementRoutes.addEvent: (_) => const AddEventPage(),
+    ManagementRoutes.editEvent: (context) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      final eventId = args is int ? args : null;
+      return EditEventPage(eventId: eventId);
+    },
   };
 }
 

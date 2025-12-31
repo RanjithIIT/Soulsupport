@@ -2,26 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:main_login/main.dart' as main_login;
 import 'package:core/api/api_service.dart';
 import 'main.dart' as app;
-import 'activities.dart';
 import 'widgets/school_profile_header.dart';
-import 'add_teacher.dart';
-import 'admissions.dart';
-import 'awards.dart';
-import 'buses.dart';
-import 'calendar.dart';
-import 'campus_life.dart';
-import 'departments.dart';
-import 'edit_activity.dart';
-import 'edit_bus.dart';
-import 'edit_student.dart';
-import 'edit_teacher.dart';
-import 'events.dart';
-import 'examinations.dart';
-import 'fees.dart';
-import 'gallery.dart';
-import 'notifications.dart';
-import 'students.dart';
-import 'teachers.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});

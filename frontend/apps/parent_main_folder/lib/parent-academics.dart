@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart'; // Needed for SystemMouseCursors
+// Needed for SystemMouseCursors
 
 // -------------------------------------------------------------------------
 // 0. UTILITY FUNCTION TO CREATE CUSTOM MATERIAL COLOR

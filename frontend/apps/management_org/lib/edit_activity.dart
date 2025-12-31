@@ -532,7 +532,7 @@ class _EditActivityPageState extends State<EditActivityPage> {
                                         filled: true,
                                         fillColor: Colors.white,
                                       ),
-                                      value: _category,
+                                      initialValue: _category,
                                       items: const [
                                         DropdownMenuItem(
                                             value: 'Sports', child: Text('Sports')),
@@ -665,7 +665,7 @@ class _EditActivityPageState extends State<EditActivityPage> {
                                         filled: true,
                                         fillColor: Colors.white,
                                       ),
-                                      value: _status,
+                                      initialValue: _status,
                                       items: const [
                                         DropdownMenuItem(
                                             value: 'Active', child: Text('Active')),
