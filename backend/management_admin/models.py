@@ -783,6 +783,7 @@ class Fee(models.Model):
     paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text='Total amount paid so far (sum of all payments)')
     due_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text='Amount due (remaining to be paid)')
     last_paid_date = models.DateField(null=True, blank=True, help_text='Date of last payment')
+    upload_receipt = models.CharField(max_length=100, blank=True, null=True, help_text='Uploaded receipt file path or URL')
     
     def save(self, *args, **kwargs):
         """Auto-calculate fields when saving"""
@@ -846,6 +847,7 @@ class PaymentHistory(models.Model):
     payment_amount = models.DecimalField(max_digits=10, decimal_places=2, help_text='Amount paid in this transaction')
     payment_date = models.DateField(help_text='Date when payment was made')
     receipt_number = models.CharField(max_length=100, blank=True, help_text='Receipt number for this payment')
+    upload_receipt = models.CharField(max_length=100, blank=True, null=True, help_text='Uploaded receipt file path or URL')
     notes = models.TextField(blank=True, help_text='Additional notes for this payment')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

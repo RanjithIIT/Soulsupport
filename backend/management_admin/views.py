@@ -697,13 +697,43 @@ class FeeViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         
         return queryset
     
+    def filter_queryset(self, queryset):
+        """Override filter_queryset to handle student filter by student_id_string"""
+        # Handle student filter by student_id_string if provided
+        student_param = self.request.query_params.get('student')
+        if student_param:
+            # Try to filter by student_id_string first (e.g., STUD-003)
+            queryset = queryset.filter(student_id_string=student_param)
+            # If no results, try filtering by student__student_id
+            if not queryset.exists():
+                queryset = self.get_queryset().filter(student__student_id=student_param)
+            # Remove 'student' from query params to prevent ForeignKey filter error
+            # Create a mutable copy of query params
+            from django.http import QueryDict
+            mutable_params = self.request.query_params.copy()
+            mutable_params._mutable = True
+            mutable_params.pop('student', None)
+            mutable_params._mutable = False
+            # Temporarily replace query_params
+            original_get = self.request._request.GET
+            self.request._request.GET = mutable_params
+            try:
+                # Call parent filter_queryset without student param
+                queryset = super().filter_queryset(queryset)
+            finally:
+                self.request._request.GET = original_get
+        else:
+            queryset = super().filter_queryset(queryset)
+        
+        return queryset
+    
     def list(self, request, *args, **kwargs):
         """Override list to ensure proper response format and handle errors gracefully"""
         try:
             # Get queryset (already filtered by school_id via get_queryset)
             queryset = self.get_queryset()
             
-            # Apply additional filters if any
+            # Apply filters (student filter is handled in filter_queryset override)
             queryset = self.filter_queryset(queryset)
             
             # Serialize the data
@@ -769,6 +799,16 @@ class FeeViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
             )
             print(f"Created payment history: ID={payment_history.id}, Amount={payment_history.payment_amount}, Date={payment_history.payment_date}, Created={payment_history.created_at}")
             
+            # If receipt was uploaded first (before payment), link it now
+            # Check if fee has an uploaded receipt with matching receipt number
+            if receipt_number and fee.upload_receipt:
+                # Link the receipt to this payment history entry
+                payment_history.upload_receipt = fee.upload_receipt
+                payment_history.save()
+                # Clear fee.upload_receipt as it's now linked to payment history
+                fee.upload_receipt = ''
+                fee.save()
+            
             # Update fee with new payment (cumulative)
             # Set last_paid_date (will be set even for first payment)
             fee.last_paid_date = payment_date_obj
@@ -823,6 +863,81 @@ class FeeViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
             print(traceback.format_exc())
             return Response(
                 {'error': str(e), 'detail': 'An error occurred while recording payment'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=True, methods=['post'], url_path='upload-receipt')
+    def upload_receipt(self, request, pk=None):
+        """Upload receipt for a fee with receipt number (same as teacher profile photo)"""
+        try:
+            fee = self.get_object()
+            receipt_number = request.data.get('receipt_number', '')
+            
+            if not receipt_number:
+                return Response(
+                    {'error': 'receipt_number is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Handle receipt file upload (same as teacher profile photo)
+            receipt_file = request.FILES.get('receipt_file')
+            receipt_url = None
+            
+            if receipt_file:
+                # Save file and get the URL/path (same as teacher profile photo)
+                from django.core.files.storage import default_storage
+                from django.utils import timezone
+                import os
+                
+                # Generate filename with timestamp to avoid conflicts
+                file_ext = os.path.splitext(receipt_file.name)[1]
+                timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+                filename = f'receipts/{timestamp}_{receipt_number}_{receipt_file.name}'
+                
+                # Save file using default storage
+                saved_path = default_storage.save(filename, receipt_file)
+                # Get the URL for the saved file
+                receipt_url = default_storage.url(saved_path)
+            
+            if not receipt_url:
+                return Response(
+                    {'error': 'receipt_file is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Check if payment history with this receipt number already exists
+            # (user marked as paid first, then uploading receipt)
+            if receipt_number:
+                payment_history = PaymentHistory.objects.filter(
+                    fee=fee,
+                    receipt_number=receipt_number
+                ).first()
+                
+                if payment_history:
+                    # Payment history exists - link receipt directly
+                    payment_history.upload_receipt = receipt_url
+                    payment_history.save()
+                else:
+                    # Payment history doesn't exist yet - store in fee temporarily
+                    # It will be linked when payment is recorded with matching receipt_number
+                    fee.upload_receipt = receipt_url
+                    fee.save()
+            
+            # Return updated fee
+            serializer = self.get_serializer(fee)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+            
+        except Fee.DoesNotExist:
+            return Response(
+                {'error': 'Fee not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            import traceback
+            print(f"Error uploading receipt: {e}")
+            print(traceback.format_exc())
+            return Response(
+                {'error': str(e), 'detail': 'An error occurred while uploading receipt'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
@@ -929,6 +1044,114 @@ class FeeViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
             print(traceback.format_exc())
             return Response(
                 {'error': str(e), 'detail': 'An error occurred while updating payment history'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['get'], url_path='student-summary')
+    def student_summary(self, request):
+        """Get fee summary grouped by student"""
+        try:
+            student_id = request.query_params.get('student_id')
+            if not student_id:
+                return Response(
+                    {'error': 'student_id parameter is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Get all fees for this student
+            queryset = self.get_queryset()
+            fees = queryset.filter(
+                student_id_string=student_id
+            ) | queryset.filter(
+                student__student_id=student_id
+            )
+            
+            if not fees.exists():
+                return Response(
+                    {'error': 'No fees found for this student'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Get student info from first fee
+            first_fee = fees.first()
+            student = first_fee.student
+            
+            # Calculate totals
+            total_payable = sum(float(fee.total_amount) for fee in fees)
+            total_paid = sum(float(fee.paid_amount) for fee in fees)
+            total_due = sum(float(fee.due_amount) for fee in fees)
+            
+            # Get next due date (earliest unpaid fee)
+            unpaid_fees = fees.filter(status__in=['pending', 'overdue']).order_by('due_date')
+            next_due_date = unpaid_fees.first().due_date if unpaid_fees.exists() else None
+            
+            # Determine overall payment status
+            if total_due == 0:
+                payment_status = 'FULLY PAID'
+            elif total_paid > 0:
+                payment_status = 'PARTIALLY PAID'
+            else:
+                payment_status = 'NOT PAID'
+            
+            # Group fees by fee_type
+            fees_by_type = {}
+            for fee in fees:
+                fee_type = fee.fee_type
+                if fee_type not in fees_by_type:
+                    fees_by_type[fee_type] = []
+                fees_by_type[fee_type].append(self.get_serializer(fee).data)
+            
+            # Get all payment history (sorted by date, newest first)
+            all_payment_history = []
+            for fee in fees:
+                for payment in fee.payment_history.all():
+                    all_payment_history.append({
+                        'id': payment.id,
+                        'fee_type': fee.fee_type,
+                        'payment_amount': float(payment.payment_amount),
+                        'payment_date': payment.payment_date.isoformat(),
+                        'receipt_number': payment.receipt_number,
+                        'upload_receipt': payment.upload_receipt if payment.upload_receipt else None,
+                        'notes': payment.notes,
+                        'created_at': payment.created_at.isoformat() if payment.created_at else None,
+                    })
+            
+            # Sort payment history by date (newest first)
+            all_payment_history.sort(key=lambda x: x['payment_date'], reverse=True)
+            
+            # Get student grade if available
+            student_grade = ''
+            if hasattr(student, 'grade'):
+                student_grade = student.grade
+            elif hasattr(student, 'student_grade'):
+                student_grade = student.student_grade
+            
+            return Response({
+                'student': {
+                    'student_id': str(student.student_id) if hasattr(student, 'student_id') else student_id,
+                    'student_name': student.student_name,
+                    'applying_class': student.applying_class,
+                    'grade': student_grade,
+                    'email': student.email,
+                },
+                'summary': {
+                    'total_payable': total_payable,
+                    'total_paid': total_paid,
+                    'total_due': total_due,
+                    'next_due_date': next_due_date.isoformat() if next_due_date else None,
+                    'payment_status': payment_status,
+                },
+                'fees_by_type': fees_by_type,
+                'payment_history': all_payment_history,
+            })
+        except Exception as e:
+            import traceback
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error in student_summary: {e}")
+            logger.error(traceback.format_exc())
+            return Response(
+                {'error': str(e), 'detail': 'An error occurred while fetching student fee summary'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
