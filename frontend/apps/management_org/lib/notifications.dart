@@ -1010,7 +1010,7 @@ class _ActionsBar extends StatelessWidget {
                         SizedBox(
                           width: 150,
                           child: DropdownButtonFormField<String>(
-                            value: categoryFilter,
+                            initialValue: categoryFilter,
                             decoration: InputDecoration(
                               labelText: 'Category',
                               border: OutlineInputBorder(
@@ -1039,7 +1039,7 @@ class _ActionsBar extends StatelessWidget {
                         SizedBox(
                           width: 150,
                           child: DropdownButtonFormField<NotificationPriority>(
-                            value: priorityFilter,
+                            initialValue: priorityFilter,
                             decoration: InputDecoration(
                               labelText: 'Priority',
                               border: OutlineInputBorder(
@@ -1067,7 +1067,7 @@ class _ActionsBar extends StatelessWidget {
                         SizedBox(
                           width: 150,
                           child: DropdownButtonFormField<NotificationStatus>(
-                            value: statusFilter,
+                            initialValue: statusFilter,
                             decoration: InputDecoration(
                               labelText: 'Status',
                               border: OutlineInputBorder(
@@ -1514,7 +1514,7 @@ class _AddNotificationDialog extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 DropdownButtonFormField<String>(
-                  value: category,
+                  initialValue: category,
                   decoration: InputDecoration(
                     labelText: 'Category *',
                     border: OutlineInputBorder(
@@ -1536,7 +1536,7 @@ class _AddNotificationDialog extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 DropdownButtonFormField<NotificationPriority>(
-                  value: priority,
+                  initialValue: priority,
                   decoration: InputDecoration(
                     labelText: 'Priority *',
                     border: OutlineInputBorder(
@@ -1571,7 +1571,7 @@ class _AddNotificationDialog extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 DropdownButtonFormField<TargetAudience>(
-                  value: targetAudience,
+                  initialValue: targetAudience,
                   decoration: InputDecoration(
                     labelText: 'Target Audience',
                     border: OutlineInputBorder(

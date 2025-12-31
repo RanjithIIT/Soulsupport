@@ -5,47 +5,7 @@ import 'main.dart' as app;
 import 'dashboard.dart';
 import 'widgets/school_profile_dialog.dart';
 
-void main() {
-  runApp(const SchoolManagementApp());
-}
-
-class SchoolManagementApp extends StatelessWidget {
-  const SchoolManagementApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'School Management - Calendar',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.indigo,
-        scaffoldBackgroundColor: const Color(0xFFF5F6FA), // Light grey background
-        fontFamily: 'Segoe UI',
-        useMaterial3: true,
-        // Customizing inputs to match the design
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.all(12),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.grey.shade300, width: 2),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.grey.shade300, width: 2),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFF667eea), width: 2),
-          ),
-          labelStyle: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
-        ),
-      ),
-      home: const CalendarManagementPage(),
-    );
-  }
-}
+// ==========================================
 
 // ==========================================
 // 1. ROBUST DATA MODEL
@@ -105,7 +65,7 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
   final Color gradientEnd = const Color(0xFF764ba2);
 
   // --- State Variables (Data) ---
-  List<CalendarEvent> _allEvents = [
+  final List<CalendarEvent> _allEvents = [
     CalendarEvent(
       id: 1,
       title: 'Annual Sports Day',
@@ -394,7 +354,7 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
     );
 
     // Safe navigation helper for sidebar
-    void _navigateToRoute(String route) {
+    void navigateToRoute(String route) {
       final navigator = app.SchoolManagementApp.navigatorKey.currentState;
       if (navigator != null) {
         if (navigator.canPop() || route != '/dashboard') {
@@ -467,48 +427,48 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
                     icon: '📊',
                     title: 'Overview',
                     isActive: false,
-                    onTap: () => _navigateToRoute('/dashboard'),
+                    onTap: () => navigateToRoute('/dashboard'),
                   ),
                   _NavItem(
                     icon: '👨‍🏫',
                     title: 'Teachers',
-                    onTap: () => _navigateToRoute('/teachers'),
+                    onTap: () => navigateToRoute('/teachers'),
                   ),
                   _NavItem(
                     icon: '👥',
                     title: 'Students',
-                    onTap: () => _navigateToRoute('/students'),
+                    onTap: () => navigateToRoute('/students'),
                   ),
                   _NavItem(
                     icon: '🚌',
                     title: 'Buses',
-                    onTap: () => _navigateToRoute('/buses'),
+                    onTap: () => navigateToRoute('/buses'),
                   ),
                   _NavItem(
                     icon: '🎯',
                     title: 'Activities',
-                    onTap: () => _navigateToRoute('/activities'),
+                    onTap: () => navigateToRoute('/activities'),
                   ),
                   _NavItem(
                     icon: '📅',
                     title: 'Events',
-                    onTap: () => _navigateToRoute('/events'),
+                    onTap: () => navigateToRoute('/events'),
                   ),
                   _NavItem(
                     icon: '📆',
                     title: 'Calendar',
                     isActive: true,
-                    onTap: () => _navigateToRoute('/calendar'),
+                    onTap: () => navigateToRoute('/calendar'),
                   ),
                   _NavItem(
                     icon: '🔔',
                     title: 'Notifications',
-                    onTap: () => _navigateToRoute('/notifications'),
+                    onTap: () => navigateToRoute('/notifications'),
                   ),
                   _NavItem(
                     icon: '🛣️',
                     title: 'Bus Routes',
-                    onTap: () => _navigateToRoute('/bus-routes'),
+                    onTap: () => navigateToRoute('/bus-routes'),
                   ),
                 ],
               ),
@@ -660,7 +620,7 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     decoration: const InputDecoration(labelText: 'Event Type'),
-                    value: _selectedType,
+                    initialValue: _selectedType,
                     items: ["Academic", "Sports", "Cultural", "Administrative", "Holiday", "Other"]
                         .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                         .toList(),
@@ -800,7 +760,7 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
               Expanded(
                 child: DropdownButtonFormField<String>(
                   decoration: const InputDecoration(labelText: "Sort By"),
-                  value: _sortBy,
+                  initialValue: _sortBy,
                   items: const [
                     DropdownMenuItem(value: 'date', child: Text('Date')),
                     DropdownMenuItem(value: 'title', child: Text('Title')),
@@ -833,7 +793,7 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
           const SizedBox(height: 15),
           DropdownButtonFormField<String>(
             decoration: const InputDecoration(labelText: "Filter by Type"),
-            value: _filterType,
+            initialValue: _filterType,
             items: [
               const DropdownMenuItem(value: null, child: Text("All Types")),
               ...["Academic", "Sports", "Cultural", "Administrative", "Holiday", "Other"]
@@ -847,7 +807,7 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
           const SizedBox(height: 15),
           DropdownButtonFormField<int>(
             decoration: const InputDecoration(labelText: "Filter by Month"),
-            value: _filterMonth,
+            initialValue: _filterMonth,
             items: [
                const DropdownMenuItem(value: null, child: Text("All Months")),
               ...List.generate(12, (index) => DropdownMenuItem(value: index + 1, child: Text(DateFormat('MMMM').format(DateTime(2024, index + 1)))))
@@ -1224,7 +1184,7 @@ class _EventFormDialogState extends State<_EventFormDialog> {
               ),
               const SizedBox(height: 15),
               DropdownButtonFormField<String>(
-                value: _type.isEmpty ? null : _type,
+                initialValue: _type.isEmpty ? null : _type,
                 decoration: const InputDecoration(labelText: 'Type *'),
                 items: ["Academic", "Sports", "Cultural", "Administrative", "Holiday", "Other"]
                     .map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
@@ -1283,7 +1243,7 @@ class _EventFormDialogState extends State<_EventFormDialog> {
                ),
                if (_isRecurring)
                   DropdownButtonFormField<String>(
-                    value: _recurrencePattern,
+                    initialValue: _recurrencePattern,
                     decoration: const InputDecoration(labelText: "Recurrence Pattern"),
                     items: ['daily', 'weekly', 'monthly', 'yearly'].map((e) => DropdownMenuItem(value: e, child: Text(e.toUpperCase()))).toList(),
                     onChanged: (v) => setState(() => _recurrencePattern = v!),

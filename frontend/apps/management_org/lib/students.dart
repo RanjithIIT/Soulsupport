@@ -643,7 +643,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
     // Navigate to admissions screen and refresh when returning
     await Navigator.push(
       context, 
-      MaterialPageRoute(builder: (_) => const AdmissionsScreen())
+      MaterialPageRoute(builder: (_) => const AdmissionsManagementPage())
     );
     // Refresh students list when returning from admissions
     if (mounted) {
@@ -705,7 +705,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
     );
 
     // Safe navigation helper for sidebar
-    void _navigateToRoute(String route) {
+    void navigateToRoute(String route) {
       final navigator = app.SchoolManagementApp.navigatorKey.currentState;
       if (navigator != null) {
         if (navigator.canPop() || route != '/dashboard') {
@@ -778,48 +778,48 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                     icon: '📊',
                     title: 'Overview',
                     isActive: false,
-                    onTap: () => _navigateToRoute('/dashboard'),
+                    onTap: () => navigateToRoute('/dashboard'),
                   ),
                   _NavItem(
                     icon: '👨‍🏫',
                     title: 'Teachers',
-                    onTap: () => _navigateToRoute('/teachers'),
+                    onTap: () => navigateToRoute('/teachers'),
                   ),
                   _NavItem(
                     icon: '👥',
                     title: 'Students',
                     isActive: true,
-                    onTap: () => _navigateToRoute('/students'),
+                    onTap: () => navigateToRoute('/students'),
                   ),
                   _NavItem(
                     icon: '🚌',
                     title: 'Buses',
-                    onTap: () => _navigateToRoute('/buses'),
+                    onTap: () => navigateToRoute('/buses'),
                   ),
                   _NavItem(
                     icon: '🎯',
                     title: 'Activities',
-                    onTap: () => _navigateToRoute('/activities'),
+                    onTap: () => navigateToRoute('/activities'),
                   ),
                   _NavItem(
                     icon: '📅',
                     title: 'Events',
-                    onTap: () => _navigateToRoute('/events'),
+                    onTap: () => navigateToRoute('/events'),
                   ),
                   _NavItem(
                     icon: '📆',
                     title: 'Calendar',
-                    onTap: () => _navigateToRoute('/calendar'),
+                    onTap: () => navigateToRoute('/calendar'),
                   ),
                   _NavItem(
                     icon: '🔔',
                     title: 'Notifications',
-                    onTap: () => _navigateToRoute('/notifications'),
+                    onTap: () => navigateToRoute('/notifications'),
                   ),
                   _NavItem(
                     icon: '🛣️',
                     title: 'Bus Routes',
-                    onTap: () => _navigateToRoute('/bus-routes'),
+                    onTap: () => navigateToRoute('/bus-routes'),
                   ),
                 ],
               ),

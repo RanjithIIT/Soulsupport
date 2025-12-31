@@ -2442,7 +2442,7 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
   List<Map<String, dynamic>> _groups = [];
   bool _loadingTeachers = false;
   String? _schoolId; // Parent's school_id for filtering
-  Map<String, int> _unreadCounts = {}; // Track unread messages per teacher
+  final Map<String, int> _unreadCounts = {}; // Track unread messages per teacher
 
   @override
   void initState() {
@@ -3006,7 +3006,7 @@ class _WhatsAppChatScreenState extends State<_WhatsAppChatScreen>
   List<Map<String, dynamic>> _groups = [];
   bool _loadingTeachers = false;
   String? _schoolId; // Parent's school_id for filtering
-  Map<String, int> _unreadCounts = {}; // Track unread messages per teacher
+  final Map<String, int> _unreadCounts = {}; // Track unread messages per teacher
 
   @override
   void initState() {
@@ -3661,7 +3661,7 @@ class _TeacherChatScreenState extends State<_TeacherChatScreen> {
         // First, try to get student_name directly from parentData (for student profile fallback)
         if (parentData.containsKey('student_name')) {
           final studentNameValue = parentData['student_name'];
-          final directStudentName = studentNameValue != null ? studentNameValue.toString().trim() : null;
+          final directStudentName = studentNameValue?.toString().trim();
           if (directStudentName != null && directStudentName.isNotEmpty && directStudentName != 'null') {
             debugPrint('✓ Found student_name directly in parentData: $directStudentName');
             _studentUsername = directStudentName;

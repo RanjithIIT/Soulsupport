@@ -651,7 +651,7 @@ class _EditStudentPageState extends State<EditStudentPage> {
                                         fillColor: Colors.white,
                                         prefixIcon: const Icon(Icons.school),
                                       ),
-                                      value: _studentClass,
+                                      initialValue: _studentClass,
                                       items: const [
                                         DropdownMenuItem(
                                             value: 'Grade 9',
@@ -691,7 +691,7 @@ class _EditStudentPageState extends State<EditStudentPage> {
                                         fillColor: Colors.white,
                                         prefixIcon: const Icon(Icons.class_),
                                       ),
-                                      value: _section,
+                                      initialValue: _section,
                                       items: const [
                                         DropdownMenuItem(
                                             value: 'A', child: Text('Section A')),
@@ -731,7 +731,7 @@ class _EditStudentPageState extends State<EditStudentPage> {
                                         fillColor: Colors.white,
                                         prefixIcon: const Icon(Icons.bloodtype),
                                       ),
-                                      value: _bloodGroup,
+                                      initialValue: _bloodGroup,
                                       items: const [
                                         DropdownMenuItem(
                                             value: 'A+', child: Text('A+')),
@@ -815,7 +815,7 @@ class _EditStudentPageState extends State<EditStudentPage> {
                                         fillColor: Colors.white,
                                         prefixIcon: const Icon(Icons.people),
                                       ),
-                                      value: _gender,
+                                      initialValue: _gender,
                                       items: const [
                                         DropdownMenuItem(
                                             value: 'Male', child: Text('Male')),
@@ -1034,7 +1034,7 @@ class _EditStudentPageState extends State<EditStudentPage> {
                                         fillColor: Colors.white,
                                         prefixIcon: const Icon(Icons.directions_bus),
                                       ),
-                                      value: _busRoute,
+                                      initialValue: _busRoute,
                                       items: const [
                                         DropdownMenuItem(
                                             value: null, child: Text('Not assigned')),

@@ -567,7 +567,7 @@ class _EditBusPageState extends State<EditBusPage> {
                                         fillColor: Colors.white,
                                         prefixIcon: const Icon(Icons.category),
                                       ),
-                                      value: _busType,
+                                      initialValue: _busType,
                                       items: const [
                                         DropdownMenuItem(
                                             value: 'Mini Bus',
@@ -1126,7 +1126,7 @@ class _EditBusPageState extends State<EditBusPage> {
     );
 
     // Safe navigation helper for sidebar
-    void _navigateToRoute(String route) {
+    void navigateToRoute(String route) {
       final navigator = app.SchoolManagementApp.navigatorKey.currentState;
       if (navigator != null) {
         if (navigator.canPop() || route != '/dashboard') {
@@ -1199,48 +1199,48 @@ class _EditBusPageState extends State<EditBusPage> {
                     icon: '📊',
                     title: 'Overview',
                     isActive: false,
-                    onTap: () => _navigateToRoute('/dashboard'),
+                    onTap: () => navigateToRoute('/dashboard'),
                   ),
                   _NavItem(
                     icon: '👨‍🏫',
                     title: 'Teachers',
-                    onTap: () => _navigateToRoute('/teachers'),
+                    onTap: () => navigateToRoute('/teachers'),
                   ),
                   _NavItem(
                     icon: '👥',
                     title: 'Students',
-                    onTap: () => _navigateToRoute('/students'),
+                    onTap: () => navigateToRoute('/students'),
                   ),
                   _NavItem(
                     icon: '🚌',
                     title: 'Buses',
                     isActive: true,
-                    onTap: () => _navigateToRoute('/buses'),
+                    onTap: () => navigateToRoute('/buses'),
                   ),
                   _NavItem(
                     icon: '🎯',
                     title: 'Activities',
-                    onTap: () => _navigateToRoute('/activities'),
+                    onTap: () => navigateToRoute('/activities'),
                   ),
                   _NavItem(
                     icon: '📅',
                     title: 'Events',
-                    onTap: () => _navigateToRoute('/events'),
+                    onTap: () => navigateToRoute('/events'),
                   ),
                   _NavItem(
                     icon: '📆',
                     title: 'Calendar',
-                    onTap: () => _navigateToRoute('/calendar'),
+                    onTap: () => navigateToRoute('/calendar'),
                   ),
                   _NavItem(
                     icon: '🔔',
                     title: 'Notifications',
-                    onTap: () => _navigateToRoute('/notifications'),
+                    onTap: () => navigateToRoute('/notifications'),
                   ),
                   _NavItem(
                     icon: '🛣️',
                     title: 'Bus Routes',
-                    onTap: () => _navigateToRoute('/bus-routes'),
+                    onTap: () => navigateToRoute('/bus-routes'),
                   ),
                 ],
               ),

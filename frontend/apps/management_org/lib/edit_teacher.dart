@@ -885,7 +885,7 @@ class _FormCard extends StatelessWidget {
                       fillColor: Colors.white,
                       prefixIcon: const Icon(Icons.people),
                     ),
-                    value: gender,
+                    initialValue: gender,
                     items: const [
                       DropdownMenuItem(value: 'Male', child: Text('Male')),
                       DropdownMenuItem(value: 'Female', child: Text('Female')),
@@ -968,7 +968,7 @@ class _FormCard extends StatelessWidget {
                       fillColor: Colors.white,
                       prefixIcon: const Icon(Icons.business),
                     ),
-                    value: departmentId,
+                    initialValue: departmentId,
                     items: [
                       const DropdownMenuItem<String>(
                         value: null,
@@ -1054,7 +1054,7 @@ class _FormCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: bloodGroup,
+                    initialValue: bloodGroup,
                     items: [
                       const DropdownMenuItem<String>(
                         value: null,
@@ -1128,7 +1128,7 @@ class _FormCard extends StatelessWidget {
                         fillColor: Colors.white,
                         prefixIcon: const Icon(Icons.school),
                       ),
-                      value: classTeacherClass,
+                      initialValue: classTeacherClass,
                       items: const [
                         DropdownMenuItem(value: null, child: Text('Select Class')),
                         DropdownMenuItem(value: 'Grade 9', child: Text('Grade 9')),
@@ -1151,7 +1151,7 @@ class _FormCard extends StatelessWidget {
                         fillColor: Colors.white,
                         prefixIcon: const Icon(Icons.star),
                       ),
-                      value: classTeacherGrade,
+                      initialValue: classTeacherGrade,
                       items: const [
                         DropdownMenuItem(value: null, child: Text('Select Grade')),
                         DropdownMenuItem(value: 'A', child: Text('Grade A')),

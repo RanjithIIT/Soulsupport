@@ -585,7 +585,7 @@ class _AddNewBusPageState extends State<AddNewBusPage> {
                                         fillColor: Colors.white,
                                         prefixIcon: const Icon(Icons.category),
                                       ),
-                                      value: _busType,
+                                      initialValue: _busType,
                                       items: const [
                                         DropdownMenuItem(
                                             value: 'Mini Bus',

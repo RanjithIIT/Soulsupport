@@ -289,7 +289,7 @@ class _DailyTasksPageState extends State<DailyTasksPage>
                       labelText: "Category",
                       border: OutlineInputBorder(),
                     ),
-                    value: category,
+                    initialValue: category,
                     items: const [
                       DropdownMenuItem(
                         value: 'homework',
@@ -315,7 +315,7 @@ class _DailyTasksPageState extends State<DailyTasksPage>
                       labelText: "Priority",
                       border: OutlineInputBorder(),
                     ),
-                    value: priority,
+                    initialValue: priority,
                     items: const [
                       DropdownMenuItem(value: 'high', child: Text("🚨 High")),
                       DropdownMenuItem(
@@ -721,7 +721,7 @@ class _DailyTasksPageState extends State<DailyTasksPage>
                     const SizedBox(height: 12),
                     _buildSummaryRow(
                       'Study Hours:',
-                      '${studyHours} hrs',
+                      '$studyHours hrs',
                       Colors.purple,
                     ),
                   ],
@@ -988,7 +988,7 @@ class _DailyTasksPageState extends State<DailyTasksPage>
                 ),
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );

@@ -788,7 +788,7 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
     );
 
     // Safe navigation helper for sidebar
-    void _navigateToRoute(String route) {
+    void navigateToRoute(String route) {
       final navigator = app.SchoolManagementApp.navigatorKey.currentState;
       if (navigator != null) {
         if (navigator.canPop() || route != '/dashboard') {
@@ -861,48 +861,48 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
                     icon: '📊',
                     title: 'Overview',
                     isActive: false,
-                    onTap: () => _navigateToRoute('/dashboard'),
+                    onTap: () => navigateToRoute('/dashboard'),
                   ),
                   _NavItem(
                     icon: '👨‍🏫',
                     title: 'Teachers',
-                    onTap: () => _navigateToRoute('/teachers'),
+                    onTap: () => navigateToRoute('/teachers'),
                   ),
                   _NavItem(
                     icon: '👥',
                     title: 'Students',
-                    onTap: () => _navigateToRoute('/students'),
+                    onTap: () => navigateToRoute('/students'),
                   ),
                   _NavItem(
                     icon: '🚌',
                     title: 'Buses',
                     isActive: true,
-                    onTap: () => _navigateToRoute('/buses'),
+                    onTap: () => navigateToRoute('/buses'),
                   ),
                   _NavItem(
                     icon: '🎯',
                     title: 'Activities',
-                    onTap: () => _navigateToRoute('/activities'),
+                    onTap: () => navigateToRoute('/activities'),
                   ),
                   _NavItem(
                     icon: '📅',
                     title: 'Events',
-                    onTap: () => _navigateToRoute('/events'),
+                    onTap: () => navigateToRoute('/events'),
                   ),
                   _NavItem(
                     icon: '📆',
                     title: 'Calendar',
-                    onTap: () => _navigateToRoute('/calendar'),
+                    onTap: () => navigateToRoute('/calendar'),
                   ),
                   _NavItem(
                     icon: '🔔',
                     title: 'Notifications',
-                    onTap: () => _navigateToRoute('/notifications'),
+                    onTap: () => navigateToRoute('/notifications'),
                   ),
                   _NavItem(
                     icon: '🛣️',
                     title: 'Bus Routes',
-                    onTap: () => _navigateToRoute('/bus-routes'),
+                    onTap: () => navigateToRoute('/bus-routes'),
                   ),
                 ],
               ),
@@ -1803,7 +1803,7 @@ class _StudentManagementDialogState extends State<_StudentManagementDialog> {
             if (stops.isNotEmpty)
               DropdownButtonFormField<String>(
                 decoration: const InputDecoration(labelText: 'Select Stop', border: OutlineInputBorder()),
-                value: _selectedStopId,
+                initialValue: _selectedStopId,
                 items: stops.map((stop) {
                   final stopId = stop['stop_id']?.toString() ?? '';
                   final stopName = stop['stop_name'] ?? 'Unknown';

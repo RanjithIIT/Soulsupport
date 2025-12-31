@@ -1176,7 +1176,7 @@ class _AddPhotoSection extends StatelessWidget {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: category,
+                          initialValue: category,
                           decoration: InputDecoration(
                             labelText: 'Category',
                             border: OutlineInputBorder(
@@ -1362,7 +1362,7 @@ class _SearchFilterSection extends StatelessWidget {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: categoryFilter,
+                  initialValue: categoryFilter,
                   decoration: InputDecoration(
                     labelText: 'Category',
                     border: OutlineInputBorder(
@@ -1385,7 +1385,7 @@ class _SearchFilterSection extends StatelessWidget {
               const SizedBox(width: 15),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: dateFilter,
+                  initialValue: dateFilter,
                   decoration: InputDecoration(
                     labelText: 'Date',
                     border: OutlineInputBorder(
