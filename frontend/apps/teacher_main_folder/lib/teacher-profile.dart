@@ -117,6 +117,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
   late String addressCountry;
   late String postalCode;
   late String profilePhotoId;
+  String? profilePhotoUrl; // Added for remote image
   File? _profileImage;
 
   // Professional
@@ -210,6 +211,19 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
     emergencyContactRelation = '';
     emergencyContactPhone = data['emergency_contact'] ?? '';
     isActive = data['is_active'] ?? true;
+
+    // Parse profile photo URL
+    profilePhotoUrl = null;
+    if (data['profile_photo_url'] != null && data['profile_photo_url'].toString().isNotEmpty) {
+      profilePhotoUrl = data['profile_photo_url'] as String;
+    } else if (data['profile_photo'] != null) {
+      if (data['profile_photo'] is Map) {
+        final photo = data['profile_photo'] as Map<String, dynamic>;
+        profilePhotoUrl = photo['file_url'] as String?;
+      } else if (data['profile_photo'] is String && (data['profile_photo'] as String).isNotEmpty) {
+        profilePhotoUrl = data['profile_photo'] as String;
+      }
+    }
     
     // Parse subject specialization
     final specialization = data['subject_specialization'] ?? '';
@@ -273,6 +287,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
     addressCountry = 'United States';
     postalCode = '12345';
     profilePhotoId = 'PPH-5555';
+    profilePhotoUrl = null;
 
     qualification = 'M.Ed Mathematics';
     subjectsSpecialization = ['Advanced Mathematics', 'Calculus'];
@@ -464,8 +479,10 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
                     backgroundColor: Colors.grey.shade200,
                     backgroundImage: _profileImage != null
                         ? FileImage(_profileImage!)
-                        : null,
-                    child: _profileImage == null
+                        : (profilePhotoUrl != null && profilePhotoUrl!.isNotEmpty
+                            ? NetworkImage(profilePhotoUrl!) as ImageProvider
+                            : null),
+                    child: _profileImage == null && (profilePhotoUrl == null || profilePhotoUrl!.isEmpty)
                         ? Icon(
                             Icons.camera_alt,
                             color: Colors.grey.shade600,

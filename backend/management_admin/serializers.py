@@ -215,6 +215,8 @@ class StudentSerializer(serializers.ModelSerializer):
     fees_count = serializers.SerializerMethodField()
     profile_photo_url = serializers.SerializerMethodField()
     
+    bus_route = serializers.SerializerMethodField()
+
     class Meta:
         model = Student
         fields = [
@@ -225,9 +227,17 @@ class StudentSerializer(serializers.ModelSerializer):
             'blood_group', 'previous_school', 'remarks',
             'profile_photo', 'profile_photo_url',
             'total_fee_amount', 'paid_fee_amount', 'due_fee_amount', 'fees_count',
+            'bus_route',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['email', 'school_id', 'created_at', 'updated_at', 'user', 'profile_photo_url']
+
+    def get_bus_route(self, obj):
+        # Find the student's bus route via BusStopStudent -> BusStop -> Bus
+        bus_stop_student = obj.bus_stops.first()  # related_name='bus_stops' in BusStopStudent
+        if bus_stop_student and bus_stop_student.bus_stop and bus_stop_student.bus_stop.bus:
+            return bus_stop_student.bus_stop.bus.route_name
+        return None
     
     def get_profile_photo_url(self, obj):
         if obj.profile_photo:

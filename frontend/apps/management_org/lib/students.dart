@@ -145,7 +145,7 @@ class Student {
       admissionDate: json['admission_date'] as String? ?? '',
       studentId: json['student_id']?.toString() ?? '',
       attendance: 0.0,
-      busRoute: '',
+      busRoute: json['bus_route'] ?? '',
       emergencyContact: json['emergency_contact'] as String? ?? '',
       medicalInfo: json['medical_information'] as String? ?? '',
       status: 'Active',

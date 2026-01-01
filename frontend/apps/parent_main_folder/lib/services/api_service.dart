@@ -2,7 +2,20 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+
 class ApiService {
+    /// Fetch bus details for a student by student ID
+    static Future<Map<String, dynamic>?> fetchStudentBusDetails(String studentId) async {
+      final headers = await _getAuthHeaders();
+      final resp = await http.get(
+        Uri.parse('http://localhost:8000/api/management-admin/student/$studentId/bus-details/'),
+        headers: headers,
+      );
+      if (resp.statusCode == 200) {
+        return jsonDecode(resp.body) as Map<String, dynamic>;
+      }
+      return null;
+    }
   static const _base = 'http://localhost:8000/api/management-admin';
   static const teachersEndpoint = '$_base/teachers/';
   static const studentsEndpoint = '$_base/students/';

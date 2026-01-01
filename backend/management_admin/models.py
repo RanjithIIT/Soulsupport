@@ -262,6 +262,7 @@ class Student(models.Model):
     grade = models.CharField(max_length=50, null=True, blank=True, help_text="Grade/Level of the student")
     address = models.TextField(default="Address not provided")
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default="General")
+    
 
     admission_number = models.CharField(
         max_length=50, 

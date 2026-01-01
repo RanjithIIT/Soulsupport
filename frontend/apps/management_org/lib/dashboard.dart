@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:main_login/main.dart' as main_login;
 import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
 import 'main.dart' as app;
 import 'activities.dart';
 import 'widgets/school_profile_header.dart';
@@ -46,66 +47,82 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  final List<Map<String, dynamic>> _recentTeachers = [
-    {
-      'name': 'Dr. Sarah Johnson',
-      'designation': 'Mathematics',
-      'initials': 'SJ',
-    },
-    {
-      'name': 'Prof. Michael Chen',
-      'designation': 'Physics',
-      'initials': 'MC',
-    },
-    {
-      'name': 'Ms. Emily White',
-      'designation': 'English',
-      'initials': 'EW',
-    },
-    {
-      'name': 'Mr. David Brown',
-      'designation': 'History',
-      'initials': 'DB',
-    },
-    {
-      'name': 'Mrs. Lisa Garcia',
-      'designation': 'Biology',
-      'initials': 'LG',
-    },
-  ];
+  List<Map<String, dynamic>> _recentTeachers = [];
+  List<Map<String, dynamic>> _recentStudents = [];
+  bool _isLoading = true;
 
-  final List<Map<String, dynamic>> _recentStudents = [
-    {
-      'name': 'Alice Brown',
-      'class': '10th',
-      'section': 'A',
-      'initials': 'AB',
-    },
-    {
-      'name': 'Charlie Wilson',
-      'class': '11th',
-      'section': 'B',
-      'initials': 'CW',
-    },
-    {
-      'name': 'Diana Davis',
-      'class': '12th',
-      'section': 'C',
-      'initials': 'DD',
-    },
-    {
-      'name': 'Ethan Miller',
-      'class': '9th',
-      'section': 'A',
-      'initials': 'EM',
-    },
-    {
-      'name': 'Fiona Taylor',
-      'class': '10th',
-      'section': 'B',
-      'initials': 'FT',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchDashboardData();
+  }
+
+  Future<void> _fetchDashboardData() async {
+    final api = ApiService();
+    try {
+      final responses = await Future.wait([
+        api.get(Endpoints.teachers),
+        api.get(Endpoints.students),
+      ]);
+
+      if (mounted) {
+        setState(() {
+          // Process Teachers
+          if (responses[0].success && responses[0].data != null) {
+            final data = responses[0].data;
+            final List<dynamic> list = data is List ? data : (data['results'] is List ? data['results'] : []);
+            
+            _recentTeachers = list.take(5).map((t) {
+              final Map<String, dynamic> user = t['user'] is Map ? t['user'] : {};
+              final String firstName = t['first_name'] ?? user['first_name'] ?? '';
+              final String lastName = t['last_name'] ?? user['last_name'] ?? '';
+              final String fullName = '$firstName $lastName'.trim();
+              final String name = fullName.isNotEmpty ? fullName : (t['name'] ?? 'Unknown Teacher');
+              
+              final String initials = name.isNotEmpty 
+                  ? name.split(' ').take(2).map((e) => e.isNotEmpty ? e[0] : '').join()
+                  : 'T';
+
+              return {
+                'name': name,
+                'designation': t['subject'] ?? t['designation'] ?? 'Teacher',
+                'initials': initials.toUpperCase(),
+              };
+            }).toList().cast<Map<String, dynamic>>();
+          }
+
+          // Process Students
+          if (responses[1].success && responses[1].data != null) {
+             final data = responses[1].data;
+            final List<dynamic> list = data is List ? data : (data['results'] is List ? data['results'] : []);
+
+            _recentStudents = list.take(5).map((s) {
+              final Map<String, dynamic> user = s['user'] is Map ? s['user'] : {};
+              final String firstName = s['first_name'] ?? user['first_name'] ?? '';
+              final String lastName = s['last_name'] ?? user['last_name'] ?? '';
+              final String fullName = '$firstName $lastName'.trim();
+              final String name = fullName.isNotEmpty ? fullName : (s['student_name'] ?? s['name'] ?? 'Unknown Student');
+
+              final String initials = name.isNotEmpty 
+                  ? name.split(' ').take(2).map((e) => e.isNotEmpty ? e[0] : '').join()
+                  : 'S';
+
+              return {
+                'name': name,
+                'class': s['class_name'] ?? s['applying_class'] ?? '',
+                'section': s['section'] ?? '',
+                'initials': initials.toUpperCase(),
+              };
+            }).toList().cast<Map<String, dynamic>>();
+          }
+           _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching dashboard data: $e');
+       if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   final List<Map<String, dynamic>> _recentActivities = [
     {
@@ -778,17 +795,80 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _StatsGrid extends StatelessWidget {
+class _StatsGrid extends StatefulWidget {
   final ValueChanged<String> onNavigate;
 
   const _StatsGrid({required this.onNavigate});
+
+  @override
+  State<_StatsGrid> createState() => _StatsGridState();
+}
+
+class _StatsGridState extends State<_StatsGrid> {
+  Map<String, String> _counts = {};
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchStats();
+  }
+
+  Future<void> _fetchStats() async {
+    final api = ApiService();
+    final Map<String, String> newCounts = {};
+
+    Future<void> fetchCount(String key, String endpoint) async {
+      try {
+        final response = await api.get(endpoint);
+        if (response.success && response.data != null) {
+          if (response.data is List) {
+            newCounts[key] = (response.data as List).length.toString();
+          } else if (response.data is Map) {
+            if (response.data.containsKey('count')) {
+              newCounts[key] = response.data['count'].toString();
+            } else if (response.data.containsKey('results') && response.data['results'] is List) {
+              newCounts[key] = (response.data['results'] as List).length.toString();
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching $key: $e');
+      }
+    }
+
+    await Future.wait([
+      fetchCount('admissions', Endpoints.admissions),
+      fetchCount('teachers', Endpoints.teachers),
+      fetchCount('students', Endpoints.students),
+      fetchCount('buses', Endpoints.buses),
+      fetchCount('examinations', Endpoints.examinations),
+      fetchCount('fees', Endpoints.fees),
+      fetchCount('notifications', Endpoints.notifications),
+      fetchCount('activities', Endpoints.activities),
+      fetchCount('bus_routes', Endpoints.busRoutes),
+      fetchCount('events', Endpoints.events),
+      fetchCount('calendar', Endpoints.calendar),
+      fetchCount('awards', Endpoints.awards),
+      fetchCount('gallery', Endpoints.gallery),
+      fetchCount('campus_life', Endpoints.campusLife),
+      fetchCount('departments', Endpoints.departments),
+    ]);
+
+    if (mounted) {
+      setState(() {
+        _counts = newCounts;
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final stats = [
       {
         'icon': '🎓',
-        'number': '45',
+        'number': _isLoading ? '...' : (_counts['admissions'] ?? '0'),
         'label': 'Admissions',
         'description': 'Click to manage new admissions',
         'color': const Color(0xFFFF6347),
@@ -796,7 +876,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '👨‍🏫',
-        'number': '28',
+        'number': _isLoading ? '...' : (_counts['teachers'] ?? '0'),
         'label': 'Total Teachers',
         'description': 'Click to manage teachers',
         'color': const Color(0xFF667EEA),
@@ -804,7 +884,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '👥',
-        'number': '450',
+        'number': _isLoading ? '...' : (_counts['students'] ?? '0'),
         'label': 'Total Students',
         'description': 'Click to manage students',
         'color': const Color(0xFF764BA2),
@@ -812,7 +892,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '🚌',
-        'number': '8',
+        'number': _isLoading ? '...' : (_counts['buses'] ?? '0'),
         'label': 'Total Buses',
         'description': 'Click to manage bus routes',
         'color': const Color(0xFF4FACFE),
@@ -820,7 +900,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '📝',
-        'number': '12',
+        'number': _isLoading ? '...' : (_counts['examinations'] ?? '0'),
         'label': 'Examination Section',
         'description': 'Click to manage exams',
         'color': const Color(0xFFFF6B35),
@@ -828,7 +908,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '💰',
-        'number': '450',
+        'number': _isLoading ? '...' : (_counts['fees'] ?? '0'),
         'label': 'Fees',
         'description': 'Click to manage fee structure',
         'color': const Color(0xFF28A745),
@@ -836,7 +916,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '🔔',
-        'number': '5',
+        'number': _isLoading ? '...' : (_counts['notifications'] ?? '0'),
         'label': 'Notifications',
         'description': 'Important updates',
         'color': const Color(0xFFFED6E3),
@@ -844,7 +924,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '🎯',
-        'number': '15',
+        'number': _isLoading ? '...' : (_counts['activities'] ?? '0'),
         'label': 'Activities',
         'description': 'Click to manage activities',
         'color': const Color(0xFFA8EDEA),
@@ -852,7 +932,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '🛣️',
-        'number': '6',
+        'number': _isLoading ? '...' : (_counts['bus_routes'] ?? '0'),
         'label': 'Bus Routes',
         'description': 'Transportation network',
         'color': const Color(0xFFFFECD2),
@@ -860,7 +940,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '📅',
-        'number': '8',
+        'number': _isLoading ? '...' : (_counts['events'] ?? '0'),
         'label': 'Events',
         'description': 'Click to manage events',
         'color': const Color(0xFFFA709A),
@@ -868,7 +948,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '📊',
-        'number': '12',
+        'number': _isLoading ? '...' : (_counts['calendar'] ?? '0'),
         'label': 'Calendar Events',
         'description': 'Upcoming activities',
         'color': const Color(0xFF43E97B),
@@ -876,7 +956,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '🏆',
-        'number': '25',
+        'number': _isLoading ? '...' : (_counts['awards'] ?? '0'),
         'label': 'Awards',
         'description': 'Click to manage awards',
         'color': const Color(0xFFFFD700),
@@ -884,7 +964,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '📸',
-        'number': '150',
+        'number': _isLoading ? '...' : (_counts['gallery'] ?? '0'),
         'label': 'Photo Gallery',
         'description': 'Click to manage photos',
         'color': const Color(0xFFFF69B4),
@@ -892,7 +972,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '🎭',
-        'number': '8',
+        'number': _isLoading ? '...' : (_counts['activities'] ?? '0'), // Reusing activities count
         'label': 'Extra Curricular',
         'description': 'Click to manage activities',
         'color': const Color(0xFF9370DB),
@@ -900,7 +980,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '📋',
-        'number': '3',
+        'number': '3', // Keep hardcoded as no endpoint found
         'label': 'RTI Act',
         'description': 'Right to Information',
         'color': const Color(0xFF20B2AA),
@@ -908,7 +988,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '🏫',
-        'number': '12',
+        'number': _isLoading ? '...' : (_counts['campus_life'] ?? '0'),
         'label': 'Campus Life',
         'description': 'Campus speciality',
         'color': const Color(0xFF32CD32),
@@ -916,7 +996,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '🏢',
-        'number': '6',
+        'number': _isLoading ? '...' : (_counts['departments'] ?? '0'),
         'label': 'Departments',
         'description': 'Academic departments',
         'color': const Color(0xFF6F42C1),
@@ -966,7 +1046,7 @@ class _StatsGrid extends StatelessWidget {
               description: stat['description'] as String,
               color: stat['color'] as Color,
               onTap: stat['route'] != null
-                  ? () => onNavigate(stat['route'] as String)
+                  ? () => widget.onNavigate(stat['route'] as String)
                   : null,
             );
           },
