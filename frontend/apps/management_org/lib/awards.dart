@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:intl/intl.dart';
 import 'dart:async';
 import 'main.dart' as app;
 import 'dashboard.dart';
 import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
+import 'widgets/school_profile_header.dart';
 
 // --- Data Model ---
 
@@ -78,6 +80,49 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
   final TextEditingController _searchController = TextEditingController();
   String _filterCategory = "All Categories";
   String _filterLevel = "All Levels";
+  // -- Helper Widgets --
+
+  Widget _buildUserInfo() {
+    return SchoolProfileHeader(apiService: ApiService());
+  }
+
+  Widget _buildBackButton() {
+    return InkWell(
+      onTap: () => Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => DashboardPage()),
+      ),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6C757D), Color(0xFF495057)],
+          ),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF495057).withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.arrow_back, size: 16, color: Colors.white),
+            SizedBox(width: 8),
+            Text(
+              'Back to Dashboard',
+              style: TextStyle(color: Colors.white, fontSize: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
 
   @override
   void initState() {
@@ -562,45 +607,36 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
   }
 
   Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(25),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(10),
-      ),
+    return GlassContainer(
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text(
-                "🏆 Awards Management",
-                style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 5),
-              Text(
-                "Manage school awards, achievements, and recognitions",
-                style: TextStyle(color: Colors.white70, fontSize: 14),
-              ),
-            ],
-          ),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardPage())),
-            icon: const Icon(Icons.arrow_back, size: 16),
-            label: const Text("Back to Dashboard"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white.withValues(alpha: 0.2),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Awards Management',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF333333),
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Manage school awards, achievements, and recognitions',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF666666),
+                  ),
+                ),
+              ],
             ),
-          )
+          ),
+          _buildUserInfo(),
+          const SizedBox(width: 20),
+          _buildBackButton(),
         ],
       ),
     );
@@ -613,56 +649,84 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
     final sports = _awards.where((a) => a.category == "Sports").length;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 20),
       child: Row(
         children: [
-          Expanded(child: _buildStatCard("Total Awards", total.toString(), const Color(0xFF667EEA))),
+          Expanded(
+            child: _buildStatCard(
+              "Total Awards",
+              total.toString(),
+              "🏆",
+              const Color(0xFF667EEA),
+            ),
+          ),
           const SizedBox(width: 20),
-          Expanded(child: _buildStatCard("This Year", thisYear.toString(),const Color(0xFF667EEA))),
+          Expanded(
+            child: _buildStatCard(
+              "This Year",
+              thisYear.toString(),
+              "📅",
+              Colors.orange,
+            ),
+          ),
           const SizedBox(width: 20),
-          Expanded(child: _buildStatCard("Academic", academic.toString(), const Color(0xFF667EEA))),
+          Expanded(
+            child: _buildStatCard(
+              "Academic",
+              academic.toString(),
+              "🎓",
+              Colors.blue,
+            ),
+          ),
           const SizedBox(width: 20),
-          Expanded(child: _buildStatCard("Sports", sports.toString(), const Color(0xFF667EEA))),
+          Expanded(
+            child: _buildStatCard(
+              "Sports",
+              sports.toString(),
+              "⚽",
+              Colors.green,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatCard(String label, String number, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          )
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            number,
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: color,
+  Widget _buildStatCard(String label, String value, String icon, Color color) {
+    return Card(
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      elevation: 5,
+      shadowColor: Colors.black.withValues(alpha: 0.1),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(icon, style: TextStyle(fontSize: 40, color: color)),
+            const SizedBox(height: 10),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF333333),
+              ),
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 5),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
-            textAlign: TextAlign.center,
-          ),
-        ],
+            const SizedBox(height: 5),
+            Text(
+              label.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF666666),
+                fontSize: 12,
+                letterSpacing: 1,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1260,6 +1324,61 @@ class _NavItemWithHoverState extends State<_NavItemWithHover> {
           onTap: widget.onTap,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Glass Container Widget
+class GlassContainer extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final bool drawRightBorder;
+  final double borderRadius;
+
+  const GlassContainer({
+    super.key,
+    required this.child,
+    this.padding,
+    this.margin,
+    this.drawRightBorder = false,
+    this.borderRadius = 12,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = drawRightBorder
+        ? BorderRadius.zero
+        : BorderRadius.circular(borderRadius);
+
+    return Container(
+      margin: margin,
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.95),
+              borderRadius: radius,
+              border: Border(
+                right: drawRightBorder
+                    ? BorderSide(color: Colors.white.withValues(alpha: 0.2))
+                    : BorderSide.none,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 24,
+                  offset: const Offset(2, 6),
+                ),
+              ],
+            ),
+            child: child,
           ),
         ),
       ),

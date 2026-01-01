@@ -683,13 +683,29 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    'Teachers Management',
-                    style: TextStyle(
-                      fontSize: isMobile ? 22 : 28,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF333333),
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('👨‍🏫', style: TextStyle(fontSize: 32)),
+                          const SizedBox(width: 15),
+                          Text(
+                            'Teachers Management',
+                            style: TextStyle(
+                              fontSize: isMobile ? 22 : 28,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF333333),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Manage all teachers, their profiles, assignments, and performance',
+                        style: TextStyle(color: Color(0xFF666666), fontSize: 16),
+                      ),
+                    ],
                   ),
                 ),
                 if (!isMobile) ...[
@@ -711,34 +727,6 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
                 ],
               ),
             ),
-          GlassContainer(
-            padding: const EdgeInsets.all(25),
-            margin: const EdgeInsets.only(bottom: 30),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Row(
-                  children: [
-                    Text('👨‍🏫', style: TextStyle(fontSize: 32)),
-                    SizedBox(width: 15),
-                    Text(
-                      'Teachers Management',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF333333),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 10),
-                Text(
-                  'Manage all teachers, their profiles, assignments, and performance',
-                  style: TextStyle(color: Color(0xFF666666), fontSize: 16),
-                ),
-              ],
-            ),
-          ),
           LayoutBuilder(
             builder: (context, constraints) {
               final crossAxisCount = isMobile ? 1 : 4;
@@ -751,12 +739,29 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
                 mainAxisSpacing: 20,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  _StatCard(label: 'Total Teachers', value: '$_totalTeachers'),
-                  _StatCard(label: 'Active Teachers', value: '$_activeTeachers'),
-                  _StatCard(label: 'Class Teachers', value: '$_classTeachers'),
                   _StatCard(
-                    label: 'Avg Experience (Years)',
-                    value: _avgExperience.toStringAsFixed(1),
+                    label: 'Total Teachers',
+                    value: '$_totalTeachers',
+                    icon: '👨‍🏫',
+                    color: const Color(0xFF667EEA),
+                  ),
+                  _StatCard(
+                    label: 'Active Teachers',
+                    value: '$_activeTeachers',
+                    icon: '✅',
+                    color: Colors.green,
+                  ),
+                  _StatCard(
+                    label: 'Class Teachers',
+                    value: '$_classTeachers',
+                    icon: '🏫',
+                    color: Colors.orange,
+                  ),
+                  _StatCard(
+                    label: 'Avg Experience',
+                    value: '${_avgExperience.toStringAsFixed(1)} Yrs',
+                    icon: '🎓',
+                    color: Colors.blue,
                   ),
                 ],
               );
@@ -1172,35 +1177,52 @@ class _NavItem extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
+  final String icon;
+  final Color color;
 
-  const _StatCard({required this.label, required this.value});
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GlassContainer(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 36,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF667EEA),
+    return Card(
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      elevation: 5,
+      shadowColor: Colors.black.withValues(alpha: 0.1),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(icon, style: TextStyle(fontSize: 40, color: color)),
+            const SizedBox(height: 10),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF333333),
+              ),
             ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            label.toUpperCase(),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF666666),
-              fontSize: 12,
-              letterSpacing: 1,
+            const SizedBox(height: 5),
+            Text(
+              label.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF666666),
+                fontSize: 12,
+                letterSpacing: 1,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
