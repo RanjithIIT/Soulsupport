@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:intl/intl.dart';
 import 'package:core/api/api_service.dart';
 import 'main.dart' as app;
 import 'dashboard.dart';
 import 'widgets/school_profile_dialog.dart';
+import 'widgets/school_profile_header.dart';
 
 // ==========================================
 
@@ -146,6 +148,49 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
 
   // --- Calendar View State ---
   DateTime _focusedMonth = DateTime.now();
+  // -- Helper Widgets --
+
+  Widget _buildUserInfo() {
+    return SchoolProfileHeader(apiService: ApiService());
+  }
+
+  Widget _buildBackButton() {
+    return InkWell(
+      onTap: () => Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => DashboardPage()),
+      ),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6C757D), Color(0xFF495057)],
+          ),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF495057).withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.arrow_back, size: 16, color: Colors.white),
+            SizedBox(width: 8),
+            Text(
+              'Back to Dashboard',
+              style: TextStyle(color: Colors.white, fontSize: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
 
   @override
   void initState() {
@@ -480,47 +525,42 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
   }
 
   Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(25),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [gradientStart, gradientEnd]),
-        borderRadius: BorderRadius.circular(10),
-      ),
+    return GlassContainer(
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("📅 School Calendar", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-              SizedBox(height: 5),
-              Text("Manage school events, holidays, and important dates", style: TextStyle(color: Colors.white70)),
-            ],
-          ),
-          Row(
-            children: [
-              IconButton(
-                onPressed: _exportData,
-                icon: const Icon(Icons.download, color: Colors.white),
-                tooltip: "Export CSV",
-              ),
-              const SizedBox(width: 10),
-              // School Profile Header with white text for gradient background
-              _WhiteSchoolProfileHeader(apiService: ApiService()),
-              const SizedBox(width: 10),
-              ElevatedButton.icon(
-                onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardPage())), 
-                icon: const Icon(Icons.arrow_back, size: 16),
-                label: const Text("Back to Dashboard"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white.withValues(alpha: 0.2),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'School Calendar',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF333333),
+                  ),
                 ),
-              ),
-            ],
-          )
+                SizedBox(height: 4),
+                Text(
+                  'Manage school events, holidays, and important dates',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF666666),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: _exportData,
+            icon: const Icon(Icons.download, color: Color(0xFF666666)),
+            tooltip: "Export CSV",
+          ),
+          const SizedBox(width: 20),
+          _buildUserInfo(),
+          const SizedBox(width: 20),
+          _buildBackButton(),
         ],
       ),
     );
@@ -541,35 +581,54 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
           crossAxisSpacing: 20,
           mainAxisSpacing: 20,
           shrinkWrap: true,
-          childAspectRatio: 1.5,
+          childAspectRatio: 1.35,
           physics: const NeverScrollableScrollPhysics(),
           children: [
-            _statCard(total.toString(), "Total Events"),
-            _statCard(thisMonth.toString(), "This Month"),
-            _statCard(academic.toString(), "Academic"),
-            _statCard(sports.toString(), "Sports"),
+            _statCard("Total Events", total.toString(), "📅", const Color(0xFF667EEA)),
+            _statCard("This Month", thisMonth.toString(), "🗓️", Colors.orange),
+            _statCard("Academic", academic.toString(), "📖", Colors.blue),
+            _statCard("Sports", sports.toString(), "🏆", Colors.green),
           ],
         );
       }
     );
   }
 
-  Widget _statCard(String number, String label) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(number, style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: gradientStart)),
-          const SizedBox(height: 5),
-          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 14)),
-        ],
+  Widget _statCard(String label, String value, String icon, Color color) {
+    return Card(
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      elevation: 5,
+      shadowColor: Colors.black.withValues(alpha: 0.1),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(icon, style: TextStyle(fontSize: 40, color: color)),
+            const SizedBox(height: 10),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF333333),
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              label.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF666666),
+                fontSize: 12,
+                letterSpacing: 1,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1514,6 +1573,61 @@ class _WhiteSchoolProfileHeaderState extends State<_WhiteSchoolProfileHeader> {
                     ],
                   ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// Glass Container Widget
+class GlassContainer extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final bool drawRightBorder;
+  final double borderRadius;
+
+  const GlassContainer({
+    super.key,
+    required this.child,
+    this.padding,
+    this.margin,
+    this.drawRightBorder = false,
+    this.borderRadius = 12,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = drawRightBorder
+        ? BorderRadius.zero
+        : BorderRadius.circular(borderRadius);
+
+    return Container(
+      margin: margin,
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.95),
+              borderRadius: radius,
+              border: Border(
+                right: drawRightBorder
+                    ? BorderSide(color: Colors.white.withValues(alpha: 0.2))
+                    : BorderSide.none,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 24,
+                  offset: const Offset(2, 6),
+                ),
+              ],
+            ),
+            child: child,
+          ),
         ),
       ),
     );

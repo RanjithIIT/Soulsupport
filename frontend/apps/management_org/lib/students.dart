@@ -842,13 +842,29 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    'Students Management',
-                    style: TextStyle(
-                      fontSize: isMobile ? 22 : 28,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF333333),
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('👥', style: TextStyle(fontSize: 32)),
+                          const SizedBox(width: 15),
+                          Text(
+                            'Students Management',
+                            style: TextStyle(
+                              fontSize: isMobile ? 22 : 28,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF333333),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Manage all students, their profiles, academic records, and attendance',
+                        style: TextStyle(color: Color(0xFF666666), fontSize: 16),
+                      ),
+                    ],
                   ),
                 ),
                 if (!isMobile) ...[
@@ -870,78 +886,10 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                 ],
               ),
             ),
-          GlassContainer(
-            padding: const EdgeInsets.all(25),
-            margin: const EdgeInsets.only(bottom: 30),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Row(
-                  children: [
-                    Text('👥', style: TextStyle(fontSize: 32)),
-                    SizedBox(width: 15),
-                    Text(
-                      'Students Management',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF333333),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 10),
-                Text(
-                  'Manage all students, their profiles, academic records, and attendance',
-                  style: TextStyle(color: Color(0xFF666666), fontSize: 16),
-                ),
-              ],
-            ),
-          ),
           LayoutBuilder(
             builder: (context, constraints) {
-              if (isMobile) {
-                return GridView.count(
-                  crossAxisCount: 1,
-                  childAspectRatio: 3.4,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisSpacing: 20,
-                  mainAxisSpacing: 20,
-                  children: [
-                    _StatCard(
-                      label: 'Total Students',
-                      value: '$_totalStudents',
-                    ),
-                    _StatCard(
-                      label: 'Active Students',
-                      value: '$_activeStudents',
-                    ),
-                    _StatCard(
-                      label: 'Average Attendance',
-                      value: '${_avgAttendance.toStringAsFixed(1)}%',
-                    ),
-                    _StatCard(label: 'Total Classes', value: '$_totalClasses'),
-                    _StatCard(
-                      label: 'Academics',
-                      value: '${_academicsScore.toStringAsFixed(1)}%',
-                    ),
-                    _StatCard(
-                      label: 'Extracurricular Activities',
-                      value: '$_extracurricularCount',
-                    ),
-                    _StatCard(label: 'Fees Collection', value: _feesPaid),
-                  ],
-                );
-              }
-              final cardWidth = 200.0;
-              final spacing = 20.0;
-              final availableWidth = constraints.maxWidth;
-              final crossAxisCount =
-                  ((availableWidth + spacing) / (cardWidth + spacing))
-                      .floor()
-                      .clamp(1, 7);
-              final childAspectRatio = 1.35;
+              final crossAxisCount = isMobile ? 1 : 4;
+              final childAspectRatio = isMobile ? 3.4 : 1.35;
               return GridView.count(
                 crossAxisCount: crossAxisCount,
                 childAspectRatio: childAspectRatio,
@@ -950,25 +898,48 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                 crossAxisSpacing: 20,
                 mainAxisSpacing: 20,
                 children: [
-                  _StatCard(label: 'Total Students', value: '$_totalStudents'),
+                  _StatCard(
+                    label: 'Total Students',
+                    value: '$_totalStudents',
+                    icon: '👥',
+                    color: const Color(0xFF667EEA),
+                  ),
                   _StatCard(
                     label: 'Active Students',
                     value: '$_activeStudents',
+                    icon: '📈',
+                    color: Colors.green,
                   ),
                   _StatCard(
-                    label: 'Average Attendance',
+                    label: 'Avg Attendance',
                     value: '${_avgAttendance.toStringAsFixed(1)}%',
+                    icon: '📅',
+                    color: Colors.orange,
                   ),
-                  _StatCard(label: 'Total Classes', value: '$_totalClasses'),
+                  _StatCard(
+                    label: 'Total Classes',
+                    value: '$_totalClasses',
+                    icon: '🏫',
+                    color: Colors.blue,
+                  ),
                   _StatCard(
                     label: 'Academics',
                     value: '${_academicsScore.toStringAsFixed(1)}%',
+                    icon: '🎓',
+                    color: Colors.purple,
                   ),
                   _StatCard(
-                    label: 'Extracurricular Activities',
+                    label: 'Activities',
                     value: '$_extracurricularCount',
+                    icon: '🏆',
+                    color: Colors.amber,
                   ),
-                  _StatCard(label: 'Fees Collection', value: _feesPaid),
+                  _StatCard(
+                    label: 'Fees Collection',
+                    value: _feesPaid,
+                    icon: '💰',
+                    color: Colors.teal,
+                  ),
                 ],
               );
             },
@@ -1481,29 +1452,37 @@ class _NavItem extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
-  final Color accentColor;
+  final String icon;
+  final Color color;
 
   const _StatCard({
     required this.label,
     required this.value,
-  }) : accentColor = const Color(0xFF667EEA);
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GlassContainer(
-      padding: const EdgeInsets.all(20),
-      child: Container(
-        // Removed accent border for cleaner stat cards
-        decoration: const BoxDecoration(),
+    return Card(
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      elevation: 5,
+      shadowColor: Colors.black.withValues(alpha: 0.1),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Text(icon, style: TextStyle(fontSize: 40, color: color)),
+            const SizedBox(height: 10),
             Text(
               value,
               style: const TextStyle(
-                fontSize: 36,
+                fontSize: 32,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF667EEA),
+                color: Color(0xFF333333),
               ),
             ),
             const SizedBox(height: 5),
@@ -1514,6 +1493,7 @@ class _StatCard extends StatelessWidget {
                 color: Color(0xFF666666),
                 fontSize: 12,
                 letterSpacing: 1,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],

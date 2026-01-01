@@ -406,13 +406,29 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    'Activities Management',
-                    style: TextStyle(
-                      fontSize: isMobile ? 22 : 28,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF333333),
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('🎯', style: TextStyle(fontSize: 32)),
+                          const SizedBox(width: 15),
+                          Text(
+                            'Activities Management',
+                            style: TextStyle(
+                              fontSize: isMobile ? 22 : 28,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF333333),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Manage school activities, clubs, sports, and extracurricular programs',
+                        style: TextStyle(color: Color(0xFF666666), fontSize: 16),
+                      ),
+                    ],
                   ),
                 ),
                 if (!isMobile) ...[
@@ -434,34 +450,6 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
                 ],
               ),
             ),
-          GlassContainer(
-            padding: const EdgeInsets.all(25),
-            margin: const EdgeInsets.only(bottom: 30),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Row(
-                  children: [
-                    Text('🎯', style: TextStyle(fontSize: 32)),
-                    SizedBox(width: 15),
-                    Text(
-                      'Activities Management',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF333333),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 10),
-                Text(
-                  'Manage school activities, clubs, sports, and extracurricular programs',
-                  style: TextStyle(color: Color(0xFF666666), fontSize: 16),
-                ),
-              ],
-            ),
-          ),
           LayoutBuilder(
             builder: (context, constraints) {
               final crossAxisCount = isMobile ? 1 : 4;
@@ -474,12 +462,29 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
                 crossAxisSpacing: 20,
                 mainAxisSpacing: 20,
                 children: [
-                  _StatCard(label: 'Total Activities', value: '$_totalActivities'),
-                  _StatCard(label: 'Active Activities', value: '$_activeActivities'),
-                  _StatCard(label: 'Total Participants', value: '$_totalParticipants'),
+                  _StatCard(
+                    label: 'Total Activities',
+                    value: '$_totalActivities',
+                    icon: '🎯',
+                    color: const Color(0xFF667EEA),
+                  ),
+                  _StatCard(
+                    label: 'Active Activities',
+                    value: '$_activeActivities',
+                    icon: '🏃‍♂️',
+                    color: Colors.green,
+                  ),
+                  _StatCard(
+                    label: 'Total Participants',
+                    value: '$_totalParticipants',
+                    icon: '👥',
+                    color: Colors.orange,
+                  ),
                   _StatCard(
                     label: 'Activity Categories',
                     value: '$_activityCategories',
+                    icon: '🏆',
+                    color: Colors.blue,
                   ),
                 ],
               );
@@ -899,35 +904,52 @@ class _NavItem extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
+  final String icon;
+  final Color color;
 
-  const _StatCard({required this.label, required this.value});
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GlassContainer(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 36,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF667EEA),
+    return Card(
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      elevation: 5,
+      shadowColor: Colors.black.withValues(alpha: 0.1),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(icon, style: TextStyle(fontSize: 40, color: color)),
+            const SizedBox(height: 10),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF333333),
+              ),
             ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            label.toUpperCase(),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF666666),
-              fontSize: 12,
-              letterSpacing: 1,
+            const SizedBox(height: 5),
+            Text(
+              label.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF666666),
+                fontSize: 12,
+                letterSpacing: 1,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
