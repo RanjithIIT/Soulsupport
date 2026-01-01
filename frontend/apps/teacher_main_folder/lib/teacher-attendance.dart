@@ -349,7 +349,7 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
         ),
       ),
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.white),
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
         onPressed: () => Navigator.of(context).pop(),
       ),
       title: const Text(
@@ -361,14 +361,6 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
         ),
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white),
-          onPressed: () {},
-        ),
-        IconButton(
-          icon: const Icon(Icons.person, color: Colors.white),
-          onPressed: () {},
-        ),
         const SizedBox(width: 8),
       ],
       elevation: 8,

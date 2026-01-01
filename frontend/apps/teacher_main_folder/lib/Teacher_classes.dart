@@ -201,77 +201,8 @@ class _MyClassesPageState extends State<MyClassesPage> {
               ),
             ),
             const SizedBox(width: 10),
-            const CircleAvatar(
-              radius: 20,
-              backgroundColor: Colors.white24,
-              child: Text("👨‍🏫"),
-            ),
-            const SizedBox(width: 8),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Teacher Dashboard",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                ),
-                Text(
-                  "Teacher",
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-              ],
-            ),
-            const SizedBox(width: 10),
-            TextButton(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (BuildContext dialogContext) {
-                    return AlertDialog(
-                      title: const Text('Logout'),
-                      content: const Text('Are you sure you want to logout?'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(),
-                          child: const Text('Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(dialogContext).pop();
-                            Navigator.pushAndRemoveUntil(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const main_login.LoginScreen(),
-                              ),
-                              (route) => false,
-                            );
-                          },
-                          child: const Text('Logout', style: TextStyle(color: Colors.red)),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.white.withValues(alpha: 0.25),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text(
-                "Logout",
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
+
+
           ],
         ),
       ),

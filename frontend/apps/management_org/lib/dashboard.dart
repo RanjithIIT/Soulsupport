@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:main_login/main.dart' as main_login;
 import 'package:core/api/api_service.dart';
-import 'main.dart' as app;
+
 import 'widgets/school_profile_header.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -16,14 +16,10 @@ class _DashboardPageState extends State<DashboardPage> {
 
   // Safe navigation helper that ensures context is valid
   void _navigateToRoute(String route) {
-    // Use the global navigator key to ensure correct navigation
-    final navigator = app.SchoolManagementApp.navigatorKey.currentState;
-    if (navigator != null) {
-      if (navigator.canPop() || route != '/dashboard') {
-        navigator.pushReplacementNamed(route);
-      } else {
-        navigator.pushNamed(route);
-      }
+    if (route == '/dashboard') {
+      Navigator.of(context).pushReplacementNamed(route);
+    } else {
+      Navigator.of(context).pushReplacementNamed(route);
     }
   }
 
@@ -1137,7 +1133,7 @@ class _RecentTeachersSection extends StatelessWidget {
                 ),
                 child: TextButton(
                   onPressed: () {
-                    app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/teachers');
+                    Navigator.of(context).pushReplacementNamed('/teachers');
                   },
                   style: TextButton.styleFrom(
                     backgroundColor: Colors.transparent,
@@ -1162,7 +1158,7 @@ class _RecentTeachersSection extends StatelessWidget {
                 title: teacher['name'] as String,
                 subtitle: teacher['designation'] as String,
                 onTap: () {
-                  app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/teachers');
+                  Navigator.of(context).pushReplacementNamed('/teachers');
                 },
               )),
         ],
@@ -1223,7 +1219,7 @@ class _RecentStudentsSection extends StatelessWidget {
                 ),
                 child: TextButton(
                   onPressed: () {
-                    app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/students');
+                    Navigator.of(context).pushReplacementNamed('/students');
                   },
                   style: TextButton.styleFrom(
                     backgroundColor: Colors.transparent,
@@ -1249,7 +1245,7 @@ class _RecentStudentsSection extends StatelessWidget {
                 subtitle:
                     '${student['class']} • Section ${student['section']}',
                 onTap: () {
-                  app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/students');
+                  Navigator.of(context).pushReplacementNamed('/students');
                 },
               )),
         ],
@@ -1634,7 +1630,7 @@ class _RecentActivitiesSection extends StatelessWidget {
                 ),
                 child: TextButton(
                   onPressed: () {
-                    app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/activities');
+                    Navigator.of(context).pushReplacementNamed('/activities');
                   },
                   style: TextButton.styleFrom(
                     backgroundColor: Colors.transparent,
@@ -1946,7 +1942,7 @@ class _RecentAwardsSection extends StatelessWidget {
                 ),
                 child: TextButton(
                   onPressed: () {
-                    app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/awards');
+                    Navigator.of(context).pushReplacementNamed('/awards');
                   },
                   style: TextButton.styleFrom(
                     backgroundColor: Colors.transparent,
@@ -1972,7 +1968,7 @@ class _RecentAwardsSection extends StatelessWidget {
                 subtitle:
                     '${award['student']} • ${award['category']} • ${award['date']}',
                 onTap: () {
-                  app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/awards');
+                  Navigator.of(context).pushReplacementNamed('/awards');
                 },
               )),
         ],
@@ -2032,7 +2028,7 @@ class _GallerySection extends StatelessWidget {
                 ),
                 child: TextButton(
                   onPressed: () {
-                    app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/gallery');
+                    Navigator.of(context).pushReplacementNamed('/gallery');
                   },
                   style: TextButton.styleFrom(
                     backgroundColor: Colors.transparent,
@@ -2225,7 +2221,7 @@ class _RecentAdmissionsSection extends StatelessWidget {
                 ),
                 child: TextButton(
                   onPressed: () {
-                    app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/admissions');
+                    Navigator.of(context).pushReplacementNamed('/admissions');
                   },
                   style: TextButton.styleFrom(
                     backgroundColor: Colors.transparent,
@@ -2251,7 +2247,7 @@ class _RecentAdmissionsSection extends StatelessWidget {
                 subtitle:
                     'Class ${admission['class']} • ${admission['status']} • ${admission['date']}',
                 onTap: () {
-                  app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/admissions');
+                  Navigator.of(context).pushReplacementNamed('/admissions');
                 },
               )),
         ],
@@ -2311,7 +2307,7 @@ class _ExtracurricularSection extends StatelessWidget {
                 ),
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/activities');
+                    Navigator.of(context).pushReplacementNamed('/activities');
                   },
                   icon: const Icon(Icons.add, size: 16),
                   label: const Row(

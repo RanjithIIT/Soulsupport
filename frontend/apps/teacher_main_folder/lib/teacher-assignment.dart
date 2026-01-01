@@ -1147,7 +1147,7 @@ class _AssignmentDashboardScreenState extends State<AssignmentDashboardScreen> {
         // --- START NEW APP BAR IMPLEMENTATION ---
         toolbarHeight: 70, // Slightly taller for the gradient effect
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text(
@@ -1165,24 +1165,7 @@ class _AssignmentDashboardScreenState extends State<AssignmentDashboardScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
-              setState(() {
-                // Refresh assignments list
-              });
-              _showSnackBar('Refreshing assignments...');
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.person, color: Colors.white),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const TeacherProfilePage()),
-              );
-            },
-          ),
+
           const SizedBox(width: 10),
         ],
         // --- END NEW APP BAR IMPLEMENTATION ---

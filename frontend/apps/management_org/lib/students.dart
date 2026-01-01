@@ -3,7 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
-import 'main.dart' as app;
+
 import 'dashboard.dart';
 import 'admissions.dart';
 import 'widgets/school_profile_header.dart';
@@ -581,7 +581,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                 Navigator.of(context).pop();
 
                 // Use root navigator so the loading dialog is guaranteed to close
-                final rootContext = app.SchoolManagementApp.navigatorKey.currentContext ?? context;
+                final rootContext = context;
 
                 showDialog(
                   context: rootContext,
@@ -615,7 +615,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                     Navigator.of(rootContext, rootNavigator: true).maybePop();
                   }
 
-                  final messengerContext = app.SchoolManagementApp.navigatorKey.currentContext;
+                  final messengerContext = context;
                   if (messengerContext != null) {
                     ScaffoldMessenger.of(messengerContext).showSnackBar(
                       const SnackBar(content: Text('Student deleted successfully!')),
@@ -623,7 +623,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                   }
                 } catch (e) {
                   await closeLoading();
-                  final messengerContext = app.SchoolManagementApp.navigatorKey.currentContext;
+                  final messengerContext = context;
                   if (messengerContext != null) {
                     ScaffoldMessenger.of(messengerContext).showSnackBar(
                       SnackBar(content: Text('Error deleting student: $e')),
@@ -706,13 +706,10 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
 
     // Safe navigation helper for sidebar
     void navigateToRoute(String route) {
-      final navigator = app.SchoolManagementApp.navigatorKey.currentState;
-      if (navigator != null) {
-        if (navigator.canPop() || route != '/dashboard') {
-          navigator.pushReplacementNamed(route);
-        } else {
-          navigator.pushNamed(route);
-        }
+      if (route == '/dashboard') {
+        Navigator.of(context).pushReplacementNamed(route);
+      } else {
+        Navigator.of(context).pushReplacementNamed(route);
       }
     }
 

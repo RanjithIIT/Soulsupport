@@ -1070,6 +1070,8 @@ class Event(models.Model):
         ('Cultural', 'Cultural'),
         ('Administrative', 'Administrative'),
         ('Career', 'Career'),
+        ('Holiday', 'Holiday'),
+        ('Exam', 'Exam'),
         ('Other', 'Other'),
     ]
     
@@ -1102,8 +1104,11 @@ class Event(models.Model):
         default='Other',
         help_text='Event category'
     )
-    date = models.DateField(help_text='Event date')
-    time = models.CharField(max_length=100, blank=True, help_text='Event time (e.g., 09:00 AM - 12:00 PM)')
+    date = models.DateField(help_text='Event start date')
+    end_date = models.DateField(null=True, blank=True, help_text='Event end date')
+    start_time = models.TimeField(null=True, blank=True, help_text='Event start time')
+    end_time = models.TimeField(null=True, blank=True, help_text='Event end time')
+    time = models.CharField(max_length=100, blank=True, help_text='Event time (Legacy field)')
     location = models.CharField(max_length=255, blank=True, help_text='Event location')
     organizer = models.CharField(max_length=255, blank=True, help_text='Event organizer')
     participants = models.IntegerField(
@@ -1121,6 +1126,16 @@ class Event(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    def save(self, *args, **kwargs):
+        """Auto-populate school_name from school_id"""
+        if self.school_id and not self.school_name:
+            try:
+                school = School.objects.get(school_id=self.school_id)
+                self.school_name = school.school_name
+            except School.DoesNotExist:
+                pass
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.name} - {self.date}"
     
@@ -1205,3 +1220,45 @@ class Award(models.Model):
         verbose_name = 'Award'
         verbose_name_plural = 'Awards'
         ordering = ['-date', '-created_at']
+
+
+class CalendarRecord(models.Model):
+    """Specific model for calendar records (holidays, academic dates, etc.)"""
+    school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False)
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False)
+    
+    title = models.CharField(max_length=255, help_text='Event/Holiday title')
+    event_type = models.CharField(
+        max_length=50,
+        choices=[
+            ('Holiday', 'Holiday'),
+            ('Academic', 'Academic Date (e.g., Term Start)'),
+            ('Exam', 'Examination'),
+            ('Event', 'School Event'),
+            ('Meeting', 'Meeting'),
+            ('Other', 'Other'),
+        ],
+        default='Event'
+    )
+    date = models.DateField(help_text='Date of the record')
+    end_date = models.DateField(null=True, blank=True, help_text='End date for multi-day events')
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
+    
+    description = models.TextField(blank=True)
+    location = models.CharField(max_length=255, blank=True)
+    
+    is_public = models.BooleanField(default=True, help_text='Display to students/parents')
+    color = models.CharField(max_length=20, blank=True, help_text='Hex color code for calendar display')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.title} ({self.date})"
+
+    class Meta:
+        db_table = 'calendar_records'
+        verbose_name = 'Calendar Record'
+        verbose_name_plural = 'Calendar Records'
+        ordering = ['-date']

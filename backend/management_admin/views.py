@@ -8,7 +8,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, CalendarRecord
 from super_admin.models import School
 from .serializers import (
     FileSerializer,
@@ -24,7 +24,8 @@ from .serializers import (
     BusStopStudentSerializer,
     EventSerializer,
     AwardSerializer,
-    CampusFeatureSerializer
+    CampusFeatureSerializer,
+    CalendarRecordSerializer
 )
 from main_login.permissions import IsManagementAdmin
 from main_login.mixins import SchoolFilterMixin
@@ -1327,3 +1328,34 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     def perform_update(self, serializer):
         """Update award - school_id should already be set"""
         serializer.save()
+
+
+class CalendarRecordViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
+    """ViewSet for CalendarRecord management"""
+    queryset = CalendarRecord.objects.all()
+    serializer_class = CalendarRecordSerializer
+    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['event_type', 'is_public', 'date']
+    search_fields = ['title', 'description', 'location']
+    ordering_fields = ['date', 'created_at', 'title']
+    ordering = ['-date']
+    
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
+            return [AllowAny()]
+        return [IsAuthenticated(), IsManagementAdmin()]
+    
+    def perform_create(self, serializer):
+        """Set school_id when creating calendar record"""
+        record = serializer.save()
+        
+        school_id = self.get_school_id()
+        if school_id:
+            from super_admin.models import School
+            CalendarRecord.objects.filter(pk=record.pk).update(school_id=school_id)
+            try:
+                school = School.objects.get(school_id=school_id)
+                CalendarRecord.objects.filter(pk=record.pk).update(school_name=school.school_name)
+            except School.DoesNotExist:
+                pass

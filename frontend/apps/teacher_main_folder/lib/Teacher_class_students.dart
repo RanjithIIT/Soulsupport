@@ -300,55 +300,29 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
                     onPressed: _goBack,
                     tooltip: 'Back',
                   ),
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        'Teacher Class Students',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(
-                              offset: Offset(1, 1),
-                              blurRadius: 2,
-                              color: Colors.black38,
-                            ),
-                          ],
+                  const Text(
+                    'Teacher Class Students',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          offset: Offset(1, 1),
+                          blurRadius: 2,
+                          color: Colors.black38,
                         ),
-                        textAlign: TextAlign.center,
-                      ),
+                      ],
                     ),
                   ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.refresh, color: Colors.white),
-                        onPressed: () {
-                          setState(() {
-                            isLoading = true;
-                          });
-                          _loadData();
-                        },
-                        tooltip: 'Refresh',
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.person_outline,
-                          color: Colors.white,
-                        ),
-                        onPressed: _logout,
-                        tooltip: 'Profile',
-                      ),
-                    ],
-                  ),
+                  // Icons removed
                 ],
               ),
+
             ),
           ),
         ),
@@ -370,25 +344,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                     color: Color(0xFF111111),
                   ),
                 ),
-                ElevatedButton.icon(
-                  onPressed: _goBack,
-                  icon: const Icon(Icons.arrow_back, size: 18),
-                  label: const Text(
-                    'Back to Classes',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6A11CB),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 10,
-                    ),
-                  ),
-                ),
+
               ],
             ),
             const SizedBox(height: 25),

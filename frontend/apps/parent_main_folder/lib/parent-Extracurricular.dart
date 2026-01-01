@@ -256,29 +256,7 @@ class ActivityScreen extends StatelessWidget {
         icon: const Icon(Icons.arrow_back),
         onPressed: () => Navigator.pop(context),
       ),
-      actions: [
-        // Quick shortcut to open the full Activity Schedule screen
-        IconButton(
-          icon: const Icon(Icons.schedule),
-          tooltip: 'Activity Schedule',
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const ActivityScheduleScreen(),
-              ),
-            );
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.person),
-          onPressed: () => _handleAction(context, 'Profile'),
-        ),
-        IconButton(
-          icon: const Icon(Icons.logout),
-          onPressed: () => _handleAction(context, 'Logout'),
-        ),
-      ],
+      actions: const [],
     );
   }
 

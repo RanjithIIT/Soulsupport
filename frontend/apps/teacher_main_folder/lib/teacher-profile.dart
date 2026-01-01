@@ -424,29 +424,14 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
           ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text(
           'Teacher Profile',
           style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
-              setState(() {
-                // Refresh profile data
-              });
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.person, color: Colors.white),
-            onPressed: () {
-              // Already on profile page
-            },
-          ),
-        ],
+        actions: [],
         elevation: 0,
       ),
       body: Column(

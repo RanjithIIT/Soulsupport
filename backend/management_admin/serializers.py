@@ -2,7 +2,7 @@
 Serializers for management_admin app
 """
 from rest_framework import serializers
-from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, CalendarRecord
 from main_login.serializers import UserSerializer
 from main_login.serializer_mixins import SchoolIdMixin
 from main_login.utils import get_user_school_id
@@ -333,7 +333,8 @@ class EventSerializer(SchoolIdMixin, serializers.ModelSerializer):
         model = Event
         fields = [
             'id', 'school_id', 'school_name', 'name', 'category', 'date',
-            'time', 'location', 'organizer', 'participants', 'status',
+            'end_date', 'start_time', 'end_time', 'time',
+            'location', 'organizer', 'participants', 'status',
             'description', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'school_id', 'school_name', 'created_at', 'updated_at']
@@ -406,3 +407,16 @@ class AwardSerializer(SchoolIdMixin, serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         return instance
+
+
+class CalendarRecordSerializer(SchoolIdMixin, serializers.ModelSerializer):
+    """Serializer for CalendarRecord model"""
+    
+    class Meta:
+        model = CalendarRecord
+        fields = [
+            'id', 'school_id', 'school_name', 'title', 'event_type', 'date',
+            'end_date', 'start_time', 'end_time', 'description', 'location',
+            'is_public', 'color', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'school_id', 'school_name', 'created_at', 'updated_at']

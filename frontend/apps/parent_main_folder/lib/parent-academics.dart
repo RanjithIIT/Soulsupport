@@ -1540,27 +1540,7 @@ class _AcademicsPageState extends State<AcademicsPage> {
           ),
         ),
         centerTitle: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-                onPressed: () {
-                  setState(() {});
-                  _showSnackbar("Data Refreshed!");
-                },
-            tooltip: 'Refresh',
-            iconSize: 24,
-          ),
-          IconButton(
-            icon: const Icon(Icons.person, color: Colors.white),
-                onPressed: () {
-                  // Navigate to profile if needed
-                  _showSnackbar("Showing Profile");
-                },
-            tooltip: 'Profile',
-            iconSize: 24,
-          ),
-          const SizedBox(width: 8),
-        ],
+        actions: const [SizedBox(width: 8)],
       ),
 
       body: Center(

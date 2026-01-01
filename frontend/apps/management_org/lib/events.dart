@@ -3,10 +3,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
-import 'main.dart' as app;
+
 import 'dashboard.dart';
 import 'widgets/school_profile_header.dart';
 import 'management_routes.dart';
+
+import 'widgets/dynamic_calendar_icon.dart'; // Added shared widget import
 
 class Event {
   final int id;
@@ -104,22 +106,28 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
           eventsJson = [];
         }
         
-        setState(() {
-          _events = eventsJson.map((json) => Event.fromJson(json as Map<String, dynamic>)).toList();
-          _visibleEvents = List<Event>.from(_events);
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _events = eventsJson.map((json) => Event.fromJson(json as Map<String, dynamic>)).toList();
+            _visibleEvents = List<Event>.from(_events);
+            _isLoading = false;
+          });
+        }
       } else {
+        if (mounted) {
+          setState(() {
+            _errorMessage = response.error ?? 'Failed to load events';
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
-          _errorMessage = response.error ?? 'Failed to load events';
+          _errorMessage = 'Error loading events: $e';
           _isLoading = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error loading events: $e';
-        _isLoading = false;
-      });
     }
   }
 
@@ -312,13 +320,10 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
 
     // Safe navigation helper for sidebar
     void navigateToRoute(String route) {
-      final navigator = app.SchoolManagementApp.navigatorKey.currentState;
-      if (navigator != null) {
-        if (navigator.canPop() || route != '/dashboard') {
-          navigator.pushReplacementNamed(route);
-        } else {
-          navigator.pushNamed(route);
-        }
+      if (route == '/dashboard') {
+        Navigator.of(context).pushReplacementNamed(route);
+      } else {
+        Navigator.of(context).pushReplacementNamed(route);
       }
     }
 
@@ -381,49 +386,49 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
                 padding: EdgeInsets.zero,
                 children: [
                   _NavItem(
-                    icon: '📊',
+                    icon: const Text('📊', style: TextStyle(fontSize: 22)),
                     title: 'Overview',
                     isActive: false,
                     onTap: () => navigateToRoute('/dashboard'),
                   ),
                   _NavItem(
-                    icon: '👨‍🏫',
+                    icon: const Text('👨‍🏫', style: TextStyle(fontSize: 22)),
                     title: 'Teachers',
                     onTap: () => navigateToRoute('/teachers'),
                   ),
                   _NavItem(
-                    icon: '👥',
+                    icon: const Text('👥', style: TextStyle(fontSize: 22)),
                     title: 'Students',
                     onTap: () => navigateToRoute('/students'),
                   ),
                   _NavItem(
-                    icon: '🚌',
+                    icon: const Text('🚌', style: TextStyle(fontSize: 22)),
                     title: 'Buses',
                     onTap: () => navigateToRoute('/buses'),
                   ),
                   _NavItem(
-                    icon: '🎯',
+                    icon: const Text('🎯', style: TextStyle(fontSize: 22)),
                     title: 'Activities',
                     onTap: () => navigateToRoute('/activities'),
                   ),
                   _NavItem(
-                    icon: '📅',
+                    icon: const Text('📅', style: TextStyle(fontSize: 22)),
                     title: 'Events',
                     isActive: true,
                     onTap: () => navigateToRoute('/events'),
                   ),
                   _NavItem(
-                    icon: '📆',
+                    icon: const Text('📆', style: TextStyle(fontSize: 22)),
                     title: 'Calendar',
                     onTap: () => navigateToRoute('/calendar'),
                   ),
                   _NavItem(
-                    icon: '🔔',
+                    icon: const Text('🔔', style: TextStyle(fontSize: 22)),
                     title: 'Notifications',
                     onTap: () => navigateToRoute('/notifications'),
                   ),
                   _NavItem(
-                    icon: '🛣️',
+                    icon: const Text('🛣️', style: TextStyle(fontSize: 22)),
                     title: 'Bus Routes',
                     onTap: () => navigateToRoute('/bus-routes'),
                   ),
@@ -481,11 +486,11 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
             margin: const EdgeInsets.only(bottom: 30),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Row(
                   children: [
-                    Text('📅', style: TextStyle(fontSize: 32)),
-                    SizedBox(width: 15),
+                    const DynamicCalendarIcon(),
+                    const SizedBox(width: 15),
                     Text(
                       'Events Management',
                       style: TextStyle(
@@ -504,35 +509,7 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
               ],
             ),
           ),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final crossAxisCount = isMobile ? 1 : 4;
-              final childAspectRatio = isMobile ? 3.4 : 1.35;
-              return GridView.count(
-                crossAxisCount: crossAxisCount,
-                childAspectRatio: childAspectRatio,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisSpacing: 20,
-                mainAxisSpacing: 20,
-                children: [
-                  _StatCard(label: 'Total Events', value: '$_totalEvents'),
-                  _StatCard(
-                    label: 'Upcoming Events',
-                    value: '$_upcomingEvents',
-                  ),
-                  _StatCard(
-                    label: 'Completed Events',
-                    value: '$_completedEvents',
-                  ),
-                  _StatCard(
-                    label: 'Event Categories',
-                    value: '$_eventCategories',
-                  ),
-                ],
-              );
-            },
-          ),
+
           const SizedBox(height: 30),
           GlassContainer(
             padding: const EdgeInsets.all(20),
@@ -796,13 +773,29 @@ class _EventCardWithHoverState extends State<_EventCardWithHover> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              widget.event.category,
+                              widget.event.date,
                               style: const TextStyle(
                                 fontSize: 13,
                                 color: Color(0xFF666666),
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(width: 12),
+                            const Icon(
+                              Icons.label_outline,
+                              size: 14,
+                              color: Color(0xFF666666),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                widget.event.category,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFF666666),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         ),
@@ -943,7 +936,7 @@ class GlassContainer extends StatelessWidget {
 }
 
 class _NavItem extends StatelessWidget {
-  final String icon;
+  final Widget icon;
   final String title;
   final VoidCallback? onTap;
   final bool isActive;
@@ -966,10 +959,7 @@ class _NavItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
-        leading: Text(
-          icon,
-          style: const TextStyle(fontSize: 18),
-        ),
+        leading: icon,
         title: Text(
           title,
           style: TextStyle(
@@ -987,42 +977,7 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-class _StatCard extends StatelessWidget {
-  final String label;
-  final String value;
 
-  const _StatCard({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassContainer(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 36,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF667EEA),
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            label.toUpperCase(),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF666666),
-              fontSize: 12,
-              letterSpacing: 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _DetailItem extends StatelessWidget {
   final String title;

@@ -78,34 +78,10 @@ class _SplashScreenState extends State<SplashScreen>
               scale: _scaleAnimation,
               child: Center(
                 child: Image.asset(
-<<<<<<< HEAD
-                  'packages/management_org/assets/Vidyarambh.png',
-                  width: MediaQuery.of(context).size.width * 0.6,
-                  height: MediaQuery.of(context).size.height * 0.6,
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
-                  errorBuilder: (context, error, stackTrace) {
-                    // Fallback if image is not found
-                    return Container(
-                      width: 200,
-                      height: 200,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Icon(
-                        Icons.school,
-                        size: 120,
-                        color: Color(0xFF1E3A8A),
-                      ),
-                    );
-                  },
-=======
                   'assets/images/splash_v2.jpg',
                   width: MediaQuery.of(context).size.width * 0.8,
                   height: MediaQuery.of(context).size.height * 0.8,
                   fit: BoxFit.contain,
->>>>>>> vamshi
                 ),
               ),
             ),

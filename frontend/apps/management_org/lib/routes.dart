@@ -46,6 +46,7 @@ class ManagementRoutePages {
     ManagementRoutes.busRoutes: (_) => const BusesManagementPage(), // Mapping bus-routes to Buses page
     ManagementRoutes.campusLife: (_) => const CampusLifeManagementPage(),
     ManagementRoutes.addTeacher: (_) => const AddTeacherPage(),
+    ManagementRoutes.addStudent: (_) => const AdmissionsManagementPage(),
     ManagementRoutes.editStudent: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       final studentId = args is int ? args : null;

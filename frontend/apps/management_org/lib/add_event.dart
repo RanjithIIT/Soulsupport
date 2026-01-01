@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
-import 'dashboard.dart';
+// import 'dashboard.dart'; // Removed unused import
 
 class AddEventPage extends StatefulWidget {
   const AddEventPage({super.key});
@@ -23,7 +23,10 @@ class _AddEventPageState extends State<AddEventPage> {
 
   String? _selectedCategory;
   String _selectedStatus = 'Upcoming';
-  DateTime? _selectedDate;
+  DateTime? _startDate;
+  DateTime? _endDate;
+  TimeOfDay? _startTime;
+  TimeOfDay? _endTime;
 
   final List<String> _categories = [
     'Academic',
@@ -31,6 +34,8 @@ class _AddEventPageState extends State<AddEventPage> {
     'Cultural',
     'Administrative',
     'Career',
+    'Holiday',
+    'Exam',
     'Other',
   ];
 
@@ -49,8 +54,8 @@ class _AddEventPageState extends State<AddEventPage> {
   EventPreviewData get _previewData => EventPreviewData(
         name: _nameController.text,
         category: _selectedCategory,
-        date: _selectedDate != null ? DateFormat('yyyy-MM-dd').format(_selectedDate!) : null,
-        time: _timeController.text,
+        date: _startDate != null ? DateFormat('yyyy-MM-dd').format(_startDate!) : null,
+        time: _startTime != null ? _startTime!.format(context) : '',
         location: _locationController.text,
         organizer: _organizerController.text,
         participants: _participantsController.text,
@@ -71,9 +76,9 @@ class _AddEventPageState extends State<AddEventPage> {
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedDate == null) {
+    if (_startDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a date')),
+        const SnackBar(content: Text('Please select a start date')),
       );
       return;
     }
@@ -94,8 +99,12 @@ class _AddEventPageState extends State<AddEventPage> {
       final eventData = {
         'name': _nameController.text.trim(),
         'category': _selectedCategory,
-        'date': DateFormat('yyyy-MM-dd').format(_selectedDate!),
-        'time': _timeController.text.trim(),
+        'date': DateFormat('yyyy-MM-dd').format(_startDate!),
+        'end_date': _endDate != null ? DateFormat('yyyy-MM-dd').format(_endDate!) : null,
+        'start_time': _startTime != null ? '${_startTime!.hour.toString().padLeft(2, '0')}:${_startTime!.minute.toString().padLeft(2, '0')}:00' : null,
+        'end_time': _endTime != null ? '${_endTime!.hour.toString().padLeft(2, '0')}:${_endTime!.minute.toString().padLeft(2, '0')}:00' : null,
+        // Legacy time field - useful for display if frontend logic expects it
+        'time': _startTime != null ? '${_startTime!.format(context)}${_endTime != null ? ' - ${_endTime!.format(context)}' : ''}' : '',
         'location': _locationController.text.trim(),
         'organizer': _organizerController.text.trim(),
         'participants': int.tryParse(_participantsController.text) ?? 0,
@@ -418,48 +427,102 @@ class _AddEventPageState extends State<AddEventPage> {
                                             ),
                                           ),
                                           // DATE
+                                          // DATE & TIME
+                                          // START DATE
                                           SizedBox(
                                             width: isTwoColumns
                                                 ? (constraints.maxWidth - 30) / 2
                                                 : constraints.maxWidth,
                                             child: _LabeledField(
-                                              label: 'Date *',
+                                              label: 'Start Date *',
                                               child: InkWell(
                                                 onTap: () async {
-                                                  final date = await showDatePicker(
+                                                  final picked = await showDatePicker(
                                                     context: context,
-                                                    initialDate: DateTime.now(),
-                                                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                                                    lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+                                                    initialDate: _startDate ?? DateTime.now(),
+                                                    firstDate: DateTime(2020),
+                                                    lastDate: DateTime(2030),
                                                   );
-                                                  if (date != null) {
-                                                    setState(() => _selectedDate = date);
-                                                  }
+                                                  if (picked != null) setState(() => _startDate = picked);
                                                 },
                                                 child: InputDecorator(
-                                                  decoration: _inputDecoration(hint: 'Select Date'),
+                                                  decoration: _inputDecoration(hint: 'Select Start Date', icon: Icons.calendar_today),
                                                   child: Text(
-                                                    _selectedDate != null
-                                                        ? DateFormat('yyyy-MM-dd').format(_selectedDate!)
-                                                        : 'Select Date',
-                                                    style: TextStyle(
-                                                      color: _selectedDate != null ? const Color(0xFF333333) : const Color(0xFF555555),
-                                                    ),
+                                                    _startDate != null ? DateFormat('MMM dd, yyyy').format(_startDate!) : 'Select Start Date',
+                                                    style: TextStyle(color: _startDate != null ? const Color(0xFF333333) : Colors.grey[600]),
                                                   ),
                                                 ),
                                               ),
                                             ),
                                           ),
-                                          // TIME
+                                          // END DATE
                                           SizedBox(
                                             width: isTwoColumns
                                                 ? (constraints.maxWidth - 30) / 2
                                                 : constraints.maxWidth,
                                             child: _LabeledField(
-                                              label: 'Time',
-                                              child: TextFormField(
-                                                controller: _timeController,
-                                                decoration: _inputDecoration(hint: 'e.g., 09:00 AM - 12:00 PM'),
+                                              label: 'End Date',
+                                              child: InkWell(
+                                                onTap: () async {
+                                                  final picked = await showDatePicker(
+                                                    context: context,
+                                                    initialDate: _endDate ?? (_startDate ?? DateTime.now()),
+                                                    firstDate: DateTime(2020),
+                                                    lastDate: DateTime(2030),
+                                                  );
+                                                  if (picked != null) setState(() => _endDate = picked);
+                                                },
+                                                child: InputDecorator(
+                                                  decoration: _inputDecoration(hint: 'Select End Date', icon: Icons.calendar_today),
+                                                  child: Text(
+                                                    _endDate != null ? DateFormat('MMM dd, yyyy').format(_endDate!) : 'Select End Date',
+                                                    style: TextStyle(color: _endDate != null ? const Color(0xFF333333) : Colors.grey[600]),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          // START TIME
+                                          SizedBox(
+                                            width: isTwoColumns
+                                                ? (constraints.maxWidth - 30) / 2
+                                                : constraints.maxWidth,
+                                            child: _LabeledField(
+                                              label: 'Start Time',
+                                              child: InkWell(
+                                                onTap: () async {
+                                                  final picked = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+                                                  if (picked != null) setState(() => _startTime = picked);
+                                                },
+                                                child: InputDecorator(
+                                                  decoration: _inputDecoration(hint: 'Select Start Time', icon: Icons.access_time),
+                                                  child: Text(
+                                                    _startTime != null ? _startTime!.format(context) : 'Select Start Time',
+                                                    style: TextStyle(color: _startTime != null ? const Color(0xFF333333) : Colors.grey[600]),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          // END TIME
+                                          SizedBox(
+                                            width: isTwoColumns
+                                                ? (constraints.maxWidth - 30) / 2
+                                                : constraints.maxWidth,
+                                            child: _LabeledField(
+                                              label: 'End Time',
+                                              child: InkWell(
+                                                onTap: () async {
+                                                  final picked = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+                                                  if (picked != null) setState(() => _endTime = picked);
+                                                },
+                                                child: InputDecorator(
+                                                  decoration: _inputDecoration(hint: 'Select End Time', icon: Icons.access_time),
+                                                  child: Text(
+                                                    _endTime != null ? _endTime!.format(context) : 'Select End Time',
+                                                    style: TextStyle(color: _endTime != null ? const Color(0xFF333333) : Colors.grey[600]),
+                                                  ),
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -590,6 +653,7 @@ class _AddEventPageState extends State<AddEventPage> {
   }
 
   Widget _buildHeader() {
+    final now = DateTime.now();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
@@ -603,17 +667,72 @@ class _AddEventPageState extends State<AddEventPage> {
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: const [
-          Text(
-            '📅 Add New Event',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-            ),
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Dynamic Calendar Icon
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      height: 14,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFF6B6B),
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        DateFormat('MMM').format(now).toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          '${now.day}',
+                          style: const TextStyle(
+                            color: Color(0xFF333333),
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              const Text(
+                'Add New Event',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: 8),
-          Text(
+          const SizedBox(height: 8),
+          const Text(
             'Fill in the details below to add a new event to the calendar',
             textAlign: TextAlign.center,
             style: TextStyle(
@@ -633,11 +752,12 @@ class _AddEventPageState extends State<AddEventPage> {
     return null;
   }
 
-  InputDecoration _inputDecoration({required String hint}) {
+  InputDecoration _inputDecoration({required String hint, IconData? icon}) {
     return InputDecoration(
       hintText: hint,
       filled: true,
       fillColor: Colors.white,
+      suffixIcon: icon != null ? Icon(icon, color: Colors.grey[600], size: 20) : null,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: Color(0xFFE1E5E9), width: 2),

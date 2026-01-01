@@ -2,7 +2,7 @@
 Admin configuration for management_admin app
 """
 from django.contrib import admin
-from .models import Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee
+from .models import Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, Event, Award, CalendarRecord
 
 
 @admin.register(Department)
@@ -59,4 +59,31 @@ class FeeAdmin(admin.ModelAdmin):
     search_fields = ['student__student_name', 'description', 'fee_type', 'grade']
     readonly_fields = ['created_at', 'updated_at']
     date_hierarchy = 'due_date'
+
+
+@admin.register(Event)
+class EventAdmin(admin.ModelAdmin):
+    list_display = ['name', 'category', 'date', 'time', 'location', 'organizer', 'status', 'created_at']
+    list_filter = ['category', 'status', 'date']
+    search_fields = ['name', 'location', 'organizer', 'description']
+    readonly_fields = ['created_at', 'updated_at']
+    date_hierarchy = 'date'
+
+
+@admin.register(Award)
+class AwardAdmin(admin.ModelAdmin):
+    list_display = ['title', 'category', 'recipient', 'date', 'level', 'presented_by', 'created_at']
+    list_filter = ['category', 'level', 'date']
+    search_fields = ['title', 'recipient', 'description']
+    readonly_fields = ['created_at', 'updated_at']
+    date_hierarchy = 'date'
+
+
+@admin.register(CalendarRecord)
+class CalendarRecordAdmin(admin.ModelAdmin):
+    list_display = ['title', 'event_type', 'date', 'end_date', 'is_public', 'color', 'created_at']
+    list_filter = ['event_type', 'is_public', 'date']
+    search_fields = ['title', 'description', 'location']
+    readonly_fields = ['created_at', 'updated_at']
+    date_hierarchy = 'date'
 

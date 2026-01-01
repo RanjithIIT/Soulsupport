@@ -6,3 +6,6 @@ class ManagementAdminConfig(AppConfig):
     name = 'management_admin'
     verbose_name = 'Management Admin'
 
+    def ready(self):
+        import management_admin.signals
+

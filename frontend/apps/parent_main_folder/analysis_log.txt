@@ -1,0 +1,100 @@
+﻿Resolving dependencies...
+Downloading packages...
+  characters 1.4.0 (1.4.1 available)
+  fl_chart 0.68.0 (1.1.1 available)
+  flutter_riverpod 2.6.1 (3.1.0 available)
+  go_router 13.2.5 (17.0.1 available)
+  matcher 0.12.17 (0.12.18 available)
+  material_color_utilities 0.11.1 (0.13.0 available)
+  riverpod 2.6.1 (3.1.0 available)
+  test_api 0.7.7 (0.7.8 available)
+  web_socket_channel 2.4.0 (3.0.3 available)
+Got dependencies!
+9 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing parent_main_folder...                                 
+
+   info - 'red' is deprecated and shouldn't be used. Use (*.r * 255.0).round().clamp(0, 255) - lib\main.dart:31:23 - deprecated_member_use
+   info - 'green' is deprecated and shouldn't be used. Use (*.g * 255.0).round().clamp(0, 255) - lib\main.dart:31:38 - deprecated_member_use
+   info - 'blue' is deprecated and shouldn't be used. Use (*.b * 255.0).round().clamp(0, 255) - lib\main.dart:31:55 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\main.dart:44:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:1154:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:1158:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:1692:62 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:1756:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:2189:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:2241:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:2632:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:2687:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:2793:68 - deprecated_member_use
+warning - The declaration '_updateUnreadCount' isn't referenced - lib\main.dart:2925:8 - unused_element
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:3172:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:3222:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:3328:68 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:4375:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:4430:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:4470:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:4655:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:4719:35 - deprecated_member_use
+   info - The file name 'parent-Extracurricular.dart' isn't a lower_case_with_underscores identifier - lib\parent-Extracurricular.dart:1:1 - file_names
+   info - 'red' is deprecated and shouldn't be used. Use (*.r * 255.0).round().clamp(0, 255) - lib\parent-Extracurricular.dart:8:23 - deprecated_member_use
+   info - 'green' is deprecated and shouldn't be used. Use (*.g * 255.0).round().clamp(0, 255) - lib\parent-Extracurricular.dart:8:38 - deprecated_member_use
+   info - 'blue' is deprecated and shouldn't be used. Use (*.b * 255.0).round().clamp(0, 255) - lib\parent-Extracurricular.dart:8:55 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\parent-Extracurricular.dart:16:30 - deprecated_member_use
+   info - The file name 'parent-academics.dart' isn't a lower_case_with_underscores identifier - lib\parent-academics.dart:1:1 - file_names
+   info - 'red' is deprecated and shouldn't be used. Use (*.r * 255.0).round().clamp(0, 255) - lib\parent-academics.dart:10:23 - deprecated_member_use
+   info - 'green' is deprecated and shouldn't be used. Use (*.g * 255.0).round().clamp(0, 255) - lib\parent-academics.dart:10:38 - deprecated_member_use
+   info - 'blue' is deprecated and shouldn't be used. Use (*.b * 255.0).round().clamp(0, 255) - lib\parent-academics.dart:10:55 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\parent-academics.dart:17:30 - deprecated_member_use
+   info - 'background' is deprecated and shouldn't be used. Use surface instead. This feature was deprecated after v3.18.0-0.1.pre - lib\parent-academics.dart:48:11 - deprecated_member_use
+   info - The file name 'parent-bus.dart' isn't a lower_case_with_underscores identifier - lib\parent-bus.dart:1:1 - file_names
+   info - The file name 'parent-calendar.dart' isn't a lower_case_with_underscores identifier - lib\parent-calendar.dart:1:1 - file_names
+   info - The file name 'parent-daily-task.dart' isn't a lower_case_with_underscores identifier - lib\parent-daily-task.dart:1:1 - file_names
+   info - 'red' is deprecated and shouldn't be used. Use (*.r * 255.0).round().clamp(0, 255) - lib\parent-daily-task.dart:14:25 - deprecated_member_use
+   info - 'green' is deprecated and shouldn't be used. Use (*.g * 255.0).round().clamp(0, 255) - lib\parent-daily-task.dart:14:40 - deprecated_member_use
+   info - 'blue' is deprecated and shouldn't be used. Use (*.b * 255.0).round().clamp(0, 255) - lib\parent-daily-task.dart:14:57 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\parent-daily-task.dart:21:32 - deprecated_member_use
+   info - The file name 'parent-dashboard-webpage.dart' isn't a lower_case_with_underscores identifier - lib\parent-dashboard-webpage.dart:1:1 - file_names
+   info - 'red' is deprecated and shouldn't be used. Use (*.r * 255.0).round().clamp(0, 255) - lib\parent-dashboard-webpage.dart:12:23 - deprecated_member_use
+   info - 'green' is deprecated and shouldn't be used. Use (*.g * 255.0).round().clamp(0, 255) - lib\parent-dashboard-webpage.dart:12:38 - deprecated_member_use
+   info - 'blue' is deprecated and shouldn't be used. Use (*.b * 255.0).round().clamp(0, 255) - lib\parent-dashboard-webpage.dart:12:55 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\parent-dashboard-webpage.dart:25:30 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps - lib\parent-dashboard-webpage.dart:2613:9 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\parent-dashboard-webpage.dart:2624:9 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\parent-dashboard-webpage.dart:2655:42 - use_build_context_synchronously
+   info - The file name 'parent-gallery.dart' isn't a lower_case_with_underscores identifier - lib\parent-gallery.dart:1:1 - file_names
+   info - The file name 'parent-homework.dart' isn't a lower_case_with_underscores identifier - lib\parent-homework.dart:1:1 - file_names
+   info - Don't invoke 'print' in production code - lib\parent-homework.dart:375:5 - avoid_print
+warning - The operand must be 'null', so the condition is always 'false' - lib\parent-homework.dart:383:9 - unnecessary_null_comparison
+   info - The file name 'parent-profile.dart' isn't a lower_case_with_underscores identifier - lib\parent-profile.dart:1:1 - file_names
+warning - Unused import: 'package:main_login/main.dart' - lib\parent-profile.dart:2:8 - unused_import
+   info - 'red' is deprecated and shouldn't be used. Use (*.r * 255.0).round().clamp(0, 255) - lib\parent-profile.dart:9:23 - deprecated_member_use
+   info - 'green' is deprecated and shouldn't be used. Use (*.g * 255.0).round().clamp(0, 255) - lib\parent-profile.dart:9:38 - deprecated_member_use
+   info - 'blue' is deprecated and shouldn't be used. Use (*.b * 255.0).round().clamp(0, 255) - lib\parent-profile.dart:9:55 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\parent-profile.dart:16:30 - deprecated_member_use
+   info - 'background' is deprecated and shouldn't be used. Use surface instead. This feature was deprecated after v3.18.0-0.1.pre - lib\parent-profile.dart:49:11 - deprecated_member_use
+   info - The file name 'parent-projects.dart' isn't a lower_case_with_underscores identifier - lib\parent-projects.dart:1:1 - file_names
+   info - 'red' is deprecated and shouldn't be used. Use (*.r * 255.0).round().clamp(0, 255) - lib\parent-projects.dart:19:23 - deprecated_member_use
+   info - 'green' is deprecated and shouldn't be used. Use (*.g * 255.0).round().clamp(0, 255) - lib\parent-projects.dart:19:38 - deprecated_member_use
+   info - 'blue' is deprecated and shouldn't be used. Use (*.b * 255.0).round().clamp(0, 255) - lib\parent-projects.dart:19:55 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\parent-projects.dart:26:30 - deprecated_member_use
+   info - The file name 'parent-results.dart' isn't a lower_case_with_underscores identifier - lib\parent-results.dart:1:1 - file_names
+   info - The constant name 'ALL_RESULTS' isn't a lowerCamelCase identifier - lib\parent-results.dart:27:34 - constant_identifier_names
+   info - The file name 'parent-test.dart' isn't a lower_case_with_underscores identifier - lib\parent-test.dart:1:1 - file_names
+warning - The declaration '_setReminder' isn't referenced - lib\parent_fees.dart:146:8 - unused_element
+warning - The declaration '_showDownloadStatementModal' isn't referenced - lib\parent_fees.dart:217:8 - unused_element
+warning - The declaration '_showFeeDetailModal' isn't referenced - lib\parent_fees.dart:291:8 - unused_element
+  error - Undefined name 'actions' - lib\parent_fees.dart:590:9 - undefined_identifier
+  error - Expected to find ']' - lib\parent_fees.dart:590:16 - expected_token
+   info - Don't invoke 'print' in production code - lib\services\api_service.dart:95:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\api_service.dart:105:13 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\api_service.dart:111:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\api_service.dart:114:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\api_service.dart:119:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\api_service.dart:148:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\api_service.dart:152:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\api_service.dart:154:11 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\api_service.dart:155:11 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\api_service.dart:159:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\api_service.dart:163:7 - avoid_print
+

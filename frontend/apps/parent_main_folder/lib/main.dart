@@ -141,7 +141,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String _overallScore = '84%';
   String _attendanceRate = '97%';
   String _classRank = '7th';
-  String _selectedPeriod = 'Monthly'; // For performance period selection
+  String _selectedGradesPeriod = 'Quarterly'; // Default different to prove fix
+  String _selectedAttendancePeriod = 'Monthly';
   String? _schoolName;
   String? _schoolId;
 
@@ -647,7 +648,7 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     };
 
-    final currentData = periodData[_selectedPeriod]!;
+    final currentData = periodData[_selectedGradesPeriod]!;
     final labels = currentData['labels'] as List<String>;
     final percentages = currentData['percentages'] as List<int>;
     final maxPercentage = 100;
@@ -676,7 +677,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        '$_selectedPeriod Grades Performance',
+                        '$_selectedGradesPeriod Grades Performance',
                         style: const TextStyle(
                           fontSize: 17, // Increased font size
                           fontWeight: FontWeight.w700,
@@ -698,13 +699,13 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Row(
               children: ['Monthly', 'Quarterly', 'Half-Yearly', 'Annually'].map(
                 (period) {
-                  final isSelected = _selectedPeriod == period;
+                  final isSelected = _selectedGradesPeriod == period;
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: InkWell(
                       onTap: () {
                         setState(() {
-                          _selectedPeriod = period;
+                          _selectedGradesPeriod = period;
                         });
                       },
                       child: Container(
@@ -839,11 +840,12 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     };
 
-    final currentData = periodData[_selectedPeriod]!;
+    final currentData = periodData[_selectedAttendancePeriod]!;
     final months = currentData['labels'] as List<String>;
     final percentages = currentData['percentages'] as List<int>;
 
     return Container(
+      key: ValueKey('attendance_chart_$_selectedAttendancePeriod'), // Force rebuild
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
@@ -867,7 +869,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        '$_selectedPeriod Attendance Performance',
+                        '$_selectedAttendancePeriod Attendance Performance',
                         style: const TextStyle(
                           fontSize: 17, // Increased font size
                           fontWeight: FontWeight.w700,
@@ -889,13 +891,15 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Row(
               children: ['Monthly', 'Quarterly', 'Half-Yearly', 'Annually'].map(
                 (period) {
-                  final isSelected = _selectedPeriod == period;
+                  final isSelected = _selectedAttendancePeriod == period;
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: InkWell(
                       onTap: () {
+                        // Debug logging
+                        debugPrint('Attendance Filter Changed: $period');
                         setState(() {
-                          _selectedPeriod = period;
+                          _selectedAttendancePeriod = period;
                         });
                       },
                       child: Container(

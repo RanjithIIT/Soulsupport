@@ -1139,42 +1139,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        actions: [
-          // Action Menu Button (replaces direct Logout)
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (BuildContext dialogContext) {
-                  return AlertDialog(
-                    title: const Text('Logout'),
-                    content: const Text('Are you sure you want to logout?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(dialogContext).pop();
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const main_login.LoginScreen(),
-                            ),
-                            (route) => false,
-                          );
-                        },
-                        child: const Text('Logout', style: TextStyle(color: Colors.red)),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-          ),
-        ],
+        actions: [],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

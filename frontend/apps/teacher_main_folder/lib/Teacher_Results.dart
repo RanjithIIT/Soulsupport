@@ -476,67 +476,11 @@ class _EnterResultsScreenState extends State<EnterResultsScreen> {
       ),
       // Added back button as per image reference (arrow on left)
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.white),
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
         onPressed: () => Navigator.of(context).pop(),
       ),
       actions: [
-        // Added Refresh icon (part of the overall design theme)
-        IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white),
-          onPressed: () {
-            setState(() {
-              // Refresh results data
-            });
-          },
-        ),
-        IconButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const TeacherProfilePage()),
-            );
-          },
-          icon: const Icon(Icons.person, color: Colors.white),
-        ),
-        if (isLargeScreen)
-          TextButton(
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (BuildContext dialogContext) {
-                  return AlertDialog(
-                    title: const Text('Logout'),
-                    content: const Text('Are you sure you want to logout?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(dialogContext).pop();
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const main_login.LoginScreen(),
-                            ),
-                            (route) => false,
-                          );
-                        },
-                        child: const Text('Logout', style: TextStyle(color: Colors.red)),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              backgroundColor: Colors.white.withValues(alpha: 0.1),
-            ),
-            child: const Text('Logout'),
-          ),
+
       ],
     );
   }
@@ -569,25 +513,7 @@ class _EnterResultsScreenState extends State<EnterResultsScreen> {
             ],
           ),
         ),
-        const SizedBox(width: 10),
-        // Button is always visible, but maintains its padding
-        ElevatedButton.icon(
-          onPressed: () {
-            Navigator.of(context).popUntil((route) => route.isFirst);
-          },
-          icon: const Icon(Icons.arrow_back),
-          label: isMobile
-              ? const SizedBox.shrink()
-              : const Text('Back to Dashboard'), // Hide text on small screen
-          style: ElevatedButton.styleFrom(
-            foregroundColor: Colors.white,
-            backgroundColor: const Color(0xFF667eea),
-            padding: EdgeInsets.symmetric(
-              horizontal: isMobile ? 12 : 24,
-              vertical: 12,
-            ),
-          ),
-        ),
+
       ],
     );
   }

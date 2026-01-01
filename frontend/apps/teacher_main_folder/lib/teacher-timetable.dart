@@ -297,9 +297,9 @@ class _TeacherTimetableScreenState extends State<TeacherTimetableScreen> {
                 elevation: 0,
                 // Leading: Back Arrow
                 leading: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
                   onPressed: () {
-                    // Back action
+                    Navigator.of(context).pop();
                   },
                 ),
                 // Title: "Teacher Timetable"
@@ -311,23 +311,7 @@ class _TeacherTimetableScreenState extends State<TeacherTimetableScreen> {
                   ),
                 ),
                 // Actions: Refresh/Loop icon and Person icon
-                actions: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.refresh_outlined,
-                      color: Colors.white,
-                    ),
-                    onPressed: () {
-                      // Refresh action
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.person_outline, color: Colors.white),
-                    onPressed: () {
-                      // Profile action
-                    },
-                  ),
-                ],
+                actions: [],
               ),
             ),
           ),

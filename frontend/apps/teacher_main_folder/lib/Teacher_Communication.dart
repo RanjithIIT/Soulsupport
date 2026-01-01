@@ -519,18 +519,15 @@ class _TeacherCommunicationScreenState extends State<TeacherCommunicationScreen>
           'Teacher Communication',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.group_add, color: Colors.white),
             onPressed: _showCreateGroupDialog,
             tooltip: 'Create Group',
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
-              _loadData();
-            },
-            tooltip: 'Refresh',
           ),
         ],
       ),

@@ -288,7 +288,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     return AppBar(
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.white, size: 26),
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 26),
         onPressed: () => Navigator.of(context).pop(),
       ),
       title: const Text(
@@ -310,23 +310,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         ),
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white, size: 26),
-          onPressed: () {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Refreshed data')));
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.person_outline, color: Colors.white, size: 26),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const TeacherProfilePage()),
-            );
-          },
-        ),
+
         const SizedBox(width: 8),
       ],
     );
