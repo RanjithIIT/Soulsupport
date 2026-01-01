@@ -20,6 +20,9 @@ router.register(r'bus-stops', views.BusStopViewSet, basename='busstop')
 router.register(r'bus-stop-students', views.BusStopStudentViewSet, basename='busstopstudent')
 router.register(r'activities', views.ActivityViewSet, basename='activity')
 router.register(r'schools', views.SchoolViewSet, basename='school')
+router.register(r'events', views.EventViewSet, basename='event')
+router.register(r'awards', views.AwardViewSet, basename='award')
+router.register(r'campus-features', views.CampusFeatureViewSet, basename='campusfeature')
 
 urlpatterns = [
     path('', include(router.urls)),

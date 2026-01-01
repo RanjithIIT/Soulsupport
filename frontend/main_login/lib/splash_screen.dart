@@ -71,34 +71,31 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
           ),
-          // Full screen image - fits to screen showing entire image
+          // Vidyarambh logo - centered and properly adjusted
           FadeTransition(
             opacity: _fadeAnimation,
             child: ScaleTransition(
               scale: _scaleAnimation,
-              child: SizedBox(
-                width: MediaQuery.of(context).size.width,
-                height: MediaQuery.of(context).size.height,
+              child: Center(
                 child: Image.asset(
-                  'assets/images/Vidya_rambh1.png',
+                  'assets/images/splash_v2.jpg',
+                  width: MediaQuery.of(context).size.width * 0.8,
+                  height: MediaQuery.of(context).size.height * 0.8,
                   fit: BoxFit.contain,
                   filterQuality: FilterQuality.high,
                   errorBuilder: (context, error, stackTrace) {
                     // Fallback if image is not found
                     return Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6), Color(0xFF60A5FA)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                      width: 200,
+                      height: 200,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.school,
-                          size: 120,
-                          color: Colors.white,
-                        ),
+                      child: const Icon(
+                        Icons.school,
+                        size: 120,
+                        color: Color(0xFF1E3A8A),
                       ),
                     );
                   },

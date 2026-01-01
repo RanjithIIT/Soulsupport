@@ -502,7 +502,7 @@ class _StudentProjectsPageState extends State<StudentProjectsPage> {
           value: selected,
           isExpanded: true,
           items: items.entries
-              .map((e) => DropdownMenuItem(child: Text(e.value), value: e.key))
+              .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
               .toList(),
           onChanged: (v) => onChanged(v!),
           icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xff764ba2)),
@@ -682,7 +682,7 @@ class _StudentProjectsPageState extends State<StudentProjectsPage> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4.0),
       child: Text(
-        '$label: ${value.length > 30 ? value.substring(0, 30) + '...' : value}',
+        '$label: ${value.length > 30 ? '${value.substring(0, 30)}...' : value}',
         style: TextStyle(fontSize: 13.5, color: Colors.grey[700]),
       ),
     );

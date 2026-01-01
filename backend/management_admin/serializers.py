@@ -2,7 +2,11 @@
 Serializers for management_admin app
 """
 from rest_framework import serializers
+<<<<<<< HEAD
 from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Activity
+=======
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature
+>>>>>>> sairam
 from main_login.serializers import UserSerializer
 from main_login.serializer_mixins import SchoolIdMixin
 from main_login.utils import get_user_school_id
@@ -458,6 +462,7 @@ class BusSerializer(SchoolIdMixin, serializers.ModelSerializer):
         return stops_data
 
     def get_afternoon_stops(self, obj):
+<<<<<<< HEAD
         """Get afternoon stops with their students"""
         # Get all afternoon stops for this bus, ordered by stop_order
         afternoon_stops = obj.stops.filter(route_type='afternoon').order_by('stop_order')
@@ -562,3 +567,88 @@ class ActivitySerializer(SchoolIdMixin, serializers.ModelSerializer):
         if not value or not value.strip():
             raise serializers.ValidationError('Description is required.')
         return value.strip()
+=======
+        return []
+
+
+class EventSerializer(SchoolIdMixin, serializers.ModelSerializer):
+    """Serializer for Event model"""
+    
+    class Meta:
+        model = Event
+        fields = [
+            'id', 'school_id', 'school_name', 'name', 'category', 'date',
+            'time', 'location', 'organizer', 'participants', 'status',
+            'description', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'school_id', 'school_name', 'created_at', 'updated_at']
+    
+    def update(self, instance, validated_data):
+        """Update event instance"""
+        # Update all fields except read-only ones
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+
+
+class DepartmentSerializer(serializers.ModelSerializer):
+    """Serializer for Department model"""
+    school_id = serializers.ReadOnlyField(source='school.school_id')
+    
+    class Meta:
+        model = Department
+        fields = [
+            'id', 'school', 'school_id', 'school_name', 'name', 'code', 'description',
+            'head_name', 'email', 'phone', 'faculty_count', 'student_count',
+            'course_count', 'established_date', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'school', 'school_id', 'school_name', 'created_at', 'updated_at']
+
+    def update(self, instance, validated_data):
+        """Update department instance"""
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+
+
+class CampusFeatureSerializer(serializers.ModelSerializer):
+    """Serializer for CampusFeature model"""
+    school_id = serializers.ReadOnlyField(source='school.school_id')
+    
+    class Meta:
+        model = CampusFeature
+        fields = [
+            'id', 'school', 'school_id', 'school_name', 'name', 'category', 'description',
+            'location', 'capacity', 'status', 'date_added', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'school', 'school_id', 'school_name', 'date_added', 'created_at', 'updated_at']
+
+    def update(self, instance, validated_data):
+        """Update campus feature instance"""
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+
+
+class AwardSerializer(SchoolIdMixin, serializers.ModelSerializer):
+    """Serializer for Award model"""
+    
+    class Meta:
+        model = Award
+        fields = [
+            'id', 'school_id', 'school_name', 'title', 'category', 'recipient',
+            'student_ids', 'date', 'description', 'level', 'presented_by',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'school_id', 'school_name', 'created_at', 'updated_at']
+    
+    def update(self, instance, validated_data):
+        """Update award instance"""
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+>>>>>>> sairam

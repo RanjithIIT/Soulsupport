@@ -2,9 +2,11 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
 import 'main.dart' as app;
 import 'dashboard.dart';
 import 'widgets/school_profile_header.dart';
+import 'management_routes.dart';
 
 class Event {
   final int id;
@@ -30,6 +32,21 @@ class Event {
     required this.status,
     required this.description,
   });
+
+  factory Event.fromJson(Map<String, dynamic> json) {
+    return Event(
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      category: json['category'] ?? 'Other',
+      date: json['date'] ?? '',
+      time: json['time'] ?? '',
+      location: json['location'] ?? '',
+      organizer: json['organizer'] ?? '',
+      participants: json['participants'] ?? 0,
+      status: json['status'] ?? 'Upcoming',
+      description: json['description'] ?? '',
+    );
+  }
 }
 
 class EventsManagementPage extends StatefulWidget {
@@ -40,68 +57,9 @@ class EventsManagementPage extends StatefulWidget {
 }
 
 class _EventsManagementPageState extends State<EventsManagementPage> {
-  final List<Event> _events = [
-    const Event(
-      id: 1,
-      name: 'Annual Sports Day',
-      category: 'Sports',
-      date: '2024-03-15',
-      time: '09:00 AM - 04:00 PM',
-      location: 'School Ground',
-      organizer: 'Sports Department',
-      participants: 450,
-      status: 'Upcoming',
-      description: 'Annual sports competition with various athletic events',
-    ),
-    const Event(
-      id: 2,
-      name: 'Science Fair',
-      category: 'Academic',
-      date: '2024-03-20',
-      time: '10:00 AM - 02:00 PM',
-      location: 'Science Lab & Auditorium',
-      organizer: 'Science Department',
-      participants: 200,
-      status: 'Upcoming',
-      description: 'Student science projects and experiments exhibition',
-    ),
-    const Event(
-      id: 3,
-      name: 'Parent-Teacher Meeting',
-      category: 'Administrative',
-      date: '2024-03-10',
-      time: '02:00 PM - 05:00 PM',
-      location: 'Classrooms',
-      organizer: 'School Administration',
-      participants: 300,
-      status: 'Completed',
-      description: 'Quarterly parent-teacher conference',
-    ),
-    const Event(
-      id: 4,
-      name: 'Music Concert',
-      category: 'Cultural',
-      date: '2024-03-25',
-      time: '06:00 PM - 08:00 PM',
-      location: 'Auditorium',
-      organizer: 'Music Department',
-      participants: 150,
-      status: 'Upcoming',
-      description: 'Annual music performance by school bands and choirs',
-    ),
-    const Event(
-      id: 5,
-      name: 'Career Fair',
-      category: 'Career',
-      date: '2024-03-30',
-      time: '11:00 AM - 03:00 PM',
-      location: 'Gymnasium',
-      organizer: 'Career Counseling',
-      participants: 400,
-      status: 'Upcoming',
-      description: 'Career guidance and college information session',
-    ),
-  ];
+  List<Event> _events = [];
+  bool _isLoading = true;
+  String _errorMessage = '';
 
   final TextEditingController _searchController = TextEditingController();
   late List<Event> _visibleEvents;
@@ -109,7 +67,60 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
   @override
   void initState() {
     super.initState();
-    _visibleEvents = List<Event>.from(_events);
+    _visibleEvents = [];
+    _loadEvents();
+  }
+
+  Future<void> _loadEvents() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.get(Endpoints.events);
+
+      if (response.success && response.data != null) {
+        // Handle different response formats
+        List<dynamic> eventsJson;
+        
+        if (response.data is List) {
+          // Direct list response
+          eventsJson = response.data as List<dynamic>;
+        } else if (response.data is Map) {
+          // Wrapped response (e.g., {"results": [...]} or {"data": [...]})
+          final dataMap = response.data as Map<String, dynamic>;
+          if (dataMap.containsKey('results')) {
+            eventsJson = dataMap['results'] as List<dynamic>;
+          } else if (dataMap.containsKey('data')) {
+            eventsJson = dataMap['data'] as List<dynamic>;
+          } else {
+            // If it's a single object, wrap it in a list
+            eventsJson = [dataMap];
+          }
+        } else {
+          eventsJson = [];
+        }
+        
+        setState(() {
+          _events = eventsJson.map((json) => Event.fromJson(json as Map<String, dynamic>)).toList();
+          _visibleEvents = List<Event>.from(_events);
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _errorMessage = response.error ?? 'Failed to load events';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error loading events: $e';
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -178,15 +189,17 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
     );
   }
 
-  void _editEvent(Event event) {
-    // Navigate to edit event page (can be created later)
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Edit event feature coming soon for ${event.name}')),
+  void _editEvent(Event event) async {
+    await Navigator.pushNamed(
+      context,
+      ManagementRoutes.editEvent,
+      arguments: event.id,
     );
+    _loadEvents(); // Reload events after returning from edit page
   }
 
-  void _deleteEvent(Event event) {
-    showDialog<void>(
+  void _deleteEvent(Event event) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
@@ -194,20 +207,11 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
           content: Text('Delete ${event.name}?'),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.of(context).pop(false),
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
-                setState(() {
-                  _events.removeWhere((e) => e.id == event.id);
-                });
-                _filterEvents(_searchController.text);
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Event deleted successfully!')),
-                );
-              },
+              onPressed: () => Navigator.of(context).pop(true),
               child: const Text(
                 'Delete',
                 style: TextStyle(color: Colors.red),
@@ -217,13 +221,40 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
         );
       },
     );
+
+    if (confirmed == true) {
+      try {
+        final apiService = ApiService();
+        await apiService.initialize();
+        final response = await apiService.delete('${Endpoints.events}${event.id}/');
+
+        if (response.success) {
+          await _loadEvents(); // Reload events from server
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Event deleted successfully!')),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to delete event: ${response.error}')),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error deleting event: $e')),
+          );
+        }
+      }
+    }
   }
 
-  void _addEvent() {
-    // Navigate to add event page (can be created later)
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add event feature coming soon')),
-    );
+  void _addEvent() async {
+    await Navigator.pushNamed(context, ManagementRoutes.addEvent);
+    _loadEvents(); // Reload events after returning from add page
   }
 
   @override
@@ -280,7 +311,7 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
     );
 
     // Safe navigation helper for sidebar
-    void _navigateToRoute(String route) {
+    void navigateToRoute(String route) {
       final navigator = app.SchoolManagementApp.navigatorKey.currentState;
       if (navigator != null) {
         if (navigator.canPop() || route != '/dashboard') {
@@ -308,38 +339,41 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
           children: [
             Container(
               margin: const EdgeInsets.all(20),
-              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.24),
-                  width: 1,
+                  color: Colors.white.withValues(alpha: 0.2),
+                  width: 1.5,
                 ),
-              ),
-              child: const Column(
-                children: [
-                  Text(
-                    '🏫 SMS',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 5),
-                  Text(
-                    'School Management System',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  'packages/management_org/assets/Vidyarambh.png',
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.school,
+                        size: 56,
+                        color: Color(0xFF667EEA),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
             Expanded(
@@ -350,48 +384,48 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
                     icon: '📊',
                     title: 'Overview',
                     isActive: false,
-                    onTap: () => _navigateToRoute('/dashboard'),
+                    onTap: () => navigateToRoute('/dashboard'),
                   ),
                   _NavItem(
                     icon: '👨‍🏫',
                     title: 'Teachers',
-                    onTap: () => _navigateToRoute('/teachers'),
+                    onTap: () => navigateToRoute('/teachers'),
                   ),
                   _NavItem(
                     icon: '👥',
                     title: 'Students',
-                    onTap: () => _navigateToRoute('/students'),
+                    onTap: () => navigateToRoute('/students'),
                   ),
                   _NavItem(
                     icon: '🚌',
                     title: 'Buses',
-                    onTap: () => _navigateToRoute('/buses'),
+                    onTap: () => navigateToRoute('/buses'),
                   ),
                   _NavItem(
                     icon: '🎯',
                     title: 'Activities',
-                    onTap: () => _navigateToRoute('/activities'),
+                    onTap: () => navigateToRoute('/activities'),
                   ),
                   _NavItem(
                     icon: '📅',
                     title: 'Events',
                     isActive: true,
-                    onTap: () => _navigateToRoute('/events'),
+                    onTap: () => navigateToRoute('/events'),
                   ),
                   _NavItem(
                     icon: '📆',
                     title: 'Calendar',
-                    onTap: () => _navigateToRoute('/calendar'),
+                    onTap: () => navigateToRoute('/calendar'),
                   ),
                   _NavItem(
                     icon: '🔔',
                     title: 'Notifications',
-                    onTap: () => _navigateToRoute('/notifications'),
+                    onTap: () => navigateToRoute('/notifications'),
                   ),
                   _NavItem(
                     icon: '🛣️',
                     title: 'Bus Routes',
-                    onTap: () => _navigateToRoute('/bus-routes'),
+                    onTap: () => navigateToRoute('/bus-routes'),
                   ),
                 ],
               ),
@@ -414,13 +448,29 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    'Events Management',
-                    style: TextStyle(
-                      fontSize: isMobile ? 22 : 28,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF333333),
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('📅', style: TextStyle(fontSize: 32)),
+                          const SizedBox(width: 15),
+                          Text(
+                            'Events Management',
+                            style: TextStyle(
+                              fontSize: isMobile ? 22 : 28,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF333333),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Manage school events, calendar, and scheduling',
+                        style: TextStyle(color: Color(0xFF666666), fontSize: 16),
+                      ),
+                    ],
                   ),
                 ),
                 if (!isMobile) ...[
@@ -442,34 +492,6 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
                 ],
               ),
             ),
-          GlassContainer(
-            padding: const EdgeInsets.all(25),
-            margin: const EdgeInsets.only(bottom: 30),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Row(
-                  children: [
-                    Text('📅', style: TextStyle(fontSize: 32)),
-                    SizedBox(width: 15),
-                    Text(
-                      'Events Management',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF333333),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 10),
-                Text(
-                  'Manage school events, calendar, and scheduling',
-                  style: TextStyle(color: Color(0xFF666666), fontSize: 16),
-                ),
-              ],
-            ),
-          ),
           LayoutBuilder(
             builder: (context, constraints) {
               final crossAxisCount = isMobile ? 1 : 4;
@@ -482,18 +504,29 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
                 crossAxisSpacing: 20,
                 mainAxisSpacing: 20,
                 children: [
-                  _StatCard(label: 'Total Events', value: '$_totalEvents'),
+                  _StatCard(
+                    label: 'Total Events',
+                    value: '$_totalEvents',
+                    icon: '📅',
+                    color: const Color(0xFF667EEA),
+                  ),
                   _StatCard(
                     label: 'Upcoming Events',
                     value: '$_upcomingEvents',
+                    icon: '🔔',
+                    color: Colors.orange,
                   ),
                   _StatCard(
                     label: 'Completed Events',
                     value: '$_completedEvents',
+                    icon: '✅',
+                    color: Colors.green,
                   ),
                   _StatCard(
                     label: 'Event Categories',
                     value: '$_eventCategories',
+                    icon: '🎭',
+                    color: Colors.blue,
                   ),
                 ],
               );
@@ -577,24 +610,75 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
               ],
             ),
           ),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final spacing = 20.0;
-              final cardWidth = (constraints.maxWidth - spacing) / 2;
-              return Wrap(
-                spacing: spacing,
-                runSpacing: spacing,
-                children: _visibleEvents.map((event) {
-                  return ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: cardWidth,
+          if (_isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(50.0),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (_errorMessage.isNotEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(50.0),
+                child: Column(
+                  children: [
+                    const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text(
+                      _errorMessage,
+                      style: const TextStyle(color: Colors.red, fontSize: 16),
+                      textAlign: TextAlign.center,
                     ),
-                    child: _buildEventCard(event),
-                  );
-                }).toList(),
-              );
-            },
-          ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _loadEvents,
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (_visibleEvents.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(50.0),
+                child: Column(
+                  children: [
+                    const Icon(Icons.event_busy, size: 64, color: Colors.grey),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'No events found',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Add your first event to get started',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final spacing = 20.0;
+                final cardWidth = (constraints.maxWidth - spacing) / 2;
+                return Wrap(
+                  spacing: spacing,
+                  runSpacing: spacing,
+                  children: _visibleEvents.map((event) {
+                    return ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: cardWidth,
+                      ),
+                      child: _buildEventCard(event),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -905,35 +989,52 @@ class _NavItem extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
+  final String icon;
+  final Color color;
 
-  const _StatCard({required this.label, required this.value});
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GlassContainer(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 36,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF667EEA),
+    return Card(
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      elevation: 5,
+      shadowColor: Colors.black.withValues(alpha: 0.1),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(icon, style: TextStyle(fontSize: 40, color: color)),
+            const SizedBox(height: 10),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF333333),
+              ),
             ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            label.toUpperCase(),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF666666),
-              fontSize: 12,
-              letterSpacing: 1,
+            const SizedBox(height: 5),
+            Text(
+              label.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF666666),
+                fontSize: 12,
+                letterSpacing: 1,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

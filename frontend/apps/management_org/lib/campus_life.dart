@@ -1,24 +1,25 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:main_login/main.dart' as main_login;
 import 'main.dart' as app;
 import 'dashboard.dart';
+import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
+import 'widgets/school_profile_header.dart';
 
-void main() {
-  runApp(const CampusLifeManagementPage());
-}
-
-// --- Style Constants (From initial HTML/CSS conversion) ---
+// --- Style Constants ---
 
 const Color primaryColorDark = Color(0xFF764BA2);
 const Color primaryColorLight = Color(0xFF667EEA);
-const Color backgroundColor = Color(0xFFf8f9fa); // Used a light grey background instead of pure white for contrast
+const Color backgroundColor = Color(0xFFf8f9fa);
 const Color textColor = Color(0xFF333333);
 const Color secondaryTextColor = Color(0xFF666666);
 const Color tertiaryTextColor = Color(0xFF888888);
 
-// --- Data Models and Mock Data (Merged and Consolidated) ---
+// --- Data Models and Mock Data ---
 
 class CampusFeature {
   final int id;
@@ -29,7 +30,7 @@ class CampusFeature {
   final String? capacity;
   final String status;
   final DateTime dateAdded;
-  final String? imageUrl; // Kept for future use if images were involved
+  final String? imageUrl;
 
   CampusFeature({
     required this.id,
@@ -42,6 +43,33 @@ class CampusFeature {
     required this.dateAdded,
     this.imageUrl,
   });
+
+  factory CampusFeature.fromJson(Map<String, dynamic> json) {
+    return CampusFeature(
+      id: json['id'],
+      name: json['name'] ?? '',
+      category: json['category'] ?? 'academic',
+      description: json['description'] ?? '',
+      location: json['location'] ?? '',
+      capacity: json['capacity'],
+      status: json['status'] ?? 'active',
+      dateAdded: json['date_added'] != null
+          ? DateTime.parse(json['date_added'])
+          : DateTime.now(),
+      imageUrl: json['image_url'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'category': category,
+      'description': description,
+      'location': location,
+      'capacity': capacity,
+      'status': status,
+    };
+  }
 
   CampusFeature copyWith({
     int? id,
@@ -74,7 +102,8 @@ final List<CampusFeature> mockCampusFeatures = [
     id: 1,
     name: 'Modern Library',
     category: 'academic',
-    description: 'State-of-the-art library with digital resources, study rooms, and multimedia facilities.',
+    description:
+        'State-of-the-art library with digital resources, study rooms, and multimedia facilities.',
     location: 'Main Building, 2nd Floor',
     capacity: '200 students',
     status: 'active',
@@ -84,7 +113,8 @@ final List<CampusFeature> mockCampusFeatures = [
     id: 2,
     name: 'Olympic-size Swimming Pool',
     category: 'sports',
-    description: '50-meter swimming pool with diving boards and professional coaching facilities.',
+    description:
+        '50-meter swimming pool with diving boards and professional coaching facilities.',
     location: 'Sports Complex',
     capacity: '100 students',
     status: 'active',
@@ -94,7 +124,8 @@ final List<CampusFeature> mockCampusFeatures = [
     id: 3,
     name: 'Robotics Lab',
     category: 'technology',
-    description: 'Advanced robotics laboratory with 3D printers, Arduino kits, and AI programming stations.',
+    description:
+        'Advanced robotics laboratory with 3D printers, Arduino kits, and AI programming stations.',
     location: 'Technology Block',
     capacity: '30 students',
     status: 'active',
@@ -104,7 +135,8 @@ final List<CampusFeature> mockCampusFeatures = [
     id: 4,
     name: 'Art Studio',
     category: 'arts',
-    description: 'Creative art studio with painting, sculpture, and digital art facilities.',
+    description:
+        'Creative art studio with painting, sculpture, and digital art facilities.',
     location: 'Arts Building',
     capacity: '50 students',
     status: 'active',
@@ -114,7 +146,8 @@ final List<CampusFeature> mockCampusFeatures = [
     id: 5,
     name: 'Solar Power Plant',
     category: 'infrastructure',
-    description: 'Sustainable energy solution with rooftop solar panels generating 100kW power.',
+    description:
+        'Sustainable energy solution with rooftop solar panels generating 100kW power.',
     location: 'Campus Rooftops',
     capacity: 'Entire campus',
     status: 'active',
@@ -124,7 +157,8 @@ final List<CampusFeature> mockCampusFeatures = [
     id: 6,
     name: 'Cafeteria',
     category: 'amenities',
-    description: 'Multi-cuisine cafeteria serving healthy meals with seating for 300 students.',
+    description:
+        'Multi-cuisine cafeteria serving healthy meals with seating for 300 students.',
     location: 'Student Center',
     capacity: '300 students',
     status: 'active',
@@ -134,7 +168,8 @@ final List<CampusFeature> mockCampusFeatures = [
     id: 7,
     name: 'Meditation Garden',
     category: 'speciality',
-    description: 'Peaceful meditation garden with walking paths, water features, and seating areas.',
+    description:
+        'Peaceful meditation garden with walking paths, water features, and seating areas.',
     location: 'Campus Center',
     capacity: '100 students',
     status: 'active',
@@ -144,7 +179,8 @@ final List<CampusFeature> mockCampusFeatures = [
     id: 8,
     name: 'Basketball Court',
     category: 'sports',
-    description: 'Professional basketball court with electronic scoreboard and spectator seating.',
+    description:
+        'Professional basketball court with electronic scoreboard and spectator seating.',
     location: 'Sports Complex',
     capacity: '200 spectators',
     status: 'active',
@@ -154,7 +190,8 @@ final List<CampusFeature> mockCampusFeatures = [
     id: 9,
     name: 'Computer Lab',
     category: 'technology',
-    description: 'Modern computer laboratory with 50 workstations and high-speed internet.',
+    description:
+        'Modern computer laboratory with 50 workstations and high-speed internet.',
     location: 'Technology Block',
     capacity: '50 students',
     status: 'active',
@@ -164,7 +201,8 @@ final List<CampusFeature> mockCampusFeatures = [
     id: 10,
     name: 'Auditorium',
     category: 'infrastructure',
-    description: '500-seat auditorium with professional sound and lighting systems.',
+    description:
+        '500-seat auditorium with professional sound and lighting systems.',
     location: 'Main Building',
     capacity: '500 people',
     status: 'active',
@@ -174,7 +212,8 @@ final List<CampusFeature> mockCampusFeatures = [
     id: 11,
     name: 'Green House',
     category: 'speciality',
-    description: 'Educational greenhouse for botany studies and environmental awareness.',
+    description:
+        'Educational greenhouse for botany studies and environmental awareness.',
     location: 'Science Block',
     capacity: '30 students',
     status: 'active',
@@ -184,12 +223,13 @@ final List<CampusFeature> mockCampusFeatures = [
     id: 12,
     name: 'Music Room',
     category: 'arts',
-    description: 'Soundproof music room with various instruments and recording equipment.',
+    description:
+        'Soundproof music room with various instruments and recording equipment.',
     location: 'Arts Building',
     capacity: '40 students',
     status: 'active',
     dateAdded: DateTime(2024, 1, 19),
-  )
+  ),
 ];
 
 // --- Utility Functions (Consolidated) ---
@@ -285,31 +325,7 @@ String getStatusDisplayName(String status) {
   }
 }
 
-// --- Main App and Screen (using the functional structure) ---
-
-class CampusLifeManagementApp extends StatelessWidget {
-  const CampusLifeManagementApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Campus Life Management - School Management System',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        scaffoldBackgroundColor: backgroundColor,
-        textTheme: GoogleFonts.notoSansTextTheme(
-          Theme.of(context).textTheme,
-        ),
-        colorScheme: ColorScheme.fromSwatch(
-          primarySwatch: Colors.deepPurple,
-        ).copyWith(
-          secondary: primaryColorLight,
-        ),
-      ),
-      home: const CampusLifeManagementPage(),
-    );
-  }
-}
+// --- Main Screen (using the functional structure) ---
 
 class CampusLifeManagementPage extends StatefulWidget {
   const CampusLifeManagementPage({super.key});
@@ -321,13 +337,15 @@ class CampusLifeManagementPage extends StatefulWidget {
 
 class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
   // Use a mutable list for state management
-  final List<CampusFeature> _allFeatures = List.from(mockCampusFeatures);
+  List<CampusFeature> _allFeatures = [];
   List<CampusFeature> _filteredFeatures = [];
   String _searchQuery = '';
   String _categoryFilter = '';
   String _statusFilter = '';
   String _sortBy = 'date'; // 'date', 'name', 'category'
   bool _sortAscending = false;
+  bool _isLoading = false;
+  String? _errorMessage;
 
   // Form Controllers for embedded form
   final _formKey = GlobalKey<FormState>();
@@ -341,8 +359,44 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
   @override
   void initState() {
     super.initState();
-    _filteredFeatures = _allFeatures;
-    _sortFeatures();
+    _loadFeatures();
+  }
+
+  Future<void> _loadFeatures() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.get(Endpoints.campusFeatures);
+      if (response.success && response.data != null) {
+        List<dynamic> data = [];
+        if (response.data is List) {
+          data = response.data as List;
+        } else if (response.data is Map && (response.data as Map)['results'] != null) {
+          data = (response.data as Map)['results'] as List;
+        }
+
+        setState(() {
+          _allFeatures = data.map((d) => CampusFeature.fromJson(d)).toList();
+          _filterFeatures();
+        });
+      } else {
+        setState(() {
+          _errorMessage = response.error ?? 'Failed to load campus features';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error loading campus features: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -357,14 +411,13 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
   void _filterFeatures() {
     setState(() {
       _filteredFeatures = _allFeatures.where((feature) {
-        final matchesSearch = _searchQuery.isEmpty ||
+        final matchesSearch =
+            _searchQuery.isEmpty ||
             feature.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            feature.description
-                .toLowerCase()
-                .contains(_searchQuery.toLowerCase()) ||
-            feature.location
-                .toLowerCase()
-                .contains(_searchQuery.toLowerCase());
+            feature.description.toLowerCase().contains(
+              _searchQuery.toLowerCase(),
+            ) ||
+            feature.location.toLowerCase().contains(_searchQuery.toLowerCase());
 
         final matchesCategory =
             _categoryFilter.isEmpty || feature.category == _categoryFilter;
@@ -392,7 +445,6 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
           comparison = a.category.compareTo(b.category);
           break;
       }
-      // Note: The second input used descending order by default. Keeping ascending false for default latest date sort.
       return _sortAscending ? comparison : -comparison;
     });
   }
@@ -401,18 +453,116 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
     return {
       'total': _allFeatures.length,
       'active': _allFeatures.where((f) => f.status == 'active').length,
-      'specialities': _allFeatures.where((f) => f.category == 'speciality').length,
+      'specialities': _allFeatures
+          .where((f) => f.category == 'speciality')
+          .length,
       'satisfaction': '95%',
     };
   }
 
-  void _addFeature(CampusFeature feature) {
+  Future<void> _addFeature(CampusFeature feature) async {
     setState(() {
-      // Add to the main list
-      _allFeatures.insert(0, feature);
-      // Re-filter and sort the displayed list
-      _filterFeatures();
+      _isLoading = true;
     });
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.post(Endpoints.campusFeatures, body: feature.toJson());
+      if (response.success) {
+        await _loadFeatures();
+        _resetForm();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.error ?? 'Failed to add feature'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error adding feature: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _updateFeature(CampusFeature updatedFeature) async {
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.put('${Endpoints.campusFeatures}${updatedFeature.id}/', body: updatedFeature.toJson());
+      if (response.success) {
+        await _loadFeatures();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.error ?? 'Failed to update feature'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating feature: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _deleteFeature(int id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: const Text('Are you sure you want to delete this feature?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.delete('${Endpoints.campusFeatures}$id/');
+      if (response.success) {
+        await _loadFeatures();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.error ?? 'Failed to delete feature'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting feature: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   void _submitEmbeddedForm() {
@@ -457,36 +607,22 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
     });
   }
 
-  void _updateFeature(CampusFeature updatedFeature) {
-    setState(() {
-      final index =
-          _allFeatures.indexWhere((f) => f.id == updatedFeature.id);
-      if (index != -1) {
-        _allFeatures[index] = updatedFeature;
-        _filterFeatures();
-      }
-    });
-  }
-
-  void _deleteFeature(int id) {
-    setState(() {
-      _allFeatures.removeWhere((f) => f.id == id);
-      _filterFeatures();
-    });
-  }
 
   void _exportData(BuildContext context) {
     final csv = StringBuffer();
     csv.writeln(
-        'ID,Name,Category,Description,Location,Capacity,Status,Date Added');
+      'ID,Name,Category,Description,Location,Capacity,Status,Date Added',
+    );
     for (final feature in _filteredFeatures) {
       csv.writeln(
-          '${feature.id},${feature.name},${feature.category},"${feature.description.replaceAll('"', '""')}",${feature.location},${feature.capacity ?? 'N/A'},${feature.status},${DateFormat('yyyy-MM-dd').format(feature.dateAdded)}');
+        '${feature.id},${feature.name},${feature.category},"${feature.description.replaceAll('"', '""')}",${feature.location},${feature.capacity ?? 'N/A'},${feature.status},${DateFormat('yyyy-MM-dd').format(feature.dateAdded)}',
+      );
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-            'Export ready! ${_filteredFeatures.length} records prepared.'),
+          'Export ready! ${_filteredFeatures.length} records prepared.',
+        ),
         action: SnackBarAction(
           label: 'Copy CSV',
           onPressed: () {
@@ -548,13 +684,55 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-                content: Text('Campus feature updated successfully!')),
+              content: Text('Campus feature updated successfully!'),
+            ),
           );
         },
       ),
     );
   }
-  
+
+
+  Widget _buildUserInfo() {
+    return SchoolProfileHeader(apiService: ApiService());
+  }
+
+  Widget _buildBackButton() {
+    return InkWell(
+      onTap: () => Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => DashboardPage()),
+      ),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6C757D), Color(0xFF495057)],
+          ),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF495057).withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.arrow_back, size: 16, color: Colors.white),
+            SizedBox(width: 8),
+            Text(
+              'Back to Dashboard',
+              style: TextStyle(color: Colors.white, fontSize: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final stats = _getStats();
@@ -570,108 +748,99 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
               color: const Color(0xFFF5F6FA),
               child: Column(
                 children: [
-                  // --- TOP HEADER ---
-                  Container(
-                    color: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
+                  // --- CONTENT BODY ---
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(30),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          ElevatedButton.icon(
-                            onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardPage())), 
-                            icon: const Icon(Icons.arrow_back, size: 16),
-                            label: const Text("Back to Dashboard"),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: primaryColorLight.withValues(alpha: 0.1),
-                              foregroundColor: primaryColorLight,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          // --- TOP HEADER ---
+                          GlassContainer(
+                            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
+                            margin: const EdgeInsets.only(bottom: 30),
+                            child: Row(
+                              children: [
+                                const Expanded(
+                                  child: Text(
+                                    'Campus Life Management',
+                                    style: TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF333333),
+                                    ),
+                                  ),
+                                ),
+                                _buildUserInfo(),
+                                const SizedBox(width: 20),
+                                _buildBackButton(),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 20),
-                          const Text(
-                            '🏫 Campus Life Management',
-                            style: TextStyle(
-                              color: textColor,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          // Stats Overview
+                          _StatsOverview(stats: stats),
+                          const SizedBox(height: 30),
+
+                          // Add New Feature Form
+                          _buildAddFeatureSection(),
+                          const SizedBox(height: 30),
+
+                          // Search & Filter Bar
+                          _FilterBar(
+                            currentQuery: _searchQuery,
+                            currentCategory: _categoryFilter,
+                            currentStatus: _statusFilter,
+                            onSearchChanged: (value) {
+                              _searchQuery = value;
+                              _filterFeatures();
+                            },
+                            onCategoryChanged: (value) {
+                              _categoryFilter = value ?? '';
+                              _filterFeatures();
+                            },
+                            onStatusChanged: (value) {
+                              _statusFilter = value ?? '';
+                              _filterFeatures();
+                            },
+                            onSortChanged: (sortBy, isAscending) {
+                              _sortBy = sortBy;
+                              _sortAscending = isAscending;
+                              _sortFeatures();
+                            },
                           ),
+                          const SizedBox(height: 30),
+
+                          // Features Grid
+                          _isLoading 
+                            ? const Center(child: Padding(padding: EdgeInsets.all(50), child: CircularProgressIndicator()))
+                            : _errorMessage != null
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                                        const SizedBox(height: 16),
+                                        Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+                                        const SizedBox(height: 16),
+                                        ElevatedButton(
+                                          onPressed: _loadFeatures,
+                                          child: const Text('Retry'),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : _FeaturesGrid(
+                                    features: _filteredFeatures,
+                                    onView: _viewFeature,
+                                    onEdit: _showEditFeatureDialog,
+                                    onDelete: _deleteFeature,
+                                  ),
                         ],
                       ),
-                      Row(
-                        children: [
-                          // Export Button
-                          IconButton(
-                            icon: const Icon(Icons.download, color: secondaryTextColor),
-                            onPressed: () => _exportData(context),
-                            tooltip: 'Export Data',
-                          ),
-                          const SizedBox(width: 15),
-                          // User Info & Logout
-                          const UserInfo(),
-                          const SizedBox(width: 15),
-                          LogoutButton(onPressed: () => _logout(context)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                // --- CONTENT BODY ---
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Stats Overview
-                        _StatsOverview(stats: stats),
-                        const SizedBox(height: 30),
-
-                        // Add New Feature Form
-                        _buildAddFeatureSection(),
-                        const SizedBox(height: 30),
-
-                        // Search & Filter Bar
-                        _FilterBar(
-                          currentQuery: _searchQuery,
-                          currentCategory: _categoryFilter,
-                          currentStatus: _statusFilter,
-                          onSearchChanged: (value) {
-                            _searchQuery = value;
-                            _filterFeatures();
-                          },
-                          onCategoryChanged: (value) {
-                            _categoryFilter = value ?? '';
-                            _filterFeatures();
-                          },
-                          onStatusChanged: (value) {
-                            _statusFilter = value ?? '';
-                            _filterFeatures();
-                          },
-                          onSortChanged: (sortBy, isAscending) {
-                            _sortBy = sortBy;
-                            _sortAscending = isAscending;
-                            _sortFeatures();
-                          },
-                        ),
-                        const SizedBox(height: 30),
-
-                        // Features Grid
-                        _FeaturesGrid(
-                          features: _filteredFeatures,
-                          onView: _viewFeature,
-                          onEdit: _showEditFeatureDialog,
-                          onDelete: _deleteFeature,
-                        ),
-                      ],
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
             ),
           ),
         ],
@@ -687,7 +856,7 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
     );
 
     // Safe navigation helper for sidebar
-    void _navigateToRoute(String route) {
+    void navigateToRoute(String route) {
       final navigator = app.SchoolManagementApp.navigatorKey.currentState;
       if (navigator != null) {
         if (navigator.canPop() || route != '/dashboard') {
@@ -715,38 +884,41 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
           children: [
             Container(
               margin: const EdgeInsets.all(20),
-              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.24),
-                  width: 1,
+                  color: Colors.white.withValues(alpha: 0.2),
+                  width: 1.5,
                 ),
-              ),
-              child: const Column(
-                children: [
-                  Text(
-                    '🏫 SMS',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 5),
-                  Text(
-                    'School Management System',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  'packages/management_org/assets/Vidyarambh.png',
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.school,
+                        size: 56,
+                        color: Color(0xFF667EEA),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
             Expanded(
@@ -757,47 +929,47 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
                     icon: '📊',
                     title: 'Overview',
                     isActive: false,
-                    onTap: () => _navigateToRoute('/dashboard'),
+                    onTap: () => navigateToRoute('/dashboard'),
                   ),
                   _NavItem(
                     icon: '👨‍🏫',
                     title: 'Teachers',
-                    onTap: () => _navigateToRoute('/teachers'),
+                    onTap: () => navigateToRoute('/teachers'),
                   ),
                   _NavItem(
                     icon: '👥',
                     title: 'Students',
-                    onTap: () => _navigateToRoute('/students'),
+                    onTap: () => navigateToRoute('/students'),
                   ),
                   _NavItem(
                     icon: '🚌',
                     title: 'Buses',
-                    onTap: () => _navigateToRoute('/buses'),
+                    onTap: () => navigateToRoute('/buses'),
                   ),
                   _NavItem(
                     icon: '🎯',
                     title: 'Activities',
-                    onTap: () => _navigateToRoute('/activities'),
+                    onTap: () => navigateToRoute('/activities'),
                   ),
                   _NavItem(
                     icon: '📅',
                     title: 'Events',
-                    onTap: () => _navigateToRoute('/events'),
+                    onTap: () => navigateToRoute('/events'),
                   ),
                   _NavItem(
                     icon: '📆',
                     title: 'Calendar',
-                    onTap: () => _navigateToRoute('/calendar'),
+                    onTap: () => navigateToRoute('/calendar'),
                   ),
                   _NavItem(
                     icon: '🔔',
                     title: 'Notifications',
-                    onTap: () => _navigateToRoute('/notifications'),
+                    onTap: () => navigateToRoute('/notifications'),
                   ),
                   _NavItem(
                     icon: '🛣️',
                     title: 'Bus Routes',
-                    onTap: () => _navigateToRoute('/bus-routes'),
+                    onTap: () => navigateToRoute('/bus-routes'),
                   ),
                 ],
               ),
@@ -845,8 +1017,7 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
                 labelText: 'Feature Name *',
                 border: OutlineInputBorder(),
               ),
-              validator: (value) =>
-                  value!.isEmpty ? 'Required' : null,
+              validator: (value) => value!.isEmpty ? 'Required' : null,
             ),
             const SizedBox(height: 15),
             Row(
@@ -857,7 +1028,9 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
                       labelText: 'Category *',
                       border: OutlineInputBorder(),
                     ),
-                    value: _selectedCategory.isEmpty ? null : _selectedCategory,
+                    initialValue: _selectedCategory.isEmpty
+                        ? null
+                        : _selectedCategory,
                     items: [
                       ...const {
                         'academic': 'Academic Facilities',
@@ -867,16 +1040,19 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
                         'infrastructure': 'Infrastructure',
                         'amenities': 'Amenities',
                         'speciality': 'Campus Speciality',
-                      }.entries.map((e) =>
-                          DropdownMenuItem(value: e.key, child: Text(e.value))),
+                      }.entries.map(
+                        (e) => DropdownMenuItem(
+                          value: e.key,
+                          child: Text(e.value),
+                        ),
+                      ),
                     ],
                     onChanged: (value) {
                       setState(() {
                         _selectedCategory = value ?? '';
                       });
                     },
-                    validator: (value) =>
-                        value == null ? 'Required' : null,
+                    validator: (value) => value == null ? 'Required' : null,
                   ),
                 ),
                 const SizedBox(width: 15),
@@ -886,16 +1062,21 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
                       labelText: 'Status *',
                       border: OutlineInputBorder(),
                     ),
-                    value: _selectedStatus,
+                    initialValue: _selectedStatus,
                     items: const [
                       DropdownMenuItem(value: 'active', child: Text('Active')),
                       DropdownMenuItem(
-                          value: 'under-construction',
-                          child: Text('Under Construction')),
-                      DropdownMenuItem(value: 'planned', child: Text('Planned')),
+                        value: 'under-construction',
+                        child: Text('Under Construction'),
+                      ),
                       DropdownMenuItem(
-                          value: 'maintenance',
-                          child: Text('Under Maintenance')),
+                        value: 'planned',
+                        child: Text('Planned'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'maintenance',
+                        child: Text('Under Maintenance'),
+                      ),
                     ],
                     onChanged: (value) {
                       setState(() {
@@ -914,8 +1095,7 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
                 border: OutlineInputBorder(),
               ),
               maxLines: 3,
-              validator: (value) =>
-                  value!.isEmpty ? 'Required' : null,
+              validator: (value) => value!.isEmpty ? 'Required' : null,
             ),
             const SizedBox(height: 15),
             Row(
@@ -927,8 +1107,7 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
                       labelText: 'Location *',
                       border: OutlineInputBorder(),
                     ),
-                    validator: (value) =>
-                        value!.isEmpty ? 'Required' : null,
+                    validator: (value) => value!.isEmpty ? 'Required' : null,
                   ),
                 ),
                 const SizedBox(width: 15),
@@ -1005,10 +1184,7 @@ class _NavItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
-        leading: Text(
-          icon,
-          style: const TextStyle(fontSize: 18),
-        ),
+        leading: Text(icon, style: const TextStyle(fontSize: 18)),
         title: Text(
           title,
           style: TextStyle(
@@ -1017,9 +1193,7 @@ class _NavItem extends StatelessWidget {
             fontSize: 14,
           ),
         ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         onTap: onTap,
       ),
     );
@@ -1059,8 +1233,8 @@ class _NavItemOldState extends State<_NavItemOld> {
           color: widget.isActive
               ? Colors.white.withValues(alpha: 0.3)
               : _isHovered
-                  ? Colors.white.withValues(alpha: 0.25)
-                  : Colors.transparent,
+              ? Colors.white.withValues(alpha: 0.25)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           boxShadow: _isHovered
               ? [
@@ -1068,7 +1242,7 @@ class _NavItemOldState extends State<_NavItemOld> {
                     color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
-                  )
+                  ),
                 ]
               : null,
         ),
@@ -1086,9 +1260,7 @@ class _NavItemOldState extends State<_NavItemOld> {
             child: Text(widget.title),
           ),
           selected: widget.isActive,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           onTap: widget.onTap,
         ),
       ),
@@ -1130,8 +1302,14 @@ class UserInfo extends StatelessWidget {
         const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Manager', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            Text('School Admin', style: TextStyle(color: secondaryTextColor, fontSize: 10)),
+            Text(
+              'Manager',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            Text(
+              'School Admin',
+              style: TextStyle(color: secondaryTextColor, fontSize: 10),
+            ),
           ],
         ),
       ],
@@ -1162,7 +1340,6 @@ class LogoutButton extends StatelessWidget {
   }
 }
 
-
 // Stats Overview (from V2, renamed and updated to use V1's data map)
 class _StatsOverview extends StatelessWidget {
   final Map<String, dynamic> stats;
@@ -1176,28 +1353,33 @@ class _StatsOverview extends StatelessWidget {
       crossAxisCount: 4,
       mainAxisSpacing: 20,
       crossAxisSpacing: 20,
+      childAspectRatio: 1.35,
       physics: const NeverScrollableScrollPhysics(),
       children: [
         _StatCard(
-            icon: '🏫',
-            label: 'Total Campus Features',
-            number: stats['total'].toString(),
-            color: primaryColorLight),
+          icon: '🏫',
+          label: 'Total Features',
+          value: stats['total'].toString(),
+          color: primaryColorLight,
+        ),
         _StatCard(
-            icon: '🎯',
-            label: 'Active Features',
-            number: stats['active'].toString(),
-            color: Colors.green),
+          icon: '🎯',
+          label: 'Active Features',
+          value: stats['active'].toString(),
+          color: Colors.green,
+        ),
         _StatCard(
-            icon: '⭐',
-            label: 'Campus Specialities',
-            number: stats['specialities'].toString(),
-            color: Colors.orange),
+          icon: '⭐',
+          label: 'Specialities',
+          value: stats['specialities'].toString(),
+          color: Colors.orange,
+        ),
         _StatCard(
-            icon: '📈',
-            label: 'Student Satisfaction',
-            number: stats['satisfaction'].toString(),
-            color: Colors.blue),
+          icon: '📈',
+          label: 'Satisfaction',
+          value: stats['satisfaction'].toString(),
+          color: Colors.blue,
+        ),
       ],
     );
   }
@@ -1206,14 +1388,14 @@ class _StatsOverview extends StatelessWidget {
 // Stat Card (from V2, renamed and updated styles)
 class _StatCard extends StatelessWidget {
   final String icon;
-  final String number;
   final String label;
+  final String value;
   final Color color;
 
   const _StatCard({
     required this.icon,
-    required this.number,
     required this.label,
+    required this.value,
     required this.color,
   });
 
@@ -1221,35 +1403,37 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: EdgeInsets.zero,
+      color: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       elevation: 5,
       shadowColor: Colors.black.withValues(alpha: 0.1),
-      child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(15),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(icon, style: TextStyle(fontSize: 40, color: color)),
-              const SizedBox(height: 10),
-              Text(number,
-                  style: const TextStyle(
-                      fontSize: 32, fontWeight: FontWeight.bold, color: textColor)),
-              const SizedBox(height: 5),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: secondaryTextColor,
-                  fontSize: 13,
-                  letterSpacing: 0.5,
-                  fontWeight: FontWeight.w500,
-                ),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(icon, style: TextStyle(fontSize: 40, color: color)),
+            const SizedBox(height: 10),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: textColor,
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              label.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: secondaryTextColor,
+                fontSize: 12,
+                letterSpacing: 1,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1294,17 +1478,26 @@ class _FilterBar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Search & Filtering', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text(
+            'Search & Filtering',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
           const Divider(),
           Row(
             children: [
               Expanded(
                 child: TextField(
                   decoration: InputDecoration(
-                    hintText: 'Search features by name, location, or description...',
+                    hintText:
+                        'Search features by name, location, or description...',
                     prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 10,
+                      horizontal: 15,
+                    ),
                   ),
                   onChanged: onSearchChanged,
                 ),
@@ -1316,16 +1509,25 @@ class _FilterBar extends StatelessWidget {
                 child: DropdownButtonFormField<String>(
                   decoration: InputDecoration(
                     labelText: 'Sort By',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 10,
+                      horizontal: 10,
+                    ),
                   ),
-                  value: 'date', // Default sort
+                  initialValue: 'date', // Default sort
                   items: const [
                     DropdownMenuItem(value: 'date', child: Text('Date Added')),
                     DropdownMenuItem(value: 'name', child: Text('Name')),
-                    DropdownMenuItem(value: 'category', child: Text('Category')),
+                    DropdownMenuItem(
+                      value: 'category',
+                      child: Text('Category'),
+                    ),
                   ],
-                  onChanged: (value) => onSortChanged(value!, false), // Default Descending
+                  onChanged: (value) =>
+                      onSortChanged(value!, false), // Default Descending
                 ),
               ),
               const SizedBox(width: 10),
@@ -1346,12 +1548,22 @@ class _FilterBar extends StatelessWidget {
                 child: DropdownButtonFormField<String>(
                   decoration: InputDecoration(
                     labelText: 'Category Filter',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 10,
+                      horizontal: 15,
+                    ),
                   ),
-                  value: currentCategory.isEmpty ? null : currentCategory,
+                  initialValue: currentCategory.isEmpty
+                      ? null
+                      : currentCategory,
                   items: [
-                    const DropdownMenuItem(value: '', child: Text('All Categories')),
+                    const DropdownMenuItem(
+                      value: '',
+                      child: Text('All Categories'),
+                    ),
                     ...const {
                       'academic': 'Academic Facilities',
                       'sports': 'Sports & Recreation',
@@ -1360,7 +1572,10 @@ class _FilterBar extends StatelessWidget {
                       'infrastructure': 'Infrastructure',
                       'amenities': 'Amenities',
                       'speciality': 'Campus Speciality',
-                    }.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))),
+                    }.entries.map(
+                      (e) =>
+                          DropdownMenuItem(value: e.key, child: Text(e.value)),
+                    ),
                   ],
                   onChanged: onCategoryChanged,
                 ),
@@ -1370,18 +1585,31 @@ class _FilterBar extends StatelessWidget {
                 child: DropdownButtonFormField<String>(
                   decoration: InputDecoration(
                     labelText: 'Status Filter',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 10,
+                      horizontal: 15,
+                    ),
                   ),
-                  value: currentStatus.isEmpty ? null : currentStatus,
+                  initialValue: currentStatus.isEmpty ? null : currentStatus,
                   items: [
-                    const DropdownMenuItem(value: '', child: Text('All Status')),
+                    const DropdownMenuItem(
+                      value: '',
+                      child: Text('All Status'),
+                    ),
                     ...const {
                       'active': 'Active',
                       'under-construction': 'Under Construction',
                       'planned': 'Planned',
                       'maintenance': 'Under Maintenance',
-                    }.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(getStatusDisplayName(e.key)))),
+                    }.entries.map(
+                      (e) => DropdownMenuItem(
+                        value: e.key,
+                        child: Text(getStatusDisplayName(e.key)),
+                      ),
+                    ),
                   ],
                   onChanged: onStatusChanged,
                 ),
@@ -1413,7 +1641,10 @@ class _FeaturesGrid extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Campus Features List', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        const Text(
+          'Campus Features List',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
         const Divider(),
         features.isEmpty
             ? const Center(
@@ -1481,18 +1712,16 @@ class _CampusFeatureCard extends StatelessWidget {
                 Expanded(
                   child: Row(
                     children: [
-                      Text(
-                        categoryIcon,
-                        style: const TextStyle(fontSize: 28),
-                      ),
+                      Text(categoryIcon, style: const TextStyle(fontSize: 28)),
                       const SizedBox(width: 10),
                       Flexible(
                         child: Text(
                           feature.name,
                           style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: textColor),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: textColor,
+                          ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -1502,9 +1731,14 @@ class _CampusFeatureCard extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
-                        color: _getFeatureStatusColor(feature.status).withValues(alpha: 0.15),
+                        color: _getFeatureStatusColor(
+                          feature.status,
+                        ).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -1533,27 +1767,62 @@ class _CampusFeatureCard extends StatelessWidget {
                             builder: (ctx) => AlertDialog(
                               title: const Text('Confirm Delete'),
                               content: Text(
-                                  'Are you sure you want to delete ${feature.name}?'),
+                                'Are you sure you want to delete ${feature.name}?',
+                              ),
                               actions: [
                                 TextButton(
-                                    onPressed: () => Navigator.pop(ctx),
-                                    child: const Text('Cancel')),
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('Cancel'),
+                                ),
                                 TextButton(
-                                    onPressed: () {
-                                      onDelete();
-                                      Navigator.pop(ctx);
-                                    },
-                                    child: const Text('Delete',
-                                        style: TextStyle(color: Colors.red))),
+                                  onPressed: () {
+                                    onDelete();
+                                    Navigator.pop(ctx);
+                                  },
+                                  child: const Text(
+                                    'Delete',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
                               ],
                             ),
                           );
                         }
                       },
                       itemBuilder: (context) => [
-                        const PopupMenuItem(value: 'view', child: Row(children: [Icon(Icons.visibility, size: 16), SizedBox(width: 8), Text('View')])),
-                        const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 16), SizedBox(width: 8), Text('Edit')])),
-                        const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 16, color: Colors.red), SizedBox(width: 8), Text('Delete', style: TextStyle(color: Colors.red))])),
+                        const PopupMenuItem(
+                          value: 'view',
+                          child: Row(
+                            children: [
+                              Icon(Icons.visibility, size: 16),
+                              SizedBox(width: 8),
+                              Text('View'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit, size: 16),
+                              SizedBox(width: 8),
+                              Text('Edit'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete, size: 16, color: Colors.red),
+                              SizedBox(width: 8),
+                              Text(
+                                'Delete',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -1577,14 +1846,16 @@ class _CampusFeatureCard extends StatelessWidget {
             const Divider(height: 10),
             // Details Rows
             _DetailRow(
-                label: 'Category:',
-                value: getCategoryDisplayName(feature.category)),
+              label: 'Category:',
+              value: getCategoryDisplayName(feature.category),
+            ),
             _DetailRow(label: 'Location:', value: feature.location),
             if (feature.capacity != null)
               _DetailRow(label: 'Capacity:', value: feature.capacity!),
             _DetailRow(
-                label: 'Added Date:',
-                value: DateFormat('MMM dd, yyyy').format(feature.dateAdded)),
+              label: 'Added Date:',
+              value: DateFormat('MMM dd, yyyy').format(feature.dateAdded),
+            ),
           ],
         ),
       ),
@@ -1675,7 +1946,9 @@ class _FeatureDetailDialog extends StatelessWidget {
                 _DetailItem('Capacity', feature.capacity!),
               _DetailItem('Status', getStatusDisplayName(feature.status)),
               _DetailItem(
-                  'Date Added', DateFormat('MMM dd, yyyy').format(feature.dateAdded)),
+                'Date Added',
+                DateFormat('MMM dd, yyyy').format(feature.dateAdded),
+              ),
             ],
           ),
         ),
@@ -1711,9 +1984,7 @@ class _DetailItem extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -1727,10 +1998,7 @@ class _FeatureFormDialog extends StatefulWidget {
   final CampusFeature? feature;
   final Function(CampusFeature) onSave;
 
-  const _FeatureFormDialog({
-    this.feature,
-    required this.onSave,
-  });
+  const _FeatureFormDialog({this.feature, required this.onSave});
 
   @override
   State<_FeatureFormDialog> createState() => _FeatureFormDialogState();
@@ -1751,11 +2019,11 @@ class _FeatureFormDialogState extends State<_FeatureFormDialog> {
     super.initState();
     final feature = widget.feature;
     _nameController = TextEditingController(text: feature?.name ?? '');
-    _descriptionController =
-        TextEditingController(text: feature?.description ?? '');
+    _descriptionController = TextEditingController(
+      text: feature?.description ?? '',
+    );
     _locationController = TextEditingController(text: feature?.location ?? '');
-    _capacityController =
-        TextEditingController(text: feature?.capacity ?? '');
+    _capacityController = TextEditingController(text: feature?.capacity ?? '');
     _category = feature?.category ?? '';
     _status = feature?.status ?? 'active';
   }
@@ -1772,16 +2040,15 @@ class _FeatureFormDialogState extends State<_FeatureFormDialog> {
   void _submitForm() {
     if (_formKey.currentState!.validate()) {
       if (_category.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select category')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Please select category')));
         return;
       }
 
       final feature = CampusFeature(
         // Ensure new IDs are unique and sequential
-        id: widget.feature?.id ??
-            DateTime.now().millisecondsSinceEpoch ~/ 1000, 
+        id: widget.feature?.id ?? DateTime.now().millisecondsSinceEpoch ~/ 1000,
         name: _nameController.text.trim(),
         category: _category,
         description: _descriptionController.text.trim(),
@@ -1852,7 +2119,7 @@ class _FeatureFormDialogState extends State<_FeatureFormDialog> {
                           labelText: 'Category *',
                           border: OutlineInputBorder(),
                         ),
-                        value: _category.isEmpty ? null : _category,
+                        initialValue: _category.isEmpty ? null : _category,
                         items: [
                           ...const {
                             'academic': 'Academic Facilities',
@@ -1862,8 +2129,12 @@ class _FeatureFormDialogState extends State<_FeatureFormDialog> {
                             'infrastructure': 'Infrastructure',
                             'amenities': 'Amenities',
                             'speciality': 'Campus Speciality',
-                          }.entries.map((e) =>
-                              DropdownMenuItem(value: e.key, child: Text(e.value))),
+                          }.entries.map(
+                            (e) => DropdownMenuItem(
+                              value: e.key,
+                              child: Text(e.value),
+                            ),
+                          ),
                         ],
                         onChanged: (value) {
                           setState(() {
@@ -1926,18 +2197,24 @@ class _FeatureFormDialogState extends State<_FeatureFormDialog> {
                                 labelText: 'Status *',
                                 border: OutlineInputBorder(),
                               ),
-                              value: _status,
+                              initialValue: _status,
                               items: const [
                                 DropdownMenuItem(
-                                    value: 'active', child: Text('Active')),
+                                  value: 'active',
+                                  child: Text('Active'),
+                                ),
                                 DropdownMenuItem(
-                                    value: 'under-construction',
-                                    child: Text('Under Construction')),
+                                  value: 'under-construction',
+                                  child: Text('Under Construction'),
+                                ),
                                 DropdownMenuItem(
-                                    value: 'planned', child: Text('Planned')),
+                                  value: 'planned',
+                                  child: Text('Planned'),
+                                ),
                                 DropdownMenuItem(
-                                    value: 'maintenance',
-                                    child: Text('Under Maintenance')),
+                                  value: 'maintenance',
+                                  child: Text('Under Maintenance'),
+                                ),
                               ],
                               onChanged: (value) {
                                 setState(() {
@@ -1967,14 +2244,74 @@ class _FeatureFormDialogState extends State<_FeatureFormDialog> {
                       backgroundColor: primaryColorLight,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 12),
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                     ),
                     child: Text(
-                        widget.feature == null ? 'Add Feature' : 'Update Feature'),
+                      widget.feature == null ? 'Add Feature' : 'Update Feature',
+                    ),
                   ),
                 ],
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+
+// Glass Container Widget
+class GlassContainer extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final bool drawRightBorder;
+  final double borderRadius;
+
+  const GlassContainer({
+    super.key,
+    required this.child,
+    this.padding,
+    this.margin,
+    this.drawRightBorder = false,
+    this.borderRadius = 12,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = drawRightBorder
+        ? BorderRadius.zero
+        : BorderRadius.circular(borderRadius);
+
+    return Container(
+      margin: margin,
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.95),
+              borderRadius: radius,
+              border: Border(
+                right: drawRightBorder
+                    ? BorderSide(color: Colors.white.withValues(alpha: 0.2))
+                    : BorderSide.none,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 24,
+                  offset: const Offset(2, 6),
+                ),
+              ],
+            ),
+            child: child,
           ),
         ),
       ),

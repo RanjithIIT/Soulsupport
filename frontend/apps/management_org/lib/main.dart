@@ -35,11 +35,11 @@ class SchoolManagementApp extends StatelessWidget {
       navigatorKey: navigatorKey,
       title: 'School Management System',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        fontFamily: 'Segoe UI',
-        primarySwatch: Colors.indigo,
-        useMaterial3: true,
-      ),
+         theme: ThemeData(
+           fontFamily: 'NotoSans',
+           primarySwatch: Colors.indigo,
+           useMaterial3: true,
+         ),
       initialRoute: ManagementRoutes.dashboard,
       home: const DashboardPage(),
       routes: ManagementRoutePages.routes,

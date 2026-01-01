@@ -8,7 +8,11 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
+<<<<<<< HEAD
 from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Activity
+=======
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature
+>>>>>>> sairam
 from super_admin.models import School
 from .serializers import (
     FileSerializer,
@@ -22,7 +26,13 @@ from .serializers import (
     BusSerializer,
     BusStopSerializer,
     BusStopStudentSerializer,
+<<<<<<< HEAD
     ActivitySerializer
+=======
+    EventSerializer,
+    AwardSerializer,
+    CampusFeatureSerializer
+>>>>>>> sairam
 )
 from main_login.permissions import IsManagementAdmin
 from main_login.mixins import SchoolFilterMixin
@@ -50,16 +60,8 @@ class FileViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         )
 
 
-class DepartmentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
-    """ViewSet for Department management"""
-    queryset = Department.objects.all()
-    serializer_class = DepartmentSerializer
-    permission_classes = [IsAuthenticated, IsManagementAdmin]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['school', 'head']
-    search_fields = ['name', 'description']
-    ordering_fields = ['name', 'created_at']
-    ordering = ['-created_at']
+
+# Teacher ViewSet
 
 
 class TeacherViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
@@ -1474,17 +1476,31 @@ class SchoolViewSet(viewsets.ViewSet):
             )
 
 
+<<<<<<< HEAD
 class ActivityViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Activity management"""
     queryset = Activity.objects.all()
     serializer_class = ActivitySerializer
     permission_classes = [IsAuthenticated, IsManagementAdmin]
+=======
+class EventViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
+    """ViewSet for Event management"""
+    queryset = Event.objects.all()
+    serializer_class = EventSerializer
+    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['category', 'status', 'date']
+    search_fields = ['name', 'location', 'organizer', 'description']
+    ordering_fields = ['date', 'created_at', 'name']
+    ordering = ['-date', '-created_at']
+>>>>>>> sairam
     
     def get_permissions(self):
         """Allow read/create/update/delete without auth for development - can be adjusted"""
         if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
             return [AllowAny()]
         return [IsAuthenticated(), IsManagementAdmin()]
+<<<<<<< HEAD
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category', 'status', 'school']
     search_fields = ['name', 'instructor', 'location', 'description']
@@ -1668,3 +1684,127 @@ class ActivityViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         
         # If school is in validated_data, use it
         super().perform_create(serializer)
+=======
+    
+    def perform_create(self, serializer):
+        """Set school_id when creating event"""
+        event = serializer.save()
+        
+        # Set school_id after save (since it's read-only in serializer)
+        school_id = self.get_school_id()
+        if school_id:
+            from super_admin.models import School
+            Event.objects.filter(pk=event.pk).update(school_id=school_id)
+            try:
+                school = School.objects.get(school_id=school_id)
+                Event.objects.filter(pk=event.pk).update(school_name=school.school_name)
+            except School.DoesNotExist:
+                pass
+    
+    def perform_update(self, serializer):
+        """Update event - school_id should already be set"""
+        serializer.save()
+
+
+class DepartmentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
+    """ViewSet for Department management"""
+    queryset = Department.objects.all()
+    serializer_class = DepartmentSerializer
+    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['name', 'code']
+    search_fields = ['name', 'code', 'head_name', 'email']
+    ordering_fields = ['name', 'faculty_count', 'student_count']
+    ordering = ['name']
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
+            return [AllowAny()]
+        return [IsAuthenticated(), IsManagementAdmin()]
+
+    def perform_create(self, serializer):
+        """Set school reference when creating department"""
+        department = serializer.save()
+        
+        school_id = self.get_school_id()
+        if school_id:
+            from super_admin.models import School
+            try:
+                school = School.objects.get(school_id=school_id)
+                Department.objects.filter(pk=department.pk).update(
+                    school=school,
+                    school_name=school.school_name
+                )
+            except School.DoesNotExist:
+                pass
+
+
+class CampusFeatureViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
+    """ViewSet for CampusFeature management"""
+    queryset = CampusFeature.objects.all()
+    serializer_class = CampusFeatureSerializer
+    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['category', 'status']
+    search_fields = ['name', 'description', 'location']
+    ordering_fields = ['name', 'category', 'date_added']
+    ordering = ['-date_added']
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
+            return [AllowAny()]
+        return [IsAuthenticated(), IsManagementAdmin()]
+
+    def perform_create(self, serializer):
+        """Set school reference when creating campus feature"""
+        feature = serializer.save()
+        
+        school_id = self.get_school_id()
+        if school_id:
+            from super_admin.models import School
+            try:
+                school = School.objects.get(school_id=school_id)
+                CampusFeature.objects.filter(pk=feature.pk).update(
+                    school=school,
+                    school_name=school.school_name
+                )
+            except School.DoesNotExist:
+                pass
+
+
+class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
+    """ViewSet for Award management"""
+    queryset = Award.objects.all()
+    serializer_class = AwardSerializer
+    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['category', 'level', 'date']
+    search_fields = ['title', 'recipient', 'description']
+    ordering_fields = ['date', 'created_at', 'title']
+    ordering = ['-date', '-created_at']
+    
+    def get_permissions(self):
+        """Allow read/create/update/delete without auth for development - can be adjusted"""
+        if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
+            return [AllowAny()]
+        return [IsAuthenticated(), IsManagementAdmin()]
+    
+    def perform_create(self, serializer):
+        """Set school_id when creating award"""
+        award = serializer.save()
+        
+        # Set school_id after save (since it's read-only in serializer)
+        school_id = self.get_school_id()
+        if school_id:
+            from super_admin.models import School
+            Award.objects.filter(pk=award.pk).update(school_id=school_id)
+            try:
+                school = School.objects.get(school_id=school_id)
+                Award.objects.filter(pk=award.pk).update(school_name=school.school_name)
+            except School.DoesNotExist:
+                pass
+    
+    def perform_update(self, serializer):
+        """Update award - school_id should already be set"""
+        serializer.save()
+>>>>>>> sairam

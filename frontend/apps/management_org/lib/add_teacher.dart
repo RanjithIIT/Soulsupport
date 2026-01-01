@@ -176,7 +176,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
     try {
       // Prepare teacher data for API
       // Helper function to convert empty strings to null
-      String? _nullIfEmpty(String? value) {
+      String? nullIfEmpty(String? value) {
         if (value == null || value.trim().isEmpty) return null;
         return value.trim();
       }
@@ -188,8 +188,8 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
         'first_name': _firstNameController.text.trim().isNotEmpty 
             ? _firstNameController.text.trim() 
             : '',
-        'last_name': _nullIfEmpty(_lastNameController.text),
-        'qualification': _nullIfEmpty(_qualificationController.text),
+        'last_name': nullIfEmpty(_lastNameController.text),
+        'qualification': nullIfEmpty(_qualificationController.text),
         'joining_date': _joiningDate != null 
             ? DateFormat('yyyy-MM-dd').format(_joiningDate!) 
             : null,
@@ -230,26 +230,26 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
       }
       
       // Add optional fields only if they have values
-      final mobileNo = _nullIfEmpty(_mobileNoController.text);
+      final mobileNo = nullIfEmpty(_mobileNoController.text);
       if (mobileNo != null) teacherData['mobile_no'] = mobileNo;
       
-      final email = _nullIfEmpty(_emailController.text);
+      final email = nullIfEmpty(_emailController.text);
       if (email != null) teacherData['email'] = email;
       
-      final address = _nullIfEmpty(_addressController.text);
+      final address = nullIfEmpty(_addressController.text);
       if (address != null) teacherData['address'] = address;
       
       if (_bloodGroup != null && _bloodGroup!.isNotEmpty) {
         teacherData['blood_group'] = _bloodGroup;
       }
       
-      final nationality = _nullIfEmpty(_nationalityController.text);
+      final nationality = nullIfEmpty(_nationalityController.text);
       if (nationality != null) teacherData['nationality'] = nationality;
       
-      final subjectSpecialization = _nullIfEmpty(_subjectSpecializationController.text);
+      final subjectSpecialization = nullIfEmpty(_subjectSpecializationController.text);
       if (subjectSpecialization != null) teacherData['subject_specialization'] = subjectSpecialization;
       
-      final emergencyContact = _nullIfEmpty(_emergencyContactController.text);
+      final emergencyContact = nullIfEmpty(_emergencyContactController.text);
       if (emergencyContact != null) teacherData['emergency_contact'] = emergencyContact;
 
       // Note: Profile photo will be sent as multipart/form-data with the request
@@ -420,38 +420,41 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                 children: [
                   Container(
                     margin: const EdgeInsets.all(20),
-                    padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(15),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.24),
-                        width: 1,
+                        color: Colors.white.withValues(alpha: 0.2),
+                        width: 1.5,
                       ),
-                    ),
-                    child: const Column(
-                      children: [
-                        Text(
-                          '🏫 SMS',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 5),
-                        Text(
-                          'School Management System',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                          ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
                         ),
                       ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'packages/management_org/assets/Vidyarambh.png',
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            height: 120,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.school,
+                              size: 56,
+                              color: Color(0xFF667EEA),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
                   Expanded(
@@ -677,7 +680,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                       child: _LabeledField(
                                         label: 'Gender',
                                         child: DropdownButtonFormField<String>(
-                                          value: _gender,
+                                          initialValue: _gender,
                                           items: const [
                                             DropdownMenuItem(value: 'Male', child: Text('Male')),
                                             DropdownMenuItem(value: 'Female', child: Text('Female')),
@@ -750,7 +753,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                                 child: CircularProgressIndicator(),
                                               ))
                                             : DropdownButtonFormField<String>(
-                                                value: _selectedDepartmentId,
+                                                initialValue: _selectedDepartmentId,
                                                 items: [
                                                   const DropdownMenuItem<String>(
                                                     value: null,
@@ -834,7 +837,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                       child: _LabeledField(
                                         label: 'Blood Group',
                                         child: DropdownButtonFormField<String>(
-                                          value: _bloodGroup,
+                                          initialValue: _bloodGroup,
                                           items: [
                                             const DropdownMenuItem<String>(
                                               value: null,

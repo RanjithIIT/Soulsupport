@@ -466,42 +466,45 @@ class _Sidebar extends StatelessWidget {
       child: SafeArea(
         child: Column(
           children: [
-            Container(
-              margin: const EdgeInsets.all(20),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.24),
-                  width: 1,
-                ),
-              ),
-              child: const Column(
-                children: [
-                  Text(
-                    '🏫 SMS',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                  Container(
+                    margin: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'packages/management_org/assets/Vidyarambh.png',
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            height: 120,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.school,
+                              size: 56,
+                              color: Color(0xFF667EEA),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
-                  SizedBox(height: 5),
-                  Text(
-                    'School Management System',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
             Expanded(
               child: ListView(
                 padding: EdgeInsets.zero,
@@ -882,7 +885,7 @@ class _FormCard extends StatelessWidget {
                       fillColor: Colors.white,
                       prefixIcon: const Icon(Icons.people),
                     ),
-                    value: gender,
+                    initialValue: gender,
                     items: const [
                       DropdownMenuItem(value: 'Male', child: Text('Male')),
                       DropdownMenuItem(value: 'Female', child: Text('Female')),
@@ -965,7 +968,7 @@ class _FormCard extends StatelessWidget {
                       fillColor: Colors.white,
                       prefixIcon: const Icon(Icons.business),
                     ),
-                    value: departmentId,
+                    initialValue: departmentId,
                     items: [
                       const DropdownMenuItem<String>(
                         value: null,
@@ -1051,7 +1054,7 @@ class _FormCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: bloodGroup,
+                    initialValue: bloodGroup,
                     items: [
                       const DropdownMenuItem<String>(
                         value: null,
@@ -1125,7 +1128,7 @@ class _FormCard extends StatelessWidget {
                         fillColor: Colors.white,
                         prefixIcon: const Icon(Icons.school),
                       ),
-                      value: classTeacherClass,
+                      initialValue: classTeacherClass,
                       items: const [
                         DropdownMenuItem(value: null, child: Text('Select Class')),
                         DropdownMenuItem(value: 'Grade 9', child: Text('Grade 9')),
@@ -1148,7 +1151,7 @@ class _FormCard extends StatelessWidget {
                         fillColor: Colors.white,
                         prefixIcon: const Icon(Icons.star),
                       ),
-                      value: classTeacherGrade,
+                      initialValue: classTeacherGrade,
                       items: const [
                         DropdownMenuItem(value: null, child: Text('Select Grade')),
                         DropdownMenuItem(value: 'A', child: Text('Grade A')),

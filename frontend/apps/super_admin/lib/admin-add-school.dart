@@ -663,7 +663,7 @@ class _AddSchoolScreenState extends State<AddSchoolScreen> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: _selectedStatus ?? 'active',
+          initialValue: _selectedStatus ?? 'active',
           items: const [
             DropdownMenuItem(value: 'active', child: Text('Active')),
             DropdownMenuItem(value: 'inactive', child: Text('Inactive')),

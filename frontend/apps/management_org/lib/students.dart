@@ -643,7 +643,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
     // Navigate to admissions screen and refresh when returning
     await Navigator.push(
       context, 
-      MaterialPageRoute(builder: (_) => const AdmissionsScreen())
+      MaterialPageRoute(builder: (_) => const AdmissionsManagementPage())
     );
     // Refresh students list when returning from admissions
     if (mounted) {
@@ -705,7 +705,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
     );
 
     // Safe navigation helper for sidebar
-    void _navigateToRoute(String route) {
+    void navigateToRoute(String route) {
       final navigator = app.SchoolManagementApp.navigatorKey.currentState;
       if (navigator != null) {
         if (navigator.canPop() || route != '/dashboard') {
@@ -733,38 +733,41 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
           children: [
             Container(
               margin: const EdgeInsets.all(20),
-              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.24),
-                  width: 1,
+                  color: Colors.white.withValues(alpha: 0.2),
+                  width: 1.5,
                 ),
-              ),
-              child: const Column(
-                children: [
-                  Text(
-                    '🏫 SMS',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 5),
-                  Text(
-                    'School Management System',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  'packages/management_org/assets/Vidyarambh.png',
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.school,
+                        size: 56,
+                        color: Color(0xFF667EEA),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
             Expanded(
@@ -775,48 +778,48 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                     icon: '📊',
                     title: 'Overview',
                     isActive: false,
-                    onTap: () => _navigateToRoute('/dashboard'),
+                    onTap: () => navigateToRoute('/dashboard'),
                   ),
                   _NavItem(
                     icon: '👨‍🏫',
                     title: 'Teachers',
-                    onTap: () => _navigateToRoute('/teachers'),
+                    onTap: () => navigateToRoute('/teachers'),
                   ),
                   _NavItem(
                     icon: '👥',
                     title: 'Students',
                     isActive: true,
-                    onTap: () => _navigateToRoute('/students'),
+                    onTap: () => navigateToRoute('/students'),
                   ),
                   _NavItem(
                     icon: '🚌',
                     title: 'Buses',
-                    onTap: () => _navigateToRoute('/buses'),
+                    onTap: () => navigateToRoute('/buses'),
                   ),
                   _NavItem(
                     icon: '🎯',
                     title: 'Activities',
-                    onTap: () => _navigateToRoute('/activities'),
+                    onTap: () => navigateToRoute('/activities'),
                   ),
                   _NavItem(
                     icon: '📅',
                     title: 'Events',
-                    onTap: () => _navigateToRoute('/events'),
+                    onTap: () => navigateToRoute('/events'),
                   ),
                   _NavItem(
                     icon: '📆',
                     title: 'Calendar',
-                    onTap: () => _navigateToRoute('/calendar'),
+                    onTap: () => navigateToRoute('/calendar'),
                   ),
                   _NavItem(
                     icon: '🔔',
                     title: 'Notifications',
-                    onTap: () => _navigateToRoute('/notifications'),
+                    onTap: () => navigateToRoute('/notifications'),
                   ),
                   _NavItem(
                     icon: '🛣️',
                     title: 'Bus Routes',
-                    onTap: () => _navigateToRoute('/bus-routes'),
+                    onTap: () => navigateToRoute('/bus-routes'),
                   ),
                 ],
               ),
@@ -839,13 +842,29 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    'Students Management',
-                    style: TextStyle(
-                      fontSize: isMobile ? 22 : 28,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF333333),
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('👥', style: TextStyle(fontSize: 32)),
+                          const SizedBox(width: 15),
+                          Text(
+                            'Students Management',
+                            style: TextStyle(
+                              fontSize: isMobile ? 22 : 28,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF333333),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Manage all students, their profiles, academic records, and attendance',
+                        style: TextStyle(color: Color(0xFF666666), fontSize: 16),
+                      ),
+                    ],
                   ),
                 ),
                 if (!isMobile) ...[
@@ -867,78 +886,10 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                 ],
               ),
             ),
-          GlassContainer(
-            padding: const EdgeInsets.all(25),
-            margin: const EdgeInsets.only(bottom: 30),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Row(
-                  children: [
-                    Text('👥', style: TextStyle(fontSize: 32)),
-                    SizedBox(width: 15),
-                    Text(
-                      'Students Management',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF333333),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 10),
-                Text(
-                  'Manage all students, their profiles, academic records, and attendance',
-                  style: TextStyle(color: Color(0xFF666666), fontSize: 16),
-                ),
-              ],
-            ),
-          ),
           LayoutBuilder(
             builder: (context, constraints) {
-              if (isMobile) {
-                return GridView.count(
-                  crossAxisCount: 1,
-                  childAspectRatio: 3.4,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisSpacing: 20,
-                  mainAxisSpacing: 20,
-                  children: [
-                    _StatCard(
-                      label: 'Total Students',
-                      value: '$_totalStudents',
-                    ),
-                    _StatCard(
-                      label: 'Active Students',
-                      value: '$_activeStudents',
-                    ),
-                    _StatCard(
-                      label: 'Average Attendance',
-                      value: '${_avgAttendance.toStringAsFixed(1)}%',
-                    ),
-                    _StatCard(label: 'Total Classes', value: '$_totalClasses'),
-                    _StatCard(
-                      label: 'Academics',
-                      value: '${_academicsScore.toStringAsFixed(1)}%',
-                    ),
-                    _StatCard(
-                      label: 'Extracurricular Activities',
-                      value: '$_extracurricularCount',
-                    ),
-                    _StatCard(label: 'Fees Collection', value: _feesPaid),
-                  ],
-                );
-              }
-              final cardWidth = 200.0;
-              final spacing = 20.0;
-              final availableWidth = constraints.maxWidth;
-              final crossAxisCount =
-                  ((availableWidth + spacing) / (cardWidth + spacing))
-                      .floor()
-                      .clamp(1, 7);
-              final childAspectRatio = 1.35;
+              final crossAxisCount = isMobile ? 1 : 4;
+              final childAspectRatio = isMobile ? 3.4 : 1.35;
               return GridView.count(
                 crossAxisCount: crossAxisCount,
                 childAspectRatio: childAspectRatio,
@@ -947,25 +898,48 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                 crossAxisSpacing: 20,
                 mainAxisSpacing: 20,
                 children: [
-                  _StatCard(label: 'Total Students', value: '$_totalStudents'),
+                  _StatCard(
+                    label: 'Total Students',
+                    value: '$_totalStudents',
+                    icon: '👥',
+                    color: const Color(0xFF667EEA),
+                  ),
                   _StatCard(
                     label: 'Active Students',
                     value: '$_activeStudents',
+                    icon: '📈',
+                    color: Colors.green,
                   ),
                   _StatCard(
-                    label: 'Average Attendance',
+                    label: 'Avg Attendance',
                     value: '${_avgAttendance.toStringAsFixed(1)}%',
+                    icon: '📅',
+                    color: Colors.orange,
                   ),
-                  _StatCard(label: 'Total Classes', value: '$_totalClasses'),
+                  _StatCard(
+                    label: 'Total Classes',
+                    value: '$_totalClasses',
+                    icon: '🏫',
+                    color: Colors.blue,
+                  ),
                   _StatCard(
                     label: 'Academics',
                     value: '${_academicsScore.toStringAsFixed(1)}%',
+                    icon: '🎓',
+                    color: Colors.purple,
                   ),
                   _StatCard(
-                    label: 'Extracurricular Activities',
+                    label: 'Activities',
                     value: '$_extracurricularCount',
+                    icon: '🏆',
+                    color: Colors.amber,
                   ),
-                  _StatCard(label: 'Fees Collection', value: _feesPaid),
+                  _StatCard(
+                    label: 'Fees Collection',
+                    value: _feesPaid,
+                    icon: '💰',
+                    color: Colors.teal,
+                  ),
                 ],
               );
             },
@@ -1478,29 +1452,37 @@ class _NavItem extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
-  final Color accentColor;
+  final String icon;
+  final Color color;
 
   const _StatCard({
     required this.label,
     required this.value,
-  }) : accentColor = const Color(0xFF667EEA);
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GlassContainer(
-      padding: const EdgeInsets.all(20),
-      child: Container(
-        // Removed accent border for cleaner stat cards
-        decoration: const BoxDecoration(),
+    return Card(
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      elevation: 5,
+      shadowColor: Colors.black.withValues(alpha: 0.1),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Text(icon, style: TextStyle(fontSize: 40, color: color)),
+            const SizedBox(height: 10),
             Text(
               value,
               style: const TextStyle(
-                fontSize: 36,
+                fontSize: 32,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF667EEA),
+                color: Color(0xFF333333),
               ),
             ),
             const SizedBox(height: 5),
@@ -1511,6 +1493,7 @@ class _StatCard extends StatelessWidget {
                 color: Color(0xFF666666),
                 fontSize: 12,
                 letterSpacing: 1,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],

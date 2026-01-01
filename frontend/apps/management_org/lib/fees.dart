@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+<<<<<<< HEAD
 import 'dart:typed_data';
+=======
+import 'dart:ui';
+>>>>>>> sairam
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'main.dart' as app;
@@ -108,6 +112,7 @@ class _FeesManagementPageState extends State<FeesManagementPage> {
   String? _selectedStudentIdForFilter; // For filtering displayed fees
   String? _studentEmail; // Store student email for POST request
 
+<<<<<<< HEAD
   String _searchQuery = ''; // Single search field for name or student_id
 
   // New variables for student-focused view
@@ -115,6 +120,56 @@ class _FeesManagementPageState extends State<FeesManagementPage> {
   bool _isLoadingSummary = false;
   String? _selectedStudentIdForView;
   Map<String, bool> _expandedFeeTypes = {}; // Track which fee types are expanded
+=======
+  String _searchQuery = '';
+  String _studentIdSearchQuery = '';
+  String? _statusFilter;
+  String? _classFilter;
+  String? _feeTypeFilter;
+  // -- Helper Widgets --
+
+  Widget _buildUserInfo() {
+    return SchoolProfileHeader(apiService: ApiService());
+  }
+
+  Widget _buildBackButton() {
+    return InkWell(
+      onTap: () => Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => DashboardPage()),
+      ),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6C757D), Color(0xFF495057)],
+          ),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF495057).withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.arrow_back, size: 16, color: Colors.white),
+            SizedBox(width: 8),
+            Text(
+              'Back to Dashboard',
+              style: TextStyle(color: Colors.white, fontSize: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+>>>>>>> sairam
 
   @override
   void initState() {
@@ -602,10 +657,7 @@ class _FeesManagementPageState extends State<FeesManagementPage> {
       if (json['due_date'] != null) {
         if (json['due_date'] is String) {
           dueDate = DateTime.tryParse(json['due_date']);
-          if (dueDate == null) {
-            // Try parsing with time component
-            dueDate = DateTime.tryParse('${json['due_date']}T00:00:00');
-          }
+          dueDate ??= DateTime.tryParse('${json['due_date']}T00:00:00');
         } else if (json['due_date'] is DateTime) {
           dueDate = json['due_date'];
         }
@@ -665,9 +717,7 @@ class _FeesManagementPageState extends State<FeesManagementPage> {
             if (item['payment_date'] != null) {
               if (item['payment_date'] is String) {
                 historyDate = DateTime.tryParse(item['payment_date']);
-                if (historyDate == null) {
-                  historyDate = DateTime.tryParse('${item['payment_date']}T00:00:00');
-                }
+                historyDate ??= DateTime.tryParse('${item['payment_date']}T00:00:00');
               } else if (item['payment_date'] is DateTime) {
                 historyDate = item['payment_date'];
               }
@@ -704,9 +754,7 @@ class _FeesManagementPageState extends State<FeesManagementPage> {
       if (json['last_paid_date'] != null) {
         if (json['last_paid_date'] is String) {
           lastPaidDate = DateTime.tryParse(json['last_paid_date']);
-          if (lastPaidDate == null) {
-            lastPaidDate = DateTime.tryParse('${json['last_paid_date']}T00:00:00');
-          }
+          lastPaidDate ??= DateTime.tryParse('${json['last_paid_date']}T00:00:00');
         } else if (json['last_paid_date'] is DateTime) {
           lastPaidDate = json['last_paid_date'];
         }
@@ -1025,7 +1073,7 @@ class _FeesManagementPageState extends State<FeesManagementPage> {
       }
       
       // If user chose to update existing fee
-      if (action == 'update' && existingFee != null) {
+      if (action == 'update') {
         final newAmount = double.tryParse(_totalAmountController.text.trim()) ?? 0.0;
         final currentTotal = existingFee.totalAmount;
         final updatedTotal = currentTotal + newAmount;
@@ -1050,7 +1098,7 @@ class _FeesManagementPageState extends State<FeesManagementPage> {
           
           if (updateResponse.success && updateResponse.data != null) {
             final updatedFee = _parseFeeFromJson(updateResponse.data);
-            if (updatedFee != null && existingFee != null) {
+            if (updatedFee != null) {
               final feeId = existingFee.id;
               setState(() {
                 final index = _allFees.indexWhere((f) => f.id == feeId);
@@ -1449,6 +1497,7 @@ class _FeesManagementPageState extends State<FeesManagementPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+<<<<<<< HEAD
                           _Header(
                             showMenuButton: !showSidebar,
                             onMenuTap: () =>
@@ -1457,6 +1506,29 @@ class _FeesManagementPageState extends State<FeesManagementPage> {
                                           context,
                               MaterialPageRoute(builder: (_) => DashboardPage()),
                                     ),
+=======
+                          // --- TOP HEADER ---
+                          GlassContainer(
+                            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
+                            margin: const EdgeInsets.only(bottom: 30),
+                            child: Row(
+                              children: [
+                                const Expanded(
+                                  child: Text(
+                                    'Fees Management',
+                                    style: TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF333333),
+                                    ),
+                                  ),
+                                ),
+                                _buildUserInfo(),
+                                const SizedBox(width: 20),
+                                _buildBackButton(),
+                              ],
+                            ),
+>>>>>>> sairam
                           ),
                           const SizedBox(height: 24),
                           // Stat Cards Overview
@@ -2237,38 +2309,41 @@ class _Sidebar extends StatelessWidget {
           children: [
             Container(
               margin: const EdgeInsets.all(20),
-              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.24),
-                  width: 1,
+                  color: Colors.white.withValues(alpha: 0.2),
+                  width: 1.5,
                 ),
-              ),
-              child: const Column(
-                children: [
-                  Text(
-                    '🏫 SMS',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 5),
-                  Text(
-                    'School Management System',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  'packages/management_org/assets/Vidyarambh.png',
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.school,
+                        size: 56,
+                        color: Color(0xFF667EEA),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
             Expanded(
@@ -2376,6 +2451,7 @@ class _NavItem extends StatelessWidget {
   }
 }
 
+<<<<<<< HEAD
 class _Header extends StatelessWidget {
   final bool showMenuButton;
   final VoidCallback? onMenuTap;
@@ -2447,6 +2523,49 @@ class _Header extends StatelessWidget {
                 ),
               ),
             ],
+=======
+class _StatsOverview extends StatelessWidget {
+  final Map<String, double> stats;
+
+  const _StatsOverview({required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    final formatter = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 24),
+      child: GridView.count(
+        crossAxisCount: 4,
+        childAspectRatio: 1.35,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: 20,
+        mainAxisSpacing: 20,
+        children: [
+          _StatCard(
+            label: 'Total Fees',
+            value: formatter.format(stats['total']),
+            icon: '💰',
+            color: const Color(0xFF667EEA),
+          ),
+          _StatCard(
+            label: 'Paid',
+            value: formatter.format(stats['paid']),
+            icon: '✅',
+            color: Colors.green,
+          ),
+          _StatCard(
+            label: 'Pending',
+            value: formatter.format(stats['pending']),
+            icon: '⏳',
+            color: Colors.orange,
+          ),
+          _StatCard(
+            label: 'Collection Rate',
+            value: '${stats['collection']!.toStringAsFixed(0)}%',
+            icon: '📊',
+            color: Colors.blue,
+>>>>>>> sairam
           ),
         ],
       ),
@@ -2454,6 +2573,63 @@ class _Header extends StatelessWidget {
   }
 }
 
+<<<<<<< HEAD
+=======
+class _StatCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final String icon;
+  final Color color;
+
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      elevation: 5,
+      shadowColor: Colors.black.withValues(alpha: 0.1),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(icon, style: TextStyle(fontSize: 40, color: color)),
+            const SizedBox(height: 10),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF333333),
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              label.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF666666),
+                fontSize: 12,
+                letterSpacing: 1,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+>>>>>>> sairam
 class _AddFeeSection extends StatelessWidget {
   final GlobalKey<FormState> formKey;
   final TextEditingController studentIdController;
@@ -2601,7 +2777,7 @@ class _AddFeeSection extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             DropdownButtonFormField<String>(
-              value: selectedGrade,
+              initialValue: selectedGrade,
               decoration: InputDecoration(
                 labelText: 'Grade',
                 border: OutlineInputBorder(
@@ -2627,7 +2803,7 @@ class _AddFeeSection extends StatelessWidget {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: feeType,
+                    initialValue: feeType,
                     decoration: InputDecoration(
                       labelText: 'Fee Type',
                       border: OutlineInputBorder(
@@ -2673,7 +2849,7 @@ class _AddFeeSection extends StatelessWidget {
                 const SizedBox(width: 15),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: frequency,
+                    initialValue: frequency,
                     decoration: InputDecoration(
                       labelText: 'Frequency',
                       border: OutlineInputBorder(
@@ -2877,6 +3053,79 @@ class _SearchFilterSection extends StatelessWidget {
               ),
             ],
           ),
+<<<<<<< HEAD
+=======
+          const SizedBox(height: 15),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  initialValue: feeTypeFilter,
+                  decoration: InputDecoration(
+                    labelText: 'Fee Type',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('All Fee Types')),
+                    DropdownMenuItem(value: 'tuition', child: Text('Tuition')),
+                    DropdownMenuItem(value: 'transport', child: Text('Transport')),
+                    DropdownMenuItem(value: 'laboratory', child: Text('Laboratory')),
+                    DropdownMenuItem(value: 'examination', child: Text('Examination')),
+                    DropdownMenuItem(value: 'library', child: Text('Library')),
+                    DropdownMenuItem(value: 'sports', child: Text('Sports')),
+                    DropdownMenuItem(value: 'hostel', child: Text('Hostel')),
+                    DropdownMenuItem(value: 'uniform', child: Text('Uniform')),
+                    DropdownMenuItem(value: 'other', child: Text('Other')),
+                  ],
+                  onChanged: onFeeTypeChanged,
+                ),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  initialValue: statusFilter,
+                  decoration: InputDecoration(
+                    labelText: 'Status',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('All Status')),
+                    DropdownMenuItem(value: 'paid', child: Text('Paid')),
+                    DropdownMenuItem(value: 'pending', child: Text('Pending')),
+                    DropdownMenuItem(value: 'overdue', child: Text('Overdue')),
+                  ],
+                  onChanged: onStatusChanged,
+                ),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  initialValue: classFilter,
+                  decoration: InputDecoration(
+                    labelText: 'Class',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('All Classes')),
+                    ...List.generate(12, (i) => i + 1).map((i) {
+                      return DropdownMenuItem(
+                        value: 'class-$i',
+                        child: Text('Class $i'),
+                      );
+                    }),
+                  ],
+                  onChanged: onClassChanged,
+                ),
+              ),
+            ],
+          ),
+>>>>>>> sairam
           const SizedBox(height: 20),
           // Show stat card if student summary is available, otherwise show fee list
           if (isLoadingSummary)
@@ -3646,11 +3895,123 @@ class _FeeDetailRow extends StatelessWidget {
   }
 }
 
+<<<<<<< HEAD
 // Payment History Table
 class _PaymentHistoryTable extends StatelessWidget {
   final List<dynamic> paymentHistory;
 
   const _PaymentHistoryTable({required this.paymentHistory});
+=======
+class _FeeCardState extends State<_FeeCard> {
+  late FeeRecord fee;
+  
+  // Helper function to parse fee from JSON (needed for _editPayment)
+  FeeRecord? _parseFeeFromJson(Map<String, dynamic> json) {
+    try {
+      // Parse dates
+      DateTime? dueDate;
+      if (json['due_date'] != null) {
+        dueDate = DateTime.tryParse(json['due_date']);
+        dueDate ??= DateTime.tryParse('${json['due_date']}T00:00:00');
+      }
+      
+      DateTime? lastPaidDate;
+      if (json['last_paid_date'] != null) {
+        lastPaidDate = DateTime.tryParse(json['last_paid_date']);
+      }
+      
+      DateTime? createdAt;
+      if (json['created_at'] != null) {
+        final createdStr = json['created_at'];
+        if (createdStr is String) {
+          createdAt = DateTime.tryParse(createdStr);
+        }
+      }
+      
+      DateTime? updatedAt;
+      if (json['updated_at'] != null) {
+        final updatedStr = json['updated_at'];
+        if (updatedStr is String) {
+          updatedAt = DateTime.tryParse(updatedStr);
+        }
+      }
+      
+      // Parse payment history
+      List<PaymentHistoryRecord> paymentHistory = [];
+      if (json['payment_history'] != null && json['payment_history'] is List) {
+        for (var paymentJson in json['payment_history'] as List) {
+          if (paymentJson is Map<String, dynamic>) {
+            DateTime? paymentDate;
+            if (paymentJson['payment_date'] != null) {
+              paymentDate = DateTime.tryParse(paymentJson['payment_date']);
+            }
+            
+            DateTime? paymentCreatedAt;
+            if (paymentJson['created_at'] != null) {
+              final createdStr = paymentJson['created_at'];
+              if (createdStr is String) {
+                paymentCreatedAt = DateTime.tryParse(createdStr);
+              }
+            }
+            
+            paymentHistory.add(PaymentHistoryRecord(
+              id: paymentJson['id'] as int? ?? 0,
+              paymentAmount: (paymentJson['payment_amount'] is num)
+                  ? (paymentJson['payment_amount'] as num).toDouble()
+                  : double.tryParse(paymentJson['payment_amount'].toString()) ?? 0.0,
+              paymentDate: paymentDate ?? DateTime.now(),
+              receiptNumber: paymentJson['receipt_number']?.toString() ?? '',
+              notes: paymentJson['notes']?.toString() ?? '',
+              createdAt: paymentCreatedAt,
+            ));
+          }
+        }
+      }
+      
+      // Parse status
+      FeeStatus status = FeeStatus.pending;
+      final statusStr = json['status']?.toString().toLowerCase() ?? '';
+      if (statusStr == 'paid') {
+        status = FeeStatus.paid;
+      } else if (statusStr == 'overdue') {
+        status = FeeStatus.overdue;
+      }
+      
+      return FeeRecord(
+        id: json['id'] as int? ?? 0,
+        studentId: json['student_id']?.toString(),
+        studentName: json['student_name']?.toString() ?? '',
+        applyingClass: json['applying_class']?.toString() ?? '',
+        feeType: json['fee_type']?.toString() ?? '',
+        grade: json['grade']?.toString() ?? '',
+        totalAmount: (json['total_amount'] is num)
+            ? (json['total_amount'] as num).toDouble()
+            : double.tryParse(json['total_amount'].toString()) ?? 0.0,
+        frequency: json['frequency']?.toString() ?? '',
+        dueDate: dueDate ?? DateTime.now(),
+        lateFee: (json['late_fee'] is num)
+            ? (json['late_fee'] as num).toDouble()
+            : double.tryParse(json['late_fee'].toString()) ?? 0.0,
+        description: json['description']?.toString() ?? '',
+        status: status,
+        paidAmount: (json['paid_amount'] is num)
+            ? (json['paid_amount'] as num).toDouble()
+            : double.tryParse(json['paid_amount'].toString()) ?? 0.0,
+        dueAmount: (json['due_amount'] is num)
+            ? (json['due_amount'] as num).toDouble()
+            : double.tryParse(json['due_amount'].toString()) ?? 0.0,
+        lastPaidDate: lastPaidDate,
+        paymentHistory: paymentHistory,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+      );
+    } catch (e) {
+      print('Error parsing fee from JSON: $e');
+      print('JSON: $json');
+      return null;
+    }
+  }
+>>>>>>> sairam
 
   @override
   Widget build(BuildContext context) {
@@ -3764,11 +4125,369 @@ class _TableHeaderCell extends StatelessWidget {
           fontWeight: FontWeight.bold,
           color: Colors.black87,
         ),
+<<<<<<< HEAD
+=======
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+            Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      fee.studentName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (fee.studentId != null && fee.studentId!.isNotEmpty)
+                      Text(
+                        'ID: ${fee.studentId}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  _getStatusLabel(),
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildInfoRow('Type:', fee.typeLabel),
+                    const SizedBox(height: 4),
+                    _buildInfoRow('Class:', fee.classLabel),
+                    const SizedBox(height: 4),
+                    _buildInfoRow('Grade:', fee.gradeLabel),
+                    const SizedBox(height: 4),
+                    _buildInfoRow('Frequency:', fee.frequencyLabel),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildInfoRow('Due Date:', formatter.format(fee.dueDate)),
+                    const SizedBox(height: 4),
+                    _buildInfoRow('Late Fee:', '₹${fee.lateFee.toStringAsFixed(0)}'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Total Amount:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '₹${fee.totalAmount.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: fee.paidAmount > 0 ? Colors.green.shade50 : Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Amount Paid:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '₹${fee.paidAmount.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: fee.paidAmount > 0 ? Colors.green : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: fee.dueAmount > 0 ? Colors.orange.shade50 : Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Due Amount:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '₹${fee.dueAmount.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: fee.dueAmount > 0 ? Colors.orange.shade700 : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (fee.paymentHistory.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Payment History:',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...fee.paymentHistory.map((payment) {
+                    final dateFormatter = DateFormat('MMM dd, yyyy');
+                    final displayDate = dateFormatter.format(payment.paymentDate);
+                    
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        displayDate,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.black87,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      if (payment.receiptNumber.isNotEmpty) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Receipt: ${payment.receiptNumber}',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey.shade600,
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    Text(
+                                      '₹${payment.paymentAmount.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      icon: const Icon(Icons.edit, size: 18),
+                                      color: Colors.blue,
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: () => _editPayment(payment),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ],
+          if (fee.description.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Description:',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    fee.description,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (fee.createdAt != null || fee.updatedAt != null) ...[
+            const SizedBox(height: 8),
+            Divider(color: Colors.grey.shade300),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (fee.createdAt != null)
+                  Text(
+                    'Created: ${DateFormat('MMM dd, yyyy').format(fee.createdAt!)}',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                if (fee.updatedAt != null)
+                  Text(
+                    'Updated: ${DateFormat('MMM dd, yyyy').format(fee.updatedAt!)}',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          if (fee.status != FeeStatus.paid) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: widget.onMarkPaid,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+                child: const Text('Mark as Paid'),
+              ),
+            ),
+          ],
+        ],
+>>>>>>> sairam
       ),
     );
   }
 }
 
+<<<<<<< HEAD
 // Helper function to convert relative media path to full URL
 String _buildReceiptImageUrl(String? receiptPath) {
   if (receiptPath == null || receiptPath.isEmpty) {
@@ -3814,10 +4533,30 @@ class _TableCell extends StatelessWidget {
     this.statusColor,
     this.receiptPath,
     this.receiptNumber,
+=======
+
+
+// Glass Container Widget
+class GlassContainer extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final bool drawRightBorder;
+  final double borderRadius;
+
+  const GlassContainer({
+    super.key,
+    required this.child,
+    this.padding,
+    this.margin,
+    this.drawRightBorder = false,
+    this.borderRadius = 12,
+>>>>>>> sairam
   });
 
   @override
   Widget build(BuildContext context) {
+<<<<<<< HEAD
     return Padding(
       padding: const EdgeInsets.all(12),
       child: isLink
@@ -3934,6 +4673,39 @@ class _TableCell extends StatelessWidget {
                   fontWeight: statusColor != null ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
+=======
+    final radius = drawRightBorder
+        ? BorderRadius.zero
+        : BorderRadius.circular(borderRadius);
+
+    return Container(
+      margin: margin,
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.95),
+              borderRadius: radius,
+              border: Border(
+                right: drawRightBorder
+                    ? BorderSide(color: Colors.white.withValues(alpha: 0.2))
+                    : BorderSide.none,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 24,
+                  offset: const Offset(2, 6),
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        ),
+>>>>>>> sairam
       ),
     );
   }

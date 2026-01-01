@@ -378,7 +378,7 @@ class _HomeworkManagementPageState extends State<HomeworkManagementPage> {
   // NEW: Loading data from storage
   Future<void> _loadHomework() async {
     await Future.delayed(const Duration(milliseconds: 500));
-    String? savedString = null; // Simulate no saved data initially
+    String? savedString; // Simulate no saved data initially
 
     if (savedString != null) {
       final jsonList = jsonDecode(savedString) as List;
