@@ -7,6 +7,7 @@ import 'main.dart' as app;
 import 'dashboard.dart';
 import 'widgets/school_profile_header.dart';
 import 'management_routes.dart';
+import 'widgets/dynamic_calendar_icon.dart';
 
 class Event {
   final int id;
@@ -436,6 +437,7 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
     );
   }
 
+
   Widget _buildMainContent({required bool isMobile}) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(30),
@@ -453,7 +455,7 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
                     children: [
                       Row(
                         children: [
-                          const Text('📅', style: TextStyle(fontSize: 32)),
+                          const DynamicCalendarIcon(),
                           const SizedBox(width: 15),
                           Text(
                             'Events Management',
@@ -507,25 +509,25 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
                   _StatCard(
                     label: 'Total Events',
                     value: '$_totalEvents',
-                    icon: '📅',
+                    icon: const DynamicCalendarIcon(),
                     color: const Color(0xFF667EEA),
                   ),
                   _StatCard(
                     label: 'Upcoming Events',
                     value: '$_upcomingEvents',
-                    icon: '🔔',
+                    icon: const Text('🔔', style: TextStyle(fontSize: 40, color: Colors.orange)),
                     color: Colors.orange,
                   ),
                   _StatCard(
                     label: 'Completed Events',
                     value: '$_completedEvents',
-                    icon: '✅',
+                    icon: const Text('✅', style: TextStyle(fontSize: 40, color: Colors.green)),
                     color: Colors.green,
                   ),
                   _StatCard(
                     label: 'Event Categories',
                     value: '$_eventCategories',
-                    icon: '🎭',
+                    icon: const Text('🎭', style: TextStyle(fontSize: 40, color: Colors.blue)),
                     color: Colors.blue,
                   ),
                 ],
@@ -989,7 +991,7 @@ class _NavItem extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
-  final String icon;
+  final Widget icon;
   final Color color;
 
   const _StatCard({
@@ -1012,7 +1014,7 @@ class _StatCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(icon, style: TextStyle(fontSize: 40, color: color)),
+            icon,
             const SizedBox(height: 10),
             Text(
               value,

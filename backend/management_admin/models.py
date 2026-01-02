@@ -1132,42 +1132,6 @@ class BusStopStudent(models.Model):
         unique_together = ['bus_stop', 'student']
 
 
-<<<<<<< HEAD
-class Activity(models.Model):
-    """Activity model for school activities"""
-    CATEGORY_CHOICES = [
-        ('Sports', 'Sports'),
-        ('Academic', 'Academic'),
-        ('Arts', 'Arts'),
-        ('Games', 'Games'),
-        ('Cultural', 'Cultural'),
-        ('Technical', 'Technical'),
-    ]
-    
-    STATUS_CHOICES = [
-        ('Active', 'Active'),
-        ('Inactive', 'Inactive'),
-        ('Suspended', 'Suspended'),
-        ('Completed', 'Completed'),
-    ]
-    
-    id = models.AutoField(primary_key=True)
-    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='school_activities', db_column='school_id')
-    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
-    
-    name = models.CharField(max_length=255, help_text='Activity name')
-    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, help_text='Activity category')
-    instructor = models.CharField(max_length=255, help_text='Instructor name')
-    max_participants = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1)], help_text='Maximum number of participants')
-    schedule = models.CharField(max_length=255, help_text='Activity schedule (e.g., Monday, Wednesday 3:00 PM)')
-    location = models.CharField(max_length=255, help_text='Activity location')
-    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Active', help_text='Activity status')
-    start_date = models.DateField(null=True, blank=True, help_text='Activity start date')
-    end_date = models.DateField(null=True, blank=True, help_text='Activity end date')
-    description = models.TextField(help_text='Detailed activity description')
-    requirements = models.TextField(blank=True, help_text='Requirements or prerequisites')
-    notes = models.TextField(blank=True, help_text='Additional notes or comments')
-=======
 class Event(models.Model):
     """Event model for managing school events"""
     
@@ -1300,27 +1264,10 @@ class Award(models.Model):
         blank=True, 
         help_text='Presented by (organization or person)'
     )
->>>>>>> sairam
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-<<<<<<< HEAD
-    def save(self, *args, **kwargs):
-        """Auto-populate school_name from school"""
-        if self.school:
-            self.school_name = self.school.school_name
-        super().save(*args, **kwargs)
-    
-    def __str__(self):
-        return f"{self.name} - {self.category}"
-    
-    class Meta:
-        db_table = 'school_activities'
-        verbose_name = 'School Activity'
-        verbose_name_plural = 'School Activities'
-        ordering = ['-created_at']
-=======
     def __str__(self):
         return f"{self.title} - {self.recipient}"
     
@@ -1329,4 +1276,4 @@ class Award(models.Model):
         verbose_name = 'Award'
         verbose_name_plural = 'Awards'
         ordering = ['-date', '-created_at']
->>>>>>> sairam
+

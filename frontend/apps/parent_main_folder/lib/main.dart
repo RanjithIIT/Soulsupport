@@ -2442,16 +2442,13 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
   List<Map<String, dynamic>> _groups = [];
   bool _loadingTeachers = false;
   String? _schoolId; // Parent's school_id for filtering
-<<<<<<< HEAD
-  Map<String, int> _unreadCounts = {}; // Track unread messages per teacher
-  Map<String, List<Map<String, dynamic>>> _teacherMessages = {}; // Track messages per teacher for sorting
-  RealtimeChatService? _globalChatService; // Global chat service for unread count tracking
-  StreamSubscription? _globalChatSubscription;
-  
-=======
   final Map<String, int> _unreadCounts = {}; // Track unread messages per teacher
+  
+  // Added missing state variables
+  StreamSubscription? _globalChatSubscription;
+  RealtimeChatService? _globalChatService;
+  final Map<String, List<Map<String, dynamic>>> _teacherMessages = {};
 
->>>>>>> sairam
   @override
   void initState() {
     super.initState();

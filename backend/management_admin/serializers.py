@@ -2,11 +2,7 @@
 Serializers for management_admin app
 """
 from rest_framework import serializers
-<<<<<<< HEAD
-from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Activity
-=======
 from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature
->>>>>>> sairam
 from main_login.serializers import UserSerializer
 from main_login.serializer_mixins import SchoolIdMixin
 from main_login.utils import get_user_school_id
@@ -462,112 +458,6 @@ class BusSerializer(SchoolIdMixin, serializers.ModelSerializer):
         return stops_data
 
     def get_afternoon_stops(self, obj):
-<<<<<<< HEAD
-        """Get afternoon stops with their students"""
-        # Get all afternoon stops for this bus, ordered by stop_order
-        afternoon_stops = obj.stops.filter(route_type='afternoon').order_by('stop_order')
-        
-        stops_data = []
-        for stop in afternoon_stops:
-            # For afternoon stops, get students from corresponding morning stop if exists
-            # Otherwise use the afternoon stop's own students
-            corresponding_morning_stop = obj.stops.filter(
-                route_type='morning',
-                stop_name=stop.stop_name
-            ).first()
-            
-            if corresponding_morning_stop:
-                # Use students from corresponding morning stop
-                students = corresponding_morning_stop.stop_students.all()
-            else:
-                # Fallback to afternoon stop's own students
-                students = stop.stop_students.all()
-            
-            # Serialize students
-            students_data = []
-            for student_link in students:
-                students_data.append({
-                    'id': str(student_link.id),
-                    'student_id_string': student_link.student_id_string or '',
-                    'student_name': student_link.student_name or '',
-                    'student_class': student_link.student_class or '',
-                    'student_grade': student_link.student_grade or '',
-                    'pickup_time': student_link.pickup_time.strftime('%H:%M:%S') if student_link.pickup_time else None,
-                    'dropoff_time': student_link.dropoff_time.strftime('%H:%M:%S') if student_link.dropoff_time else None,
-                    'bus_stop_name': stop.stop_name,
-                })
-            
-            # Serialize stop with students
-            stop_data = {
-                'stop_id': stop.stop_id,
-                'stop_name': stop.stop_name,
-                'stop_address': stop.stop_address,
-                'stop_time': stop.stop_time.strftime('%H:%M:%S') if stop.stop_time else None,
-                'route_type': stop.route_type,
-                'stop_order': stop.stop_order,
-                'latitude': float(stop.latitude) if stop.latitude else None,
-                'longitude': float(stop.longitude) if stop.longitude else None,
-                'students': students_data,
-                'student_count': len(students_data),
-                'created_at': stop.created_at.isoformat() if stop.created_at else None,
-                'updated_at': stop.updated_at.isoformat() if stop.updated_at else None,
-            }
-            stops_data.append(stop_data)
-        
-        return stops_data
-
-
-class ActivitySerializer(SchoolIdMixin, serializers.ModelSerializer):
-    school_name = serializers.CharField(source='school.school_name', read_only=True)
-    school_id = serializers.CharField(source='school.school_id', read_only=True)
-    school = serializers.PrimaryKeyRelatedField(
-        queryset=School.objects.all(),
-        required=False,
-        allow_null=True,
-        pk_field=serializers.CharField(),
-        help_text='School ID (auto-set from logged-in user if not provided)'
-    )
-    
-    class Meta:
-        model = Activity
-        fields = '__all__'
-    
-    def validate_name(self, value):
-        """Ensure name is not empty"""
-        if not value or not value.strip():
-            raise serializers.ValidationError('Activity name is required.')
-        return value.strip()
-    
-    def validate_category(self, value):
-        """Ensure category is provided"""
-        if not value:
-            raise serializers.ValidationError('Category is required.')
-        return value
-    
-    def validate_instructor(self, value):
-        """Ensure instructor is not empty"""
-        if not value or not value.strip():
-            raise serializers.ValidationError('Instructor name is required.')
-        return value.strip()
-    
-    def validate_schedule(self, value):
-        """Ensure schedule is not empty"""
-        if not value or not value.strip():
-            raise serializers.ValidationError('Schedule is required.')
-        return value.strip()
-    
-    def validate_location(self, value):
-        """Ensure location is not empty"""
-        if not value or not value.strip():
-            raise serializers.ValidationError('Location is required.')
-        return value.strip()
-    
-    def validate_description(self, value):
-        """Ensure description is not empty"""
-        if not value or not value.strip():
-            raise serializers.ValidationError('Description is required.')
-        return value.strip()
-=======
         return []
 
 
@@ -651,4 +541,4 @@ class AwardSerializer(SchoolIdMixin, serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         return instance
->>>>>>> sairam
+

@@ -8,11 +8,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
-<<<<<<< HEAD
-from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Activity
-=======
 from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature
->>>>>>> sairam
 from super_admin.models import School
 from .serializers import (
     FileSerializer,
@@ -26,13 +22,9 @@ from .serializers import (
     BusSerializer,
     BusStopSerializer,
     BusStopStudentSerializer,
-<<<<<<< HEAD
-    ActivitySerializer
-=======
     EventSerializer,
     AwardSerializer,
     CampusFeatureSerializer
->>>>>>> sairam
 )
 from main_login.permissions import IsManagementAdmin
 from main_login.mixins import SchoolFilterMixin
@@ -1476,13 +1468,6 @@ class SchoolViewSet(viewsets.ViewSet):
             )
 
 
-<<<<<<< HEAD
-class ActivityViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
-    """ViewSet for Activity management"""
-    queryset = Activity.objects.all()
-    serializer_class = ActivitySerializer
-    permission_classes = [IsAuthenticated, IsManagementAdmin]
-=======
 class EventViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Event management"""
     queryset = Event.objects.all()
@@ -1493,38 +1478,12 @@ class EventViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     search_fields = ['name', 'location', 'organizer', 'description']
     ordering_fields = ['date', 'created_at', 'name']
     ordering = ['-date', '-created_at']
->>>>>>> sairam
     
     def get_permissions(self):
         """Allow read/create/update/delete without auth for development - can be adjusted"""
         if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
             return [AllowAny()]
         return [IsAuthenticated(), IsManagementAdmin()]
-<<<<<<< HEAD
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['category', 'status', 'school']
-    search_fields = ['name', 'instructor', 'location', 'description']
-    ordering_fields = ['created_at', 'start_date', 'name']
-    ordering = ['-created_at']
-    
-    def get_queryset(self):
-        """Override to ensure school_id filtering is applied"""
-        queryset = super().get_queryset()
-        
-        # Check if user is super admin
-        if hasattr(self.request.user, 'role') and self.request.user.role:
-            if self.request.user.role.name == 'super_admin':
-                return queryset.select_related('school')
-        
-        # Get school_id for filtering
-        school_id = self.get_school_id()
-        if school_id:
-            queryset = queryset.filter(school__school_id=school_id).select_related('school')
-        else:
-            if self.request.user.is_authenticated:
-                return queryset.none()
-        
-        return queryset
     
     def create(self, request, *args, **kwargs):
         """Override create to automatically get school from logged-in user if not provided"""
@@ -1667,24 +1626,6 @@ class EventViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
     
-    def perform_create(self, serializer):
-        """Set school when creating activity"""
-        # School should already be set in create() method
-        # But if not, try to get it from user
-        if 'school' not in serializer.validated_data:
-            if self.request.user.is_authenticated:
-                school_id = get_user_school_id(self.request.user)
-                if school_id:
-                    try:
-                        school = School.objects.get(school_id=school_id)
-                        serializer.save(school=school)
-                        return
-                    except School.DoesNotExist:
-                        pass
-        
-        # If school is in validated_data, use it
-        super().perform_create(serializer)
-=======
     
     def perform_create(self, serializer):
         """Set school_id when creating event"""
@@ -1807,4 +1748,4 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     def perform_update(self, serializer):
         """Update award - school_id should already be set"""
         serializer.save()
->>>>>>> sairam
+
