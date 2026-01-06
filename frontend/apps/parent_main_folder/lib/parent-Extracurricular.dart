@@ -251,29 +251,15 @@ class ActivityScreen extends StatelessWidget {
 
   AppBar _buildAppBar(BuildContext context) {
     return AppBar(
-      title: const Text('Extracurricular Dashboard'),
+      title: const Text(
+        'Extracurricular Dashboard',
+        style: TextStyle(color: Colors.white),
+      ),
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
+        icon: const Icon(Icons.arrow_back, color: Colors.white),
         onPressed: () => Navigator.pop(context),
       ),
       actions: [
-        // Quick shortcut to open the full Activity Schedule screen
-        IconButton(
-          icon: const Icon(Icons.schedule),
-          tooltip: 'Activity Schedule',
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const ActivityScheduleScreen(),
-              ),
-            );
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.person),
-          onPressed: () => _handleAction(context, 'Profile'),
-        ),
         IconButton(
           icon: const Icon(Icons.logout),
           onPressed: () => _handleAction(context, 'Logout'),

@@ -78,8 +78,8 @@ try {
 }
 
 # Start Django backend with daphne (ASGI) for WebSocket support
-Write-Host "Starting Django backend with daphne (ASGI) on http://127.0.0.1:8000..." -ForegroundColor Cyan
-$backendProcess = Start-Process -FilePath $pythonExe -ArgumentList '-m', 'daphne', '-b', '127.0.0.1', '-p', '8000', 'school_backend.asgi:application' -WorkingDirectory $backendPath -NoNewWindow -PassThru
+Write-Host "Starting Django backend with daphne (ASGI) on http://0.0.0.0:8000..." -ForegroundColor Cyan
+$backendProcess = Start-Process -FilePath $pythonExe -ArgumentList '-m', 'daphne', '-b', '0.0.0.0', '-p', '8000', 'school_backend.asgi:application' -WorkingDirectory $backendPath -NoNewWindow -PassThru
 
 # Wait for backend to start
 Start-Sleep -Seconds 3

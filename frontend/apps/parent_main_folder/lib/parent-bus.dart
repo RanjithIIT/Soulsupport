@@ -147,12 +147,7 @@ class _BusDetailsPageState extends State<BusDetailsPage>
         icon: const Icon(Icons.arrow_back, color: Colors.white),
         onPressed: () => Navigator.pop(context),
       ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.person, color: Colors.white),
-          onPressed: () => _msg(context, "User Profile"),
-        ),
-      ],
+      actions: const [],
     );
   }
 

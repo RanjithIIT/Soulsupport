@@ -8,7 +8,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, Activity
 from super_admin.models import School
 from .serializers import (
     FileSerializer,
@@ -24,12 +24,16 @@ from .serializers import (
     BusStopStudentSerializer,
     EventSerializer,
     AwardSerializer,
-    CampusFeatureSerializer
+    CampusFeatureSerializer,
+    ActivitySerializer
 )
+
+
 from main_login.permissions import IsManagementAdmin
 from main_login.mixins import SchoolFilterMixin
 from main_login.utils import get_user_school_id
 from django.conf import settings
+
 
 
 class FileViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
@@ -1747,5 +1751,45 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     
     def perform_update(self, serializer):
         """Update award - school_id should already be set"""
+        serializer.save()
+
+
+class ActivityViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
+    """ViewSet for Activity management"""
+    queryset = Activity.objects.all()
+    serializer_class = ActivitySerializer
+    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['category', 'status', 'start_date', 'end_date']
+    search_fields = ['name', 'instructor', 'location', 'description']
+    ordering_fields = ['created_at', 'start_date', 'name']
+    ordering = ['-created_at']
+    
+    def get_permissions(self):
+        """Allow read/create/update/delete without auth for development - can be adjusted"""
+        if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
+            return [AllowAny()]
+        return [IsAuthenticated(), IsManagementAdmin()]
+
+    def perform_create(self, serializer):
+        """Set school reference when creating activity"""
+        activity = serializer.save()
+        
+        school_id = self.get_school_id()
+        if school_id:
+            from super_admin.models import School
+            # Create a separate update query to set the foreign key directly by ID
+            # This avoids needing to fetch the School object if we only have the ID
+            Activity.objects.filter(pk=activity.pk).update(school_id=school_id)
+            
+            # Try to set school_name as well if possible
+            try:
+                school = School.objects.get(school_id=school_id)
+                Activity.objects.filter(pk=activity.pk).update(school_name=school.school_name)
+            except School.DoesNotExist:
+                pass
+
+    def perform_update(self, serializer):
+        """Update activity"""
         serializer.save()
 

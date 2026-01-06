@@ -7,6 +7,7 @@ import 'package:core/api/endpoints.dart';
 import 'dashboard.dart';
 import 'widgets/school_profile_header.dart';
 import 'widgets/dynamic_calendar_icon.dart';
+import 'widgets/management_sidebar.dart';
 
 // ==========================================
 // 1. ROBUST DATA MODEL
@@ -277,7 +278,17 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
     return Scaffold(
       body: Row(
         children: [
-          if (isDesktop) _buildSidebar(),
+          if (isDesktop) SizedBox(
+            width: 280,
+            child: ManagementSidebar(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              activeRoute: '/calendar',
+            ),
+          ),
           Expanded(
             child: Container(
               color: const Color(0xFFF5F6FA),
@@ -317,138 +328,22 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
     );
   }
 
-  Widget _buildSidebar() {
-    final gradient = const LinearGradient(
-      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
 
-    void navigateToRoute(String route) {
-      if (route == '/dashboard') {
-        Navigator.of(context).pushReplacementNamed(route);
-      } else {
-        Navigator.of(context).pushReplacementNamed(route);
-      }
-    }
 
+  Widget _buildHeader() {
     return Container(
-      width: 280,
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
       decoration: BoxDecoration(
-        gradient: gradient,
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(2, 0),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  'packages/management_org/assets/Vidyarambh.png',
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      height: 120,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.school,
-                        size: 56,
-                        color: Color(0xFF667EEA),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _NavItem(
-                    icon: const Text('📊', style: TextStyle(fontSize: 22)),
-                    title: 'Overview',
-                    isActive: false,
-                    onTap: () => navigateToRoute('/dashboard'),
-                  ),
-                  _NavItem(
-                    icon: const Text('👨‍🏫', style: TextStyle(fontSize: 22)),
-                    title: 'Teachers',
-                    onTap: () => navigateToRoute('/teachers'),
-                  ),
-                  _NavItem(
-                    icon: const Text('👥', style: TextStyle(fontSize: 22)),
-                    title: 'Students',
-                    onTap: () => navigateToRoute('/students'),
-                  ),
-                  _NavItem(
-                    icon: const Text('🚌', style: TextStyle(fontSize: 22)),
-                    title: 'Buses',
-                    onTap: () => navigateToRoute('/buses'),
-                  ),
-                  _NavItem(
-                    icon: const Text('🎯', style: TextStyle(fontSize: 22)),
-                    title: 'Activities',
-                    onTap: () => navigateToRoute('/activities'),
-                  ),
-                  _NavItem(
-                    icon: const Text('📅', style: TextStyle(fontSize: 22)),
-                    title: 'Events',
-                    onTap: () => navigateToRoute('/events'),
-                  ),
-                  _NavItem(
-                    icon: const Text('📆', style: TextStyle(fontSize: 22)),
-                    title: 'Calendar',
-                    isActive: true,
-                    onTap: () => navigateToRoute('/calendar'),
-                  ),
-                  _NavItem(
-                    icon: const Text('🔔', style: TextStyle(fontSize: 22)),
-                    title: 'Notifications',
-                    onTap: () => navigateToRoute('/notifications'),
-                  ),
-                  _NavItem(
-                    icon: const Text('🛣️', style: TextStyle(fontSize: 22)),
-                    title: 'Bus Routes',
-                    onTap: () => navigateToRoute('/bus-routes'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return GlassContainer(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
       child: Row(
         children: [
           Column(
@@ -456,37 +351,37 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
             children: [
               Row(
                 children: [
-                  DynamicCalendarIcon(),
-                  SizedBox(width: 15),
-                  Text("School Calendar", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                  const DynamicCalendarIcon(),
+                  const SizedBox(width: 15),
+                  const Text(
+                    "School Calendar",
+                    style: TextStyle(
+                      color: Color(0xFF333333),
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
-              SizedBox(height: 5),
-              Text("Manage school events, holidays, and important dates", style: TextStyle(color: Colors.white70)),
+              const SizedBox(height: 5),
+              const Text(
+                "Manage school events, holidays, and important dates",
+                style: TextStyle(color: Color(0xFF666666)),
+              ),
             ],
           ),
-          Spacer(),
+          const Spacer(),
           Row(
             children: [
               IconButton(
                 onPressed: _exportData,
-                icon: const Icon(Icons.download, color: Colors.white),
+                icon: const Icon(Icons.download, color: Color(0xFF666666)),
                 tooltip: "Export CSV",
               ),
               const SizedBox(width: 10),
               SchoolProfileHeader(apiService: ApiService()),
               const SizedBox(width: 10),
-              ElevatedButton.icon(
-                onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardPage())), 
-                icon: const Icon(Icons.arrow_back, size: 16),
-                label: const Text("Back to Dashboard"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white.withValues(alpha: 0.2),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                ),
-              ),
+              _buildBackButton(),
             ],
           ),
         ],

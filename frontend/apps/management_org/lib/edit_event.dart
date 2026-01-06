@@ -6,6 +6,7 @@ import 'dashboard.dart';
 
 class EditEventPage extends StatefulWidget {
   final int? eventId;
+
   const EditEventPage({super.key, this.eventId});
 
   @override
@@ -14,14 +15,12 @@ class EditEventPage extends StatefulWidget {
 
 class _EditEventPageState extends State<EditEventPage> {
   final _formKey = GlobalKey<FormState>();
-
   final _nameController = TextEditingController();
   final _locationController = TextEditingController();
   final _organizerController = TextEditingController();
   final _participantsController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _timeController = TextEditingController();
-
   String? _selectedCategory;
   String _selectedStatus = 'Upcoming';
   DateTime? _selectedDate;
@@ -117,6 +116,7 @@ class _EditEventPageState extends State<EditEventPage> {
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
+
     if (_selectedDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a date')),
@@ -155,7 +155,6 @@ class _EditEventPageState extends State<EditEventPage> {
       }
 
       if (!mounted) return;
-
       setState(() {
         _isSubmitting = false;
         _showSuccess = true;

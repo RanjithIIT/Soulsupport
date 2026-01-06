@@ -40,28 +40,9 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
   final _subjectSpecializationController = TextEditingController();
   final _emergencyContactController = TextEditingController();
 
-  String? _selectedDepartmentId;
-  List<Map<String, dynamic>> _departments = [];
-  bool _isLoadingDepartments = false;
+  final _departmentController = TextEditingController();
   String? _gender;
   String? _bloodGroup;
-  
-  // Default department names (from old designation dropdown)
-  static const List<String> _defaultDepartmentNames = [
-    'Mathematics',
-    'Physics',
-    'Chemistry',
-    'Biology',
-    'English',
-    'History',
-    'Geography',
-    'Computer Science',
-    'Art',
-    'Music',
-    'Principal',
-    'Vice Principal',
-    'Coordinator',
-  ];
   DateTime? _dob;
   DateTime? _joiningDate;
   Uint8List? _photoBytes;
@@ -75,9 +56,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
         employeeNo: _employeeNoController.text,
         firstName: _firstNameController.text,
         lastName: _lastNameController.text,
-        department: _selectedDepartmentId != null 
-            ? _departments.firstWhere((d) => d['id'].toString() == _selectedDepartmentId, orElse: () => {})['name']
-            : null,
+        department: _departmentController.text,
         mobileNo: _mobileNoController.text,
         email: _emailController.text,
         address: _addressController.text,
@@ -88,58 +67,13 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
   @override
   void initState() {
     super.initState();
-    _loadDepartments();
   }
 
-  Future<void> _loadDepartments() async {
-    setState(() => _isLoadingDepartments = true);
-    try {
-      final apiService = ApiService();
-      await apiService.initialize();
-      final response = await apiService.get(Endpoints.departments);
-      
-      if (response.success && response.data != null) {
-        List<dynamic> data = [];
-        if (response.data is List) {
-          data = response.data as List;
-        } else if (response.data is Map && (response.data as Map)['results'] != null) {
-          data = (response.data as Map)['results'] as List;
-        }
-        
-        if (mounted) {
-          setState(() {
-            _departments = data.map((d) => d as Map<String, dynamic>).toList();
-            // If no departments from API, add default ones as fallback
-            if (_departments.isEmpty) {
-              _departments = _defaultDepartmentNames.map((name) => <String, dynamic>{
-                'id': name,
-                'name': name,
-              }).toList();
-            }
-            _isLoadingDepartments = false;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            // If API fails, use default departments as fallback
-            _departments = _defaultDepartmentNames.map((name) => <String, dynamic>{
-              'id': name,
-              'name': name,
-            }).toList();
-            _isLoadingDepartments = false;
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingDepartments = false);
-      }
-    }
-  }
+
 
   @override
   void dispose() {
+    _departmentController.dispose();
     _employeeNoController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
@@ -200,34 +134,8 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
         'is_active': true,
       };
       
-      // Add department - try to parse as integer first, otherwise use as string
-      if (_selectedDepartmentId != null && _selectedDepartmentId!.isNotEmpty) {
-        final deptId = int.tryParse(_selectedDepartmentId!);
-        if (deptId != null) {
-          // Valid integer ID from API
-          teacherData['department'] = deptId;
-        } else {
-          // String ID from default departments - find the department name
-          final dept = _departments.firstWhere(
-            (d) => d['id']?.toString() == _selectedDepartmentId || d['name']?.toString() == _selectedDepartmentId,
-            orElse: () => <String, dynamic>{},
-          );
-          // If it's a default department, we might need to handle it differently
-          // For now, try to find a matching department by name in the API list
-          final deptName = dept['name']?.toString() ?? _selectedDepartmentId;
-          // Try to find this department in the loaded list
-          final matchingDept = _departments.firstWhere(
-            (d) => d['name']?.toString() == deptName,
-            orElse: () => <String, dynamic>{},
-          );
-          if (matchingDept.isNotEmpty && matchingDept['id'] != null) {
-            final matchingId = int.tryParse(matchingDept['id'].toString());
-            if (matchingId != null) {
-              teacherData['department'] = matchingId;
-            }
-          }
-        }
-      }
+      final department = nullIfEmpty(_departmentController.text);
+      if (department != null) teacherData['department'] = department;
       
       // Add optional fields only if they have values
       final mobileNo = nullIfEmpty(_mobileNoController.text);
@@ -747,43 +655,18 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                           isTwoColumns ? (constraints.maxWidth - 30) / 2 : constraints.maxWidth,
                                       child: _LabeledField(
                                         label: 'Department *',
-                                        child: _isLoadingDepartments
-                                            ? const Center(child: Padding(
-                                                padding: EdgeInsets.all(16.0),
-                                                child: CircularProgressIndicator(),
-                                              ))
-                                            : DropdownButtonFormField<String>(
-                                                initialValue: _selectedDepartmentId,
-                                                items: [
-                                                  const DropdownMenuItem<String>(
-                                                    value: null,
-                                                    child: Text('Select Department'),
-                                                  ),
-                                                  ..._departments.map(
-                                                    (dept) {
-                                                      final id = dept['id'];
-                                                      final name = dept['name']?.toString() ?? dept['id']?.toString() ?? 'Unknown';
-                                                      // Use ID as string for value, but ensure it's not null
-                                                      final value = id?.toString() ?? name;
-                                                      return DropdownMenuItem<String>(
-                                                        value: value,
-                                                        child: Text(name),
-                                                      );
-                                                    },
-                                                  ),
-                                                ],
-                                                decoration: _inputDecoration(
-                                                  hint: 'Select department',
-                                                ),
-                                                onChanged: (value) =>
-                                                    setState(() => _selectedDepartmentId = value),
-                                                validator: (value) {
-                                                  if (value == null || value.isEmpty) {
-                                                    return 'Please select a department';
-                                                  }
-                                                  return null;
-                                                },
-                                              ),
+                                        child: TextFormField(
+                                          controller: _departmentController,
+                                          decoration: _inputDecoration(
+                                            hint: 'Enter department',
+                                          ),
+                                          validator: (value) {
+                                            if (value == null || value.trim().isEmpty) {
+                                              return 'Please enter a department';
+                                            }
+                                            return null;
+                                          },
+                                        ),
                                       ),
                                     ),
                                     // Mobile No
