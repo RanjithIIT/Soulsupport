@@ -8,7 +8,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, Activity, Gallery, GalleryImage
 from super_admin.models import School
 from .serializers import (
     FileSerializer,
@@ -24,12 +24,18 @@ from .serializers import (
     BusStopStudentSerializer,
     EventSerializer,
     AwardSerializer,
-    CampusFeatureSerializer
+    CampusFeatureSerializer,
+    ActivitySerializer,
+    GallerySerializer,
+    GalleryImageSerializer
 )
+
+
 from main_login.permissions import IsManagementAdmin
 from main_login.mixins import SchoolFilterMixin
 from main_login.utils import get_user_school_id
 from django.conf import settings
+
 
 
 class FileViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
@@ -1665,19 +1671,20 @@ class DepartmentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """Set school reference when creating department"""
-        department = serializer.save()
-        
         school_id = self.get_school_id()
         if school_id:
             from super_admin.models import School
             try:
                 school = School.objects.get(school_id=school_id)
-                Department.objects.filter(pk=department.pk).update(
+                serializer.save(
                     school=school,
                     school_name=school.school_name
                 )
             except School.DoesNotExist:
-                pass
+                # If school not found, try saving without it (might fail if required)
+                serializer.save()
+        else:
+            serializer.save()
 
 
 class CampusFeatureViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
@@ -1749,3 +1756,87 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         """Update award - school_id should already be set"""
         serializer.save()
 
+
+class ActivityViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
+    """ViewSet for Activity management"""
+    queryset = Activity.objects.all()
+    serializer_class = ActivitySerializer
+    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['category']
+    search_fields = ['name', 'instructor', 'location', 'description']
+    ordering_fields = ['created_at', 'name']
+    ordering = ['-created_at']
+    
+    def get_permissions(self):
+        """Allow read/create/update/delete without auth for development - can be adjusted"""
+        if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
+            return [AllowAny()]
+        return [IsAuthenticated(), IsManagementAdmin()]
+
+    def perform_create(self, serializer):
+        """Set school reference when creating activity"""
+        activity = serializer.save()
+        
+        school_id = self.get_school_id()
+        if school_id:
+            from super_admin.models import School
+            # Create a separate update query to set the foreign key directly by ID
+            # This avoids needing to fetch the School object if we only have the ID
+            Activity.objects.filter(pk=activity.pk).update(school_id=school_id)
+            
+            # Try to set school_name as well if possible
+            try:
+                school = School.objects.get(school_id=school_id)
+                Activity.objects.filter(pk=activity.pk).update(school_name=school.school_name)
+            except School.DoesNotExist:
+                pass
+
+    def perform_update(self, serializer):
+        """Update activity"""
+        serializer.save()
+
+
+class GalleryViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
+    """ViewSet for Gallery management"""
+    queryset = Gallery.objects.all()
+    serializer_class = GallerySerializer
+    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['category', 'is_favorite']
+    search_fields = ['title', 'description', 'photographer', 'location']
+    ordering_fields = ['date', 'created_at']
+    ordering = ['-date']
+
+    def get_permissions(self):
+        """Allow read/create/update/delete without auth for development - can be adjusted"""
+        if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
+            return [AllowAny()]
+        return [IsAuthenticated(), IsManagementAdmin()]
+
+    @action(detail=True, methods=['post'], url_path='upload-image')
+    def upload_image(self, request, pk=None):
+        """Upload an image to the gallery"""
+        gallery = self.get_object()
+        
+        if 'image' not in request.FILES:
+            return Response({'error': 'No image provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        image_file = request.FILES['image']
+        caption = request.data.get('caption', '')
+        
+        gallery_image = GalleryImage.objects.create(
+            gallery=gallery,
+            image=image_file,
+            caption=caption
+        )
+        
+        return Response(GalleryImageSerializer(gallery_image).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='toggle-favorite')
+    def toggle_favorite(self, request, pk=None):
+        """Toggle favorite status"""
+        gallery = self.get_object()
+        gallery.is_favorite = not gallery.is_favorite
+        gallery.save()
+        return Response({'is_favorite': gallery.is_favorite})

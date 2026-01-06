@@ -220,6 +220,13 @@ class Teacher(models.Model):
     class_teacher_grade = models.CharField(max_length=10, null=True, blank=True, help_text='Grade level for class teacher assignment (e.g., A, B, C, D)')
     subject_specialization = models.TextField(null=True, blank=True, help_text='Subject specialization details')
     emergency_contact = models.CharField(max_length=20, null=True, blank=True, help_text='Emergency contact number')
+    emergency_contact_relation = models.CharField(max_length=50, null=True, blank=True, help_text='Relationship with emergency contact')
+    marital_status = models.CharField(max_length=20, null=True, blank=True, help_text='Marital status')
+    permanent_address = models.TextField(null=True, blank=True, help_text='Permanent address')
+    
+    # Professional details
+    experience = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, help_text='Years of experience')
+    salary = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text='Current salary')
     
     profile_photo = models.CharField(
         max_length=100,
@@ -1173,7 +1180,7 @@ class Event(models.Model):
         default='Other',
         help_text='Event category'
     )
-    date = models.DateField(help_text='Event date')
+    date = models.DateField(help_text='Event date', null=True, default='2025-01-01') # Temporarily allow null/default to avoid one-off errors
     time = models.CharField(max_length=100, blank=True, help_text='Event time (e.g., 09:00 AM - 12:00 PM)')
     location = models.CharField(max_length=255, blank=True, help_text='Event location')
     organizer = models.CharField(max_length=255, blank=True, help_text='Event organizer')
@@ -1277,3 +1284,153 @@ class Award(models.Model):
         verbose_name_plural = 'Awards'
         ordering = ['-date', '-created_at']
 
+
+class Activity(models.Model):
+    """Activity Model"""
+    CATEGORY_CHOICES = [
+        ('Academic', 'Academic'),
+        ('Sports', 'Sports'),
+        ('Arts', 'Arts'),
+        ('Leadership', 'Leadership'),
+        ('Innovation', 'Innovation'),
+        ('Community', 'Community'),
+        ('Science Fair', 'Science Fair'),
+        ('NSS', 'NSS'),
+        ('NCC', 'NCC'),
+        ('Other', 'Other'),
+    ]
+
+    STATUS_CHOICES = [
+        ('Active', 'Active'),
+        ('Inactive', 'Inactive'),
+        ('Suspended', 'Suspended'),
+        ('Completed', 'Completed'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    school = models.ForeignKey(
+        School,
+        on_delete=models.CASCADE,
+        related_name='school_activities',
+        db_column='school_id'
+    )
+    school_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        editable=False,
+        help_text='School name (read-only, auto-populated from schools table)'
+    )
+    name = models.CharField(max_length=255, help_text='Activity name')
+    category = models.CharField(
+        max_length=50,
+        choices=CATEGORY_CHOICES,
+        help_text='Activity category'
+    )
+    instructor = models.CharField(max_length=255, help_text='Instructor name')
+    max_participants = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1)],
+        help_text='Maximum number of participants'
+    )
+    schedule = models.CharField(
+        max_length=255,
+        help_text='Activity schedule (Date & Time)'
+    )
+    location = models.CharField(max_length=255, help_text='Activity location')
+    description = models.TextField(help_text='Detailed activity description')
+    requirements = models.TextField(blank=True, help_text='Requirements or prerequisites')
+    notes = models.TextField(blank=True, help_text='Additional notes or comments')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if self.school and not self.school_name:
+            self.school_name = self.school.school_name
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.name} - {self.category}"
+
+    class Meta:
+        db_table = 'school_activities'
+        verbose_name = 'School Activity'
+        verbose_name_plural = 'School Activities'
+        ordering = ['-created_at']
+
+
+
+class Gallery(models.Model):
+    """Gallery model for managing school photo collections"""
+    
+    CATEGORY_CHOICES = [
+        ('Events', 'Events'),
+        ('Academic', 'Academic'),
+        ('Sports', 'Sports'),
+        ('Cultural', 'Cultural'),
+        ('Activities', 'Activities'),
+        ('Awards', 'Awards'),
+        ('Other', 'Other'),
+    ]
+    
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='galleries')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False)
+    
+    # Custom Photo ID generated from frontend/backend
+    photo_id = models.CharField(max_length=100, unique=True, help_text='Unique Photo/Album ID')
+    
+    title = models.CharField(max_length=255)
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='Other')
+    description = models.TextField(blank=True)
+    date = models.DateField()
+    photographer = models.CharField(max_length=255, blank=True)
+    location = models.CharField(max_length=255, blank=True)
+    emoji = models.CharField(max_length=10, blank=True, default='📷')
+    is_favorite = models.BooleanField(default=False)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def save(self, *args, **kwargs):
+        if self.school and not self.school_name:
+            self.school_name = self.school.school_name
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.title} ({self.photo_id})"
+    
+    class Meta:
+        db_table = 'galleries'
+        verbose_name = 'Gallery'
+        verbose_name_plural = 'Galleries'
+        ordering = ['-date', '-created_at']
+
+
+class GalleryImage(models.Model):
+    """Images associated with a gallery entry"""
+    gallery = models.ForeignKey(Gallery, on_delete=models.CASCADE, related_name='images')
+    photo_id = models.CharField(max_length=100, help_text='Reference to Gallery Photo ID', blank=True, null=True)
+    image = models.FileField(
+        upload_to='gallery_photos/',
+        validators=[
+            FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])
+        ]
+    )
+    caption = models.CharField(max_length=255, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        # Auto-populate photo_id from gallery if not set
+        if not self.photo_id and self.gallery:
+            self.photo_id = self.gallery.photo_id
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Image for {self.gallery.title}"
+    
+    class Meta:
+        db_table = 'gallery_images'
+        verbose_name = 'Gallery Image'
+        verbose_name_plural = 'Gallery Images'

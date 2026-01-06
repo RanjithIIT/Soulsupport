@@ -7,6 +7,7 @@ import 'main.dart' as app;
 import 'dashboard.dart';
 import 'management_routes.dart';
 import 'widgets/school_profile_header.dart';
+import 'widgets/management_sidebar.dart';
 
 class Activity {
   final int id;
@@ -16,7 +17,7 @@ class Activity {
   final int? participants;
   final String schedule;
   final String location;
-  final String status;
+
   final String description;
 
   Activity({
@@ -27,7 +28,7 @@ class Activity {
     this.participants,
     required this.schedule,
     required this.location,
-    required this.status,
+
     required this.description,
   });
 
@@ -40,7 +41,7 @@ class Activity {
       participants: json['max_participants'] as int?,
       schedule: json['schedule']?.toString() ?? '',
       location: json['location']?.toString() ?? '',
-      status: json['status']?.toString() ?? 'Active',
+
       description: json['description']?.toString() ?? '',
     );
   }
@@ -122,8 +123,9 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
   }
 
   int get _totalActivities => _activities.length;
-  int get _activeActivities =>
-      _activities.where((activity) => activity.status == 'Active').length;
+  // Since status was removed, effectively all visible activities are active
+  int get _activeActivities => _activities.length;
+
   int get _totalParticipants => _activities.fold(
         0,
         (sum, activity) => sum + (activity.participants ?? 0),
@@ -268,7 +270,17 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(width: 280, child: _buildSidebar()),
+                SizedBox(
+                  width: 280,
+                  child: ManagementSidebar(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    activeRoute: '/activities',
+                  ),
+                ),
                 Expanded(
                   child: Container(
                     color: const Color(0xFFF5F6FA),
@@ -283,138 +295,7 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
     );
   }
 
-  Widget _buildSidebar() {
-    final gradient = const LinearGradient(
-      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
 
-    // Safe navigation helper for sidebar
-    void navigateToRoute(String route) {
-      final navigator = app.SchoolManagementApp.navigatorKey.currentState;
-      if (navigator != null) {
-        if (navigator.canPop() || route != '/dashboard') {
-          navigator.pushReplacementNamed(route);
-        } else {
-          navigator.pushNamed(route);
-        }
-      }
-    }
-
-    return Container(
-      width: 280,
-      decoration: BoxDecoration(
-        gradient: gradient,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(2, 0),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  'packages/management_org/assets/Vidyarambh.png',
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      height: 120,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.school,
-                        size: 56,
-                        color: Color(0xFF667EEA),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _NavItem(
-                    icon: '📊',
-                    title: 'Overview',
-                    isActive: false,
-                    onTap: () => navigateToRoute('/dashboard'),
-                  ),
-                  _NavItem(
-                    icon: '👨‍🏫',
-                    title: 'Teachers',
-                    onTap: () => navigateToRoute('/teachers'),
-                  ),
-                  _NavItem(
-                    icon: '👥',
-                    title: 'Students',
-                    onTap: () => navigateToRoute('/students'),
-                  ),
-                  _NavItem(
-                    icon: '🚌',
-                    title: 'Buses',
-                    onTap: () => navigateToRoute('/buses'),
-                  ),
-                  _NavItem(
-                    icon: '🎯',
-                    title: 'Activities',
-                    isActive: true,
-                    onTap: () => navigateToRoute('/activities'),
-                  ),
-                  _NavItem(
-                    icon: '📅',
-                    title: 'Events',
-                    onTap: () => navigateToRoute('/events'),
-                  ),
-                  _NavItem(
-                    icon: '📆',
-                    title: 'Calendar',
-                    onTap: () => navigateToRoute('/calendar'),
-                  ),
-                  _NavItem(
-                    icon: '🔔',
-                    title: 'Notifications',
-                    onTap: () => navigateToRoute('/notifications'),
-                  ),
-                  _NavItem(
-                    icon: '🛣️',
-                    title: 'Bus Routes',
-                    onTap: () => navigateToRoute('/bus-routes'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildMainContent({required bool isMobile}) {
     return SingleChildScrollView(
@@ -493,20 +374,20 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
                   _StatCard(
                     label: 'Active Activities',
                     value: '$_activeActivities',
-                    icon: '🏃‍♂️',
-                    color: Colors.green,
+                    icon: '🏃',
+                    color: const Color(0xFF40C057),
                   ),
                   _StatCard(
                     label: 'Total Participants',
                     value: '$_totalParticipants',
                     icon: '👥',
-                    color: Colors.orange,
+                    color: const Color(0xFF42A5F5),
                   ),
                   _StatCard(
                     label: 'Activity Categories',
                     value: '$_activityCategories',
                     icon: '🏆',
-                    color: Colors.blue,
+                    color: const Color(0xFFFFD700),
                   ),
                 ],
               );
@@ -796,13 +677,7 @@ class _ActivityCardWithHoverState extends State<_ActivityCardWithHover> {
                           value: widget.activity.location,
                         ),
                       ),
-                      SizedBox(
-                        width: itemWidth,
-                        child: _DetailItem(
-                          title: 'Status',
-                          value: widget.activity.status,
-                        ),
-                      ),
+
                     ],
                   );
                 },

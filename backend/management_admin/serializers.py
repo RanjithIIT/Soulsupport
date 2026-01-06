@@ -2,12 +2,15 @@
 Serializers for management_admin app
 """
 from rest_framework import serializers
-from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, Activity, Gallery, GalleryImage
+
 from main_login.serializers import UserSerializer
 from main_login.serializer_mixins import SchoolIdMixin
 from main_login.utils import get_user_school_id
 from super_admin.serializers import SchoolSerializer
 from super_admin.models import School
+
+
 
 
 class FileSerializer(serializers.ModelSerializer):
@@ -44,7 +47,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
             'id', 'school', 'school_id', 'school_name', 'name', 'description',
             'head', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'school_id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'school', 'school_id', 'created_at', 'updated_at']
 
 
 
@@ -75,7 +78,9 @@ class TeacherSerializer(SchoolIdMixin, serializers.ModelSerializer):
             'joining_date', 'dob', 'gender',
             'blood_group', 'nationality', 'mobile_no', 'email', 'address',
             'class_teacher_class', 'class_teacher_grade', 'subject_specialization',
-            'emergency_contact', 'profile_photo', 'profile_photo_url', 
+            'emergency_contact', 'emergency_contact_relation', 'experience', 'salary',
+            'marital_status', 'permanent_address',
+            'profile_photo', 'profile_photo_url', 
             'is_class_teacher', 'is_active',
             'created_at', 'updated_at'
         ]
@@ -542,3 +547,63 @@ class AwardSerializer(SchoolIdMixin, serializers.ModelSerializer):
         instance.save()
         return instance
 
+
+class ActivitySerializer(SchoolIdMixin, serializers.ModelSerializer):
+    """Serializer for Activity model - Updated"""
+    
+    class Meta:
+        model = Activity
+        fields = [
+            'id', 'school_id', 'school_name', 'name', 'category', 'instructor',
+            'max_participants', 'schedule', 'location', 
+            'description', 'requirements', 'notes', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'school_id', 'school_name', 'created_at', 'updated_at']
+    
+    def update(self, instance, validated_data):
+        """Update activity instance"""
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+
+
+
+class GalleryImageSerializer(serializers.ModelSerializer):
+    """Serializer for GalleryImage model"""
+    image = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = GalleryImage
+        fields = ['id', 'photo_id', 'image', 'caption', 'uploaded_at']
+        read_only_fields = ['id', 'photo_id', 'uploaded_at']
+    
+    def get_image(self, obj):
+        """Return absolute URL for the image"""
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None
+
+
+class GallerySerializer(SchoolIdMixin, serializers.ModelSerializer):
+    """Serializer for Gallery model"""
+    images = GalleryImageSerializer(many=True, read_only=True)
+    school_name = serializers.CharField(source='school.school_name', read_only=True)
+    
+    class Meta:
+        model = Gallery
+        fields = [
+            'id', 'school_id', 'school_name', 'photo_id', 'title', 'category', 'description',
+            'date', 'photographer', 'location', 'emoji', 'is_favorite',
+            'images', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'school_id', 'school_name', 'images', 'created_at', 'updated_at']
+    
+    def update(self, instance, validated_data):
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance

@@ -5,6 +5,8 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
 
+# Router registration for management admin endpoints
+
 app_name = 'management_admin'
 
 router = DefaultRouter()
@@ -22,6 +24,8 @@ router.register(r'schools', views.SchoolViewSet, basename='school')
 router.register(r'events', views.EventViewSet, basename='event')
 router.register(r'awards', views.AwardViewSet, basename='award')
 router.register(r'campus-features', views.CampusFeatureViewSet, basename='campusfeature')
+router.register(r'activities', views.ActivityViewSet, basename='activity')
+router.register(r'galleries', views.GalleryViewSet, basename='gallery')
 
 urlpatterns = [
     path('', include(router.urls)),
