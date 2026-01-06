@@ -324,29 +324,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                       ),
                     ),
                   ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.refresh, color: Colors.white),
-                        onPressed: () {
-                          setState(() {
-                            isLoading = true;
-                          });
-                          _loadData();
-                        },
-                        tooltip: 'Refresh',
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.person_outline,
-                          color: Colors.white,
-                        ),
-                        onPressed: _logout,
-                        tooltip: 'Profile',
-                      ),
-                    ],
-                  ),
+                  const SizedBox.shrink(),
                 ],
               ),
             ),

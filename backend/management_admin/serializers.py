@@ -2,7 +2,7 @@
 Serializers for management_admin app
 """
 from rest_framework import serializers
-from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, Activity, Gallery, GalleryImage
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, Activity
 
 from main_login.serializers import UserSerializer
 from main_login.serializer_mixins import SchoolIdMixin
@@ -55,12 +55,12 @@ class TeacherSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Teacher model"""
     user = UserSerializer(read_only=True)
     department_name = serializers.CharField(source='department.name', read_only=True)
-    department = serializers.PrimaryKeyRelatedField(
-        queryset=Department.objects.all(),
+    department = serializers.CharField(
         required=False,
         allow_null=True,
-        help_text='Department ID (optional)'
+        help_text='Department Name (string)'
     )
+    # Forced reload comment to ensure changes are picked up
     profile_photo_url = serializers.SerializerMethodField()
     
     # Make employee_no required but allow auto-generation if not provided
@@ -78,8 +78,8 @@ class TeacherSerializer(SchoolIdMixin, serializers.ModelSerializer):
             'joining_date', 'dob', 'gender',
             'blood_group', 'nationality', 'mobile_no', 'email', 'address',
             'class_teacher_class', 'class_teacher_grade', 'subject_specialization',
-            'emergency_contact', 'emergency_contact_relation', 'profile_photo', 'profile_photo_url', 
-            'is_class_teacher', 'is_active', 'salary', 'experience',
+            'emergency_contact', 'profile_photo', 'profile_photo_url', 
+            'is_class_teacher', 'is_active',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at', 'user', 'profile_photo_url']
@@ -104,6 +104,43 @@ class TeacherSerializer(SchoolIdMixin, serializers.ModelSerializer):
             return obj.profile_photo
         return None
     
+    def _handle_department(self, validated_data):
+        """
+        Helper to find or create department from string name in validated_data.
+        Returns the Department instance or None.
+        """
+        department_input = validated_data.get('department')
+        
+        # If department is not in validated_data or is None, do nothing
+        if 'department' not in validated_data:
+            return None
+            
+        # Remove raw string from validated_data so it doesn't cause issues
+        department_name = validated_data.pop('department')
+        
+        if not department_name or not isinstance(department_name, str):
+            return None
+            
+        request = self.context.get('request')
+        if not request or not request.user:
+            return None
+            
+        school_id = get_user_school_id(request.user)
+        if not school_id:
+            return None
+            
+        try:
+            school = School.objects.get(school_id=school_id)
+            # Find or create department
+            department, _ = Department.objects.get_or_create(
+                school=school,
+                name=department_name.strip(),
+                defaults={'description': f'Department of {department_name}'}
+            )
+            return department
+        except Exception:
+            return None
+
     def create(self, validated_data):
         import random
         import string
@@ -203,9 +240,25 @@ class TeacherSerializer(SchoolIdMixin, serializers.ModelSerializer):
         
         if 'is_class_teacher' not in validated_data:
             validated_data['is_class_teacher'] = False
+            
+        # Handle department - lookup or create
+        department = self._handle_department(validated_data)
+        if department:
+            validated_data['department'] = department
         
         teacher = Teacher.objects.create(user=user, **validated_data)
         return teacher
+
+    def update(self, instance, validated_data):
+        """Update teacher"""
+        # Handle department
+        if 'department' in validated_data:
+            department = self._handle_department(validated_data)
+            instance.department = department
+            # If department was processed, it's already popped from validated_data in _handle_department
+        
+        # Update other fields standard way
+        return super().update(instance, validated_data)
 
 
 class StudentSerializer(serializers.ModelSerializer):
@@ -219,7 +272,6 @@ class StudentSerializer(serializers.ModelSerializer):
     profile_photo_url = serializers.SerializerMethodField()
     
     bus_route = serializers.SerializerMethodField()
-    awards = serializers.SerializerMethodField()
 
     class Meta:
         model = Student
@@ -230,9 +282,8 @@ class StudentSerializer(serializers.ModelSerializer):
             'parent_phone', 'emergency_contact', 'medical_information',
             'blood_group', 'previous_school', 'remarks',
             'profile_photo', 'profile_photo_url',
-            'activities', 'leadership', 'achievements', 'participation',
             'total_fee_amount', 'paid_fee_amount', 'due_fee_amount', 'fees_count',
-            'bus_route', 'awards',
+            'bus_route',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['email', 'school_id', 'created_at', 'updated_at', 'user', 'profile_photo_url']
@@ -248,19 +299,10 @@ class StudentSerializer(serializers.ModelSerializer):
         if obj.profile_photo:
             request = self.context.get('request')
             if request:
-                # If it's already a full URL, return it
+                # If it's already a full URL, return it; otherwise build absolute URI
                 if obj.profile_photo.startswith('http://') or obj.profile_photo.startswith('https://'):
                     return obj.profile_photo
-                # If it starts with /media/, it's a media file URL - build absolute URI
-                if obj.profile_photo.startswith('/media/'):
-                    return request.build_absolute_uri(obj.profile_photo)
-                # If it doesn't start with /, add /media/ prefix (for relative paths like 'profile_photos/...')
-                if not obj.profile_photo.startswith('/'):
-                    media_path = f'/media/{obj.profile_photo}'
-                    return request.build_absolute_uri(media_path)
-                # For other absolute paths, build absolute URI
                 return request.build_absolute_uri(obj.profile_photo)
-            # If no request context, return as-is
             return obj.profile_photo
         return None
     
@@ -293,18 +335,6 @@ class StudentSerializer(serializers.ModelSerializer):
             return obj.management_fees.count()
         except:
             return 0
-
-    def get_awards(self, obj):
-        from .models import Award
-        from .serializers import AwardSerializer
-        try:
-             # Find awards where student_ids contains the student_id
-             if not obj.student_id: return []
-             awards = Award.objects.filter(student_ids__icontains=obj.student_id)
-             # Use AwardSerializer to get fully qualified URLs
-             return AwardSerializer(awards, many=True, context=self.context).data
-        except:
-            return []
 
 
 # -------------- FIXED SERIALIZER BELOW -----------------
@@ -551,25 +581,14 @@ class CampusFeatureSerializer(serializers.ModelSerializer):
 
 class AwardSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Award model"""
-    document_url = serializers.SerializerMethodField()
     
     class Meta:
         model = Award
         fields = [
-            'id', 'school_id', 'school_name', 'title', 'category', 'recipient', 
-            'student_ids', 'date', 'description', 'level', 'presented_by', 'document',
-            'document_url', 'created_at', 'updated_at'
+            'id', 'school_id', 'school_name', 'title', 'category', 'recipient',
+            'student_ids', 'date', 'description', 'level', 'presented_by',
+            'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'school_id', 'school_name', 'created_at', 'updated_at']
-
-    def get_document_url(self, obj):
-        """Get the URL to access the document"""
-        if obj.document:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.document.url)
-            return obj.document.url
-        return None
         read_only_fields = ['id', 'school_id', 'school_name', 'created_at', 'updated_at']
     
     def update(self, instance, validated_data):
@@ -582,15 +601,15 @@ class AwardSerializer(SchoolIdMixin, serializers.ModelSerializer):
 
 class ActivitySerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Activity model"""
+    
     class Meta:
         model = Activity
         fields = [
-            'id', 'school_id', 'school_name', 'name', 'category', 
-            'instructor', 'max_participants', 'schedule', 'location', 
-            'status', 'start_date', 'end_date', 'description', 
-            'requirements', 'notes', 'created_at'
+            'id', 'school_id', 'school_name', 'name', 'category', 'instructor',
+            'max_participants', 'schedule', 'location', 'status', 'start_date', 'end_date',
+            'description', 'requirements', 'notes', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'school_id', 'school_name', 'created_at']
+        read_only_fields = ['id', 'school_id', 'school_name', 'created_at', 'updated_at']
     
     def update(self, instance, validated_data):
         """Update activity instance"""
@@ -598,25 +617,4 @@ class ActivitySerializer(SchoolIdMixin, serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         return instance
-
-
-class GalleryImageSerializer(serializers.ModelSerializer):
-    """Serializer for GalleryImage"""
-    class Meta:
-        model = GalleryImage
-        fields = ['id', 'image', 'alt_text']
-
-
-class GallerySerializer(SchoolIdMixin, serializers.ModelSerializer):
-    """Serializer for Gallery model"""
-    images = GalleryImageSerializer(many=True, read_only=True)
-    
-    class Meta:
-        model = Gallery
-        fields = [
-            'id', 'school_id', 'school_name', 'title', 'category',
-            'description', 'date', 'photographer', 'location', 
-            'emoji', 'images', 'created_at'
-        ]
-        read_only_fields = ['id', 'school_id', 'school_name', 'created_at']
 

@@ -39,35 +39,10 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
   final _nationalityController = TextEditingController();
   final _subjectSpecializationController = TextEditingController();
   final _emergencyContactController = TextEditingController();
-  final _emergencyContactRelationController = TextEditingController();
-  final _salaryController = TextEditingController();
-  final _experienceController = TextEditingController();
 
-  String? _selectedDepartmentId;
-  List<Map<String, dynamic>> _departments = [];
-  bool _isLoadingDepartments = false;
+  final _departmentController = TextEditingController();
   String? _gender;
   String? _bloodGroup;
-  bool _isClassTeacher = false;
-  String? _classTeacherClass;
-  String? _classTeacherGrade;
-  
-  // Default department names (from old designation dropdown)
-  static const List<String> _defaultDepartmentNames = [
-    'Mathematics',
-    'Physics',
-    'Chemistry',
-    'Biology',
-    'English',
-    'History',
-    'Geography',
-    'Computer Science',
-    'Art',
-    'Music',
-    'Principal',
-    'Vice Principal',
-    'Coordinator',
-  ];
   DateTime? _dob;
   DateTime? _joiningDate;
   Uint8List? _photoBytes;
@@ -81,9 +56,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
         employeeNo: _employeeNoController.text,
         firstName: _firstNameController.text,
         lastName: _lastNameController.text,
-        department: _selectedDepartmentId != null 
-            ? _departments.firstWhere((d) => d['id'].toString() == _selectedDepartmentId, orElse: () => {})['name']
-            : null,
+        department: _departmentController.text,
         mobileNo: _mobileNoController.text,
         email: _emailController.text,
         address: _addressController.text,
@@ -94,58 +67,13 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
   @override
   void initState() {
     super.initState();
-    _loadDepartments();
   }
 
-  Future<void> _loadDepartments() async {
-    setState(() => _isLoadingDepartments = true);
-    try {
-      final apiService = ApiService();
-      await apiService.initialize();
-      final response = await apiService.get(Endpoints.departments);
-      
-      if (response.success && response.data != null) {
-        List<dynamic> data = [];
-        if (response.data is List) {
-          data = response.data as List;
-        } else if (response.data is Map && (response.data as Map)['results'] != null) {
-          data = (response.data as Map)['results'] as List;
-        }
-        
-        if (mounted) {
-          setState(() {
-            _departments = data.map((d) => d as Map<String, dynamic>).toList();
-            // If no departments from API, add default ones as fallback
-            if (_departments.isEmpty) {
-              _departments = _defaultDepartmentNames.map((name) => <String, dynamic>{
-                'id': name,
-                'name': name,
-              }).toList();
-            }
-            _isLoadingDepartments = false;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            // If API fails, use default departments as fallback
-            _departments = _defaultDepartmentNames.map((name) => <String, dynamic>{
-              'id': name,
-              'name': name,
-            }).toList();
-            _isLoadingDepartments = false;
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingDepartments = false);
-      }
-    }
-  }
+
 
   @override
   void dispose() {
+    _departmentController.dispose();
     _employeeNoController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
@@ -156,9 +84,6 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
       _nationalityController.dispose();
     _subjectSpecializationController.dispose();
     _emergencyContactController.dispose();
-    _emergencyContactRelationController.dispose();
-    _salaryController.dispose();
-    _experienceController.dispose();
     super.dispose();
   }
 
@@ -207,39 +132,10 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
             : null,
         'gender': _gender,
         'is_active': true,
-        'is_class_teacher': _isClassTeacher,
-        'salary': nullIfEmpty(_salaryController.text),
-        'experience': nullIfEmpty(_experienceController.text),
       };
       
-      // Add department - try to parse as integer first, otherwise use as string
-      if (_selectedDepartmentId != null && _selectedDepartmentId!.isNotEmpty) {
-        final deptId = int.tryParse(_selectedDepartmentId!);
-        if (deptId != null) {
-          // Valid integer ID from API
-          teacherData['department'] = deptId;
-        } else {
-          // String ID from default departments - find the department name
-          final dept = _departments.firstWhere(
-            (d) => d['id']?.toString() == _selectedDepartmentId || d['name']?.toString() == _selectedDepartmentId,
-            orElse: () => <String, dynamic>{},
-          );
-          // If it's a default department, we might need to handle it differently
-          // For now, try to find a matching department by name in the API list
-          final deptName = dept['name']?.toString() ?? _selectedDepartmentId;
-          // Try to find this department in the loaded list
-          final matchingDept = _departments.firstWhere(
-            (d) => d['name']?.toString() == deptName,
-            orElse: () => <String, dynamic>{},
-          );
-          if (matchingDept.isNotEmpty && matchingDept['id'] != null) {
-            final matchingId = int.tryParse(matchingDept['id'].toString());
-            if (matchingId != null) {
-              teacherData['department'] = matchingId;
-            }
-          }
-        }
-      }
+      final department = nullIfEmpty(_departmentController.text);
+      if (department != null) teacherData['department'] = department;
       
       // Add optional fields only if they have values
       final mobileNo = nullIfEmpty(_mobileNoController.text);
@@ -263,18 +159,6 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
       
       final emergencyContact = nullIfEmpty(_emergencyContactController.text);
       if (emergencyContact != null) teacherData['emergency_contact'] = emergencyContact;
-
-      final emergencyContactRelation = nullIfEmpty(_emergencyContactRelationController.text);
-      if (emergencyContactRelation != null) teacherData['emergency_contact_relation'] = emergencyContactRelation;
-
-      if (_isClassTeacher) {
-        if (_classTeacherClass != null && _classTeacherClass!.isNotEmpty) {
-          teacherData['class_teacher_class'] = _classTeacherClass;
-        }
-        if (_classTeacherGrade != null && _classTeacherGrade!.isNotEmpty) {
-          teacherData['class_teacher_grade'] = _classTeacherGrade;
-        }
-      }
 
       // Note: Profile photo will be sent as multipart/form-data with the request
       // The backend handles file upload directly
@@ -731,28 +615,6 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                         ),
                                       ),
                                     ),
-                                    // Experience
-                                    SizedBox(
-                                      width: isTwoColumns ? (constraints.maxWidth - 30) / 2 : constraints.maxWidth,
-                                      child: _LabeledField(
-                                        label: 'Experience (Years)',
-                                        child: TextFormField(
-                                          controller: _experienceController,
-                                          decoration: _inputDecoration(hint: 'e.g. 5'),
-                                        ),
-                                      ),
-                                    ),
-                                    // Salary
-                                    SizedBox(
-                                      width: isTwoColumns ? (constraints.maxWidth - 30) / 2 : constraints.maxWidth,
-                                      child: _LabeledField(
-                                        label: 'Salary',
-                                        child: TextFormField(
-                                          controller: _salaryController,
-                                          decoration: _inputDecoration(hint: 'Enter salary'),
-                                        ),
-                                      ),
-                                    ),
                                     // Joining Date
                                     SizedBox(
                                       width:
@@ -793,89 +655,17 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                           isTwoColumns ? (constraints.maxWidth - 30) / 2 : constraints.maxWidth,
                                       child: _LabeledField(
                                         label: 'Department *',
-                                        child: _isLoadingDepartments
-                                            ? const Center(child: Padding(
-                                                padding: EdgeInsets.all(16.0),
-                                                child: CircularProgressIndicator(),
-                                              ))
-                                            : DropdownButtonFormField<String>(
-                                                initialValue: _selectedDepartmentId,
-                                                items: [
-                                                  const DropdownMenuItem<String>(
-                                                    value: null,
-                                                    child: Text('Select Department'),
-                                                  ),
-                                                  ..._departments.map(
-                                                    (dept) {
-                                                      final id = dept['id'];
-                                                      final name = dept['name']?.toString() ?? dept['id']?.toString() ?? 'Unknown';
-                                                      // Use ID as string for value, but ensure it's not null
-                                                      final value = id?.toString() ?? name;
-                                                      return DropdownMenuItem<String>(
-                                                        value: value,
-                                                        child: Text(name),
-                                                      );
-                                                    },
-                                                  ),
-                                                ],
-                                                decoration: _inputDecoration(
-                                                  hint: 'Select department',
-                                                ),
-                                                onChanged: (value) =>
-                                                    setState(() => _selectedDepartmentId = value),
-                                                validator: (value) {
-                                                  if (value == null || value.isEmpty) {
-                                                    return 'Please select a department';
-                                                  }
-                                                  return null;
-                                                },
-                                              ),
-                                      ),
-                                    ),
-                                    // Class Teacher Assignment
-                                    SizedBox(
-                                      width: constraints.maxWidth,
-                                      child: _LabeledField(
-                                        label: 'Class Teacher Assignment',
-                                        child: Column(
-                                          children: [
-                                            CheckboxListTile(
-                                              title: const Text('Assign as Class Teacher'),
-                                              value: _isClassTeacher,
-                                              onChanged: (value) => setState(() => _isClassTeacher = value ?? false),
-                                              contentPadding: EdgeInsets.zero,
-                                              controlAffinity: ListTileControlAffinity.leading,
-                                            ),
-                                            if (_isClassTeacher)
-                                              Padding(
-                                                padding: const EdgeInsets.only(top: 10),
-                                                child: Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: DropdownButtonFormField<String>(
-                                                        value: _classTeacherClass,
-                                                        decoration: _inputDecoration(hint: 'Select Class'),
-                                                        items: ['Grade 9', 'Grade 10', 'Grade 11', 'Grade 12']
-                                                            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                                                            .toList(),
-                                                        onChanged: (v) => setState(() => _classTeacherClass = v),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 20),
-                                                    Expanded(
-                                                      child: DropdownButtonFormField<String>(
-                                                        value: _classTeacherGrade,
-                                                        decoration: _inputDecoration(hint: 'Select Section'),
-                                                        items: ['A', 'B', 'C', 'D']
-                                                            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                                                            .toList(),
-                                                        onChanged: (v) => setState(() => _classTeacherGrade = v),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                          ],
+                                        child: TextFormField(
+                                          controller: _departmentController,
+                                          decoration: _inputDecoration(
+                                            hint: 'Enter department',
+                                          ),
+                                          validator: (value) {
+                                            if (value == null || value.trim().isEmpty) {
+                                              return 'Please enter a department';
+                                            }
+                                            return null;
+                                          },
                                         ),
                                       ),
                                     ),
@@ -989,20 +779,6 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                           keyboardType: TextInputType.phone,
                                           decoration: _inputDecoration(
                                             hint: 'Enter emergency contact number',
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    // Emergency Contact Relation
-                                    SizedBox(
-                                      width:
-                                          isTwoColumns ? (constraints.maxWidth - 30) / 2 : constraints.maxWidth,
-                                      child: _LabeledField(
-                                        label: 'Emergency Contact Relation',
-                                        child: TextFormField(
-                                          controller: _emergencyContactRelationController,
-                                          decoration: _inputDecoration(
-                                            hint: 'e.g. Spouse, Parent',
                                           ),
                                         ),
                                       ),

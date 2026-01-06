@@ -1164,27 +1164,7 @@ class _AssignmentDashboardScreenState extends State<AssignmentDashboardScreen> {
             ),
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
-              setState(() {
-                // Refresh assignments list
-              });
-              _showSnackBar('Refreshing assignments...');
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.person, color: Colors.white),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const TeacherProfilePage()),
-              );
-            },
-          ),
-          const SizedBox(width: 10),
-        ],
+        actions: const [],
         // --- END NEW APP BAR IMPLEMENTATION ---
       ),
       body: SingleChildScrollView(

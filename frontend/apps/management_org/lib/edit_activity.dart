@@ -26,9 +26,7 @@ class _EditActivityPageState extends State<EditActivityPage> {
   final _notesController = TextEditingController();
 
   String? _category;
-  String? _status;
-  DateTime? _startDate;
-  DateTime? _endDate;
+
 
   bool _isSubmitting = false;
   bool _showSuccess = false;
@@ -66,22 +64,7 @@ class _EditActivityPageState extends State<EditActivityPage> {
         _participantsController.text = activity['max_participants']?.toString() ?? '';
         _scheduleController.text = activity['schedule']?.toString() ?? '';
         _locationController.text = activity['location']?.toString() ?? '';
-        _status = activity['status']?.toString();
-        
-        if (activity['start_date'] != null) {
-          try {
-            _startDate = DateTime.parse(activity['start_date']);
-          } catch (e) {
-            // Invalid date format, leave as null
-          }
-        }
-        if (activity['end_date'] != null) {
-          try {
-            _endDate = DateTime.parse(activity['end_date']);
-          } catch (e) {
-            // Invalid date format, leave as null
-          }
-        }
+
         
         _descriptionController.text = activity['description']?.toString() ?? '';
         _requirementsController.text = activity['requirements']?.toString() ?? '';
@@ -146,13 +129,8 @@ class _EditActivityPageState extends State<EditActivityPage> {
             : int.tryParse(_participantsController.text.trim()),
         'schedule': _scheduleController.text.trim(),
         'location': _locationController.text.trim(),
-        'status': _status ?? 'Active',
-        'start_date': _startDate != null
-            ? DateFormat('yyyy-MM-dd').format(_startDate!)
-            : null,
-        'end_date': _endDate != null
-            ? DateFormat('yyyy-MM-dd').format(_endDate!)
-            : null,
+
+
         'description': _descriptionController.text.trim(),
         'requirements': _requirementsController.text.trim(),
         'notes': _notesController.text.trim(),
@@ -217,15 +195,7 @@ class _EditActivityPageState extends State<EditActivityPage> {
                       : _participantsController.text),
               _PreviewItem('Schedule', _scheduleController.text),
               _PreviewItem('Location', _locationController.text),
-              _PreviewItem('Status', _status ?? 'Not provided'),
-              _PreviewItem('Start Date',
-                  _startDate != null
-                      ? DateFormat('yyyy-MM-dd').format(_startDate!)
-                      : 'Not specified'),
-              _PreviewItem('End Date',
-                  _endDate != null
-                      ? DateFormat('yyyy-MM-dd').format(_endDate!)
-                      : 'Not specified'),
+
               _PreviewItem('Description', _descriptionController.text),
               _PreviewItem('Requirements',
                   _requirementsController.text.isEmpty
@@ -602,20 +572,25 @@ class _EditActivityPageState extends State<EditActivityPage> {
                                       initialValue: _category,
                                       items: const [
                                         DropdownMenuItem(
-                                            value: 'Sports', child: Text('Sports')),
+                                            value: 'Academic', child: Text('Academic')),
                                         DropdownMenuItem(
-                                            value: 'Academic',
-                                            child: Text('Academic')),
+                                            value: 'Sports', child: Text('Sports')),
                                         DropdownMenuItem(
                                             value: 'Arts', child: Text('Arts')),
                                         DropdownMenuItem(
-                                            value: 'Games', child: Text('Games')),
+                                            value: 'Leadership', child: Text('Leadership')),
                                         DropdownMenuItem(
-                                            value: 'Cultural',
-                                            child: Text('Cultural')),
+                                            value: 'Innovation', child: Text('Innovation')),
                                         DropdownMenuItem(
-                                            value: 'Technical',
-                                            child: Text('Technical')),
+                                            value: 'Community', child: Text('Community')),
+                                        DropdownMenuItem(
+                                            value: 'Science Fair', child: Text('Science Fair')),
+                                        DropdownMenuItem(
+                                            value: 'NSS', child: Text('NSS')),
+                                        DropdownMenuItem(
+                                            value: 'NCC', child: Text('NCC')),
+                                        DropdownMenuItem(
+                                            value: 'Other', child: Text('Other')),
                                       ],
                                       onChanged: (value) {
                                         setState(() {
@@ -679,20 +654,73 @@ class _EditActivityPageState extends State<EditActivityPage> {
                                   Expanded(
                                     child: TextFormField(
                                       controller: _scheduleController,
+                                      readOnly: true,
                                       decoration: InputDecoration(
-                                        labelText: 'Schedule *',
-                                        hintText: 'e.g., Monday, Wednesday 3:00 PM',
+                                        labelText: 'Schedule (Date & Time) *',
+                                        hintText: 'Select date and time',
+                                        prefixIcon: const Icon(Icons.access_time, color: Color(0xFF667EEA)),
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(10),
                                         ),
                                         filled: true,
                                         fillColor: Colors.white,
+                                        suffixIcon: IconButton(
+                                          icon: const Icon(Icons.calendar_today, color: Color(0xFF667EEA)),
+                                          onPressed: () async {
+                                            final date = await showDatePicker(
+                                              context: context,
+                                              initialDate: DateTime.now(),
+                                              firstDate: DateTime.now(),
+                                              lastDate: DateTime(2100),
+                                            );
+                                            if (date != null && context.mounted) {
+                                              final time = await showTimePicker(
+                                                context: context,
+                                                initialTime: TimeOfDay.now(),
+                                              );
+                                              if (time != null) {
+                                                final dateTime = DateTime(
+                                                  date.year,
+                                                  date.month,
+                                                  date.day,
+                                                  time.hour,
+                                                  time.minute,
+                                                );
+                                                _scheduleController.text = DateFormat('yyyy-MM-dd hh:mm a').format(dateTime);
+                                              }
+                                            }
+                                          },
+                                        ),
                                       ),
                                       validator: (value) {
                                         if (value == null || value.isEmpty) {
-                                          return 'Please enter schedule';
+                                          return 'Please select schedule';
                                         }
                                         return null;
+                                      },
+                                      onTap: () async {
+                                        final date = await showDatePicker(
+                                          context: context,
+                                          initialDate: DateTime.now(),
+                                          firstDate: DateTime.now(),
+                                          lastDate: DateTime(2100),
+                                        );
+                                        if (date != null && context.mounted) {
+                                          final time = await showTimePicker(
+                                            context: context,
+                                            initialTime: TimeOfDay.now(),
+                                          );
+                                          if (time != null) {
+                                            final dateTime = DateTime(
+                                              date.year,
+                                              date.month,
+                                              date.day,
+                                              time.hour,
+                                              time.minute,
+                                            );
+                                            _scheduleController.text = DateFormat('yyyy-MM-dd hh:mm a').format(dateTime);
+                                          }
+                                        }
                                       },
                                     ),
                                   ),
@@ -715,136 +743,6 @@ class _EditActivityPageState extends State<EditActivityPage> {
                                         }
                                         return null;
                                       },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 20),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: DropdownButtonFormField<String>(
-                                      decoration: InputDecoration(
-                                        labelText: 'Status *',
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(10),
-                                        ),
-                                        filled: true,
-                                        fillColor: Colors.white,
-                                      ),
-                                      initialValue: _status,
-                                      items: const [
-                                        DropdownMenuItem(
-                                            value: 'Active', child: Text('Active')),
-                                        DropdownMenuItem(
-                                            value: 'Inactive',
-                                            child: Text('Inactive')),
-                                        DropdownMenuItem(
-                                            value: 'Suspended',
-                                            child: Text('Suspended')),
-                                        DropdownMenuItem(
-                                            value: 'Completed',
-                                            child: Text('Completed')),
-                                      ],
-                                      onChanged: (value) {
-                                        setState(() {
-                                          _status = value;
-                                        });
-                                      },
-                                      validator: (value) {
-                                        if (value == null || value.isEmpty) {
-                                          return 'Please select status';
-                                        }
-                                        return null;
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 20),
-                                  Expanded(
-                                    child: InkWell(
-                                      onTap: () async {
-                                        final date = await showDatePicker(
-                                          context: context,
-                                          initialDate: _startDate ?? DateTime.now(),
-                                          firstDate: DateTime(2000),
-                                          lastDate: DateTime(2100),
-                                        );
-                                        if (date != null) {
-                                          setState(() {
-                                            _startDate = date;
-                                          });
-                                        }
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(color: Colors.grey[300]!),
-                                          borderRadius: BorderRadius.circular(10),
-                                          color: Colors.white,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.calendar_today,
-                                                color: Colors.grey[600]),
-                                            const SizedBox(width: 10),
-                                            Text(
-                                              _startDate == null
-                                                  ? 'Start Date'
-                                                  : DateFormat('yyyy-MM-dd')
-                                                      .format(_startDate!),
-                                              style: TextStyle(
-                                                color: _startDate == null
-                                                    ? Colors.grey[600]
-                                                    : Colors.black87,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 20),
-                                  Expanded(
-                                    child: InkWell(
-                                      onTap: () async {
-                                        final date = await showDatePicker(
-                                          context: context,
-                                          initialDate: _endDate ?? DateTime.now(),
-                                          firstDate: _startDate ?? DateTime(2000),
-                                          lastDate: DateTime(2100),
-                                        );
-                                        if (date != null) {
-                                          setState(() {
-                                            _endDate = date;
-                                          });
-                                        }
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(color: Colors.grey[300]!),
-                                          borderRadius: BorderRadius.circular(10),
-                                          color: Colors.white,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.calendar_today,
-                                                color: Colors.grey[600]),
-                                            const SizedBox(width: 10),
-                                            Text(
-                                              _endDate == null
-                                                  ? 'End Date'
-                                                  : DateFormat('yyyy-MM-dd')
-                                                      .format(_endDate!),
-                                              style: TextStyle(
-                                                color: _endDate == null
-                                                    ? Colors.grey[600]
-                                                    : Colors.black87,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
                                     ),
                                   ),
                                 ],

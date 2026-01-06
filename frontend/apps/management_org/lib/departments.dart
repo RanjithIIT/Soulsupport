@@ -1099,7 +1099,7 @@ class _DepartmentCard extends StatelessWidget {
                   ),
                   child: Center(
                     child: Text(
-                      department.code[0],
+                      department.code.isNotEmpty ? department.code[0] : '?',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,

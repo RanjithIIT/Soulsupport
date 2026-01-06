@@ -17,7 +17,7 @@ class Activity {
   final int? participants;
   final String schedule;
   final String location;
-  final String status;
+
   final String description;
 
   Activity({
@@ -28,7 +28,7 @@ class Activity {
     this.participants,
     required this.schedule,
     required this.location,
-    required this.status,
+
     required this.description,
   });
 
@@ -41,7 +41,7 @@ class Activity {
       participants: json['max_participants'] as int?,
       schedule: json['schedule']?.toString() ?? '',
       location: json['location']?.toString() ?? '',
-      status: json['status']?.toString() ?? 'Active',
+
       description: json['description']?.toString() ?? '',
     );
   }
@@ -123,8 +123,9 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
   }
 
   int get _totalActivities => _activities.length;
-  int get _activeActivities =>
-      _activities.where((activity) => activity.status == 'Active').length;
+  // Since status was removed, effectively all visible activities are active
+  int get _activeActivities => _activities.length;
+
   int get _totalParticipants => _activities.fold(
         0,
         (sum, activity) => sum + (activity.participants ?? 0),
@@ -373,20 +374,20 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
                   _StatCard(
                     label: 'Active Activities',
                     value: '$_activeActivities',
-                    icon: '🏃‍♂️',
-                    color: Colors.green,
+                    icon: '🏃',
+                    color: const Color(0xFF40C057),
                   ),
                   _StatCard(
                     label: 'Total Participants',
                     value: '$_totalParticipants',
                     icon: '👥',
-                    color: Colors.orange,
+                    color: const Color(0xFF42A5F5),
                   ),
                   _StatCard(
                     label: 'Activity Categories',
                     value: '$_activityCategories',
                     icon: '🏆',
-                    color: Colors.blue,
+                    color: const Color(0xFFFFD700),
                   ),
                 ],
               );
@@ -676,13 +677,7 @@ class _ActivityCardWithHoverState extends State<_ActivityCardWithHover> {
                           value: widget.activity.location,
                         ),
                       ),
-                      SizedBox(
-                        width: itemWidth,
-                        child: _DetailItem(
-                          title: 'Status',
-                          value: widget.activity.status,
-                        ),
-                      ),
+
                     ],
                   );
                 },

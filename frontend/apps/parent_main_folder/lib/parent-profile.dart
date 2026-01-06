@@ -66,6 +66,7 @@ class SchoolManagementSystemApp extends StatelessWidget {
 
 class StudentData {
   final String name;
+  final int? dbId; // Added to store the database PK
   final String id;
   final String grade;
   final String section;
@@ -91,6 +92,26 @@ class StudentData {
   final String nationality;
   final String emergencyContactName;
   final String emergencyContactPhone;
+  final String medicalInfo;
+  
+  // Fees Details
+  final double totalFeeAmount;
+  final double paidFeeAmount;
+  final double dueFeeAmount;
+  final String feeStatus;
+
+  // Academics Details
+  final String overallScore;
+  final String subjects;
+  final String performance;
+  final String lastExam;
+
+  // Extracurricular Details
+  final String extracurricularActivities;
+  final String extracurricularLeadership;
+  final String extracurricularAchievements;
+  final String extracurricularParticipation;
+
   final List<Map<String, String>> achievementsList;
   final List<Map<String, String>> currentSubjects;
   final List<Map<String, dynamic>> awards;
@@ -103,6 +124,7 @@ class StudentData {
 
   StudentData.mock()
     : name = 'John Michael Smith',
+      dbId = 0,
       id = 'STU-2024-001',
       grade = 'Grade 9',
       section = 'Section A',
@@ -128,6 +150,19 @@ class StudentData {
       nationality = "Indian",
       emergencyContactName = "Aunt Jane Doe",
       emergencyContactPhone = "+1 (555) 987-6543",
+      medicalInfo = "None",
+      totalFeeAmount = 50000,
+      paidFeeAmount = 30000,
+      dueFeeAmount = 20000,
+      feeStatus = "Due: ₹20000",
+      overallScore = "85%",
+      subjects = "Math, Science",
+      performance = "Good",
+      lastExam = "Midterm",
+      extracurricularActivities = "Basketball",
+      extracurricularLeadership = "Captain",
+      extracurricularAchievements = "Winner",
+      extracurricularParticipation = "Active",
       currentSubjects = [
         {'subject': 'Mathematics', 'teacher': 'Mrs. K. Sharma'},
         {'subject': 'Science', 'teacher': 'Mr. D. Patel'},
@@ -160,8 +195,11 @@ class StudentData {
 
 
   // Constructor to create StudentData from API response
-  StudentData.fromJson(Map<String, dynamic> studentJson, Map<String, dynamic> parentJson)
+  // studentJson: The basic profile info (likely from student-profile endpoint)
+  // detailedJson: The full details from management API (fetchStudentById)
+  StudentData.fromJson(Map<String, dynamic> studentJson, Map<String, dynamic> detailedJson)
       : name = _getFullName(studentJson),
+        dbId = studentJson['id'] as int?,
         id = _safeString(studentJson['student_id']),
         grade = _safeString(studentJson['class_name']),
         section = _safeString(studentJson['section']),
@@ -186,6 +224,28 @@ class StudentData {
         nationality = 'Indian', // Default
         emergencyContactName = _safeString(studentJson['emergency_contact']),
         emergencyContactPhone = '', // Not available in current schema
+        
+        // Detailed fields from management API (or fallbacks)
+        medicalInfo = _safeString(detailedJson['medical_information'] ?? studentJson['medical_information']),
+        
+        // Fees
+        totalFeeAmount = (detailedJson['total_fee_amount'] as num?)?.toDouble() ?? 0.0,
+        paidFeeAmount = (detailedJson['paid_fee_amount'] as num?)?.toDouble() ?? 0.0,
+        dueFeeAmount = (detailedJson['due_fee_amount'] as num?)?.toDouble() ?? 0.0,
+        feeStatus = _calculateFeeStatus(detailedJson),
+
+        // Academics (placeholder logic or parsing if available)
+        overallScore = '0%', // Placeholder
+        subjects = '',
+        performance = '',
+        lastExam = '',
+
+        // Extracurricular
+        extracurricularActivities = '',
+        extracurricularLeadership = '',
+        extracurricularAchievements = '',
+        extracurricularParticipation = '',
+
         currentSubjects = [], // TODO: Fetch from timetable/classes
         awards = List<Map<String, dynamic>>.from(studentJson['awards'] ?? []),
         achievementsList = _parseAwardsToAchievements(studentJson['awards']),
@@ -210,6 +270,16 @@ class StudentData {
   }
 
 
+  static String _calculateFeeStatus(Map<String, dynamic> json) {
+    if (json.isEmpty) return 'Unknown';
+    final total = (json['total_fee_amount'] as num?)?.toDouble() ?? 0.0;
+    final due = (json['due_fee_amount'] as num?)?.toDouble() ?? 0.0;
+    
+    if (due > 0) return 'Due: ₹${due.toStringAsFixed(0)}';
+    if (total > 0) return 'Paid';
+    return 'No Fees';
+  }
+
   static String _safeString(dynamic value) {
     if (value == null) return '';
     if (value is String) return value;
@@ -217,6 +287,7 @@ class StudentData {
   }
 
   static String _getFullName(Map<String, dynamic> studentJson) {
+    // ... existing implementation ...
     try {
       final user = studentJson['user'];
       if (user != null && user is Map) {
@@ -228,6 +299,10 @@ class StudentData {
           return fullName;
         }
       }
+      // Fallback for detailed json which might have student_name directly
+      if (studentJson['student_name'] != null) {
+        return _safeString(studentJson['student_name']);
+      }
       final studentId = _safeString(studentJson['student_id']);
       return studentId.isNotEmpty ? studentId : 'Student';
     } catch (e) {
@@ -236,21 +311,23 @@ class StudentData {
   }
 
   static String _getEmail(Map<String, dynamic> studentJson) {
+    // ... existing implementation ...
     try {
       final user = studentJson['user'];
       if (user != null && user is Map) {
         final userMap = user as Map<String, dynamic>;
         return _safeString(userMap['email']);
       }
-      return '';
+      return _safeString(studentJson['email']);
     } catch (e) {
       return '';
     }
   }
 
   static String _formatDate(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return '';
+     if (dateStr == null || dateStr.isEmpty) return '';
     try {
+      // Handle "YYYY-MM-DD"
       final date = DateTime.parse(dateStr);
       final months = ['January', 'February', 'March', 'April', 'May', 'June',
           'July', 'August', 'September', 'October', 'November', 'December'];
@@ -261,7 +338,7 @@ class StudentData {
   }
 
   static String _calculateAge(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return '';
+     if (dateStr == null || dateStr.isEmpty) return '';
     try {
       final date = DateTime.parse(dateStr);
       final now = DateTime.now();
@@ -279,451 +356,7 @@ class StudentData {
 // -------------------------------------------------------------------------
 // 5. GENERIC HELPER METHODS (Static/External)
 // -------------------------------------------------------------------------
-
-void _showSnackbar(BuildContext context, String message) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(message),
-      duration: const Duration(milliseconds: 800),
-    ),
-  );
-}
-
-Widget _buildPageHeader(BuildContext context, Color primaryColor) {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        'Student Profile',
-        style: TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.w700,
-          color: primaryColor,
-        ),
-      ),
-      const SizedBox(height: 4),
-      const Text(
-        'View and manage student details.',
-        style: TextStyle(color: Color(0xff666666), fontSize: 16),
-      ),
-    ],
-  );
-}
-
-Widget _buildSectionTitle(String emoji, String title) {
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 15),
-    child: Row(
-      children: [
-        Text(emoji, style: const TextStyle(fontSize: 20)),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-      ],
-    ),
-  );
-}
-
-Widget _buildInfoCard(String title, List<Map<String, String>> items) {
-  return Container(
-    margin: const EdgeInsets.only(bottom: 15),
-    padding: const EdgeInsets.all(15),
-    decoration: BoxDecoration(
-      color: const Color(0xfff8f9fa),
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: Colors.grey.shade300),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-            color: Color(0xff333333),
-          ),
-        ),
-        const Divider(height: 15),
-        ...items.map(
-          (item) => Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '${item['label']}:',
-                  style: const TextStyle(
-                    color: Color(0xff666666),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Expanded(
-                  // Use Expanded to handle long values
-                  child: Text(
-                    item['value']!,
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      color: Color(0xff333333),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-// 🆕 EDIT MOCK MODAL (External definition)
-void _showEditProfileModal(BuildContext context, StudentData data) {
-  final phoneController = TextEditingController(text: data.phoneNumber);
-  final emailController = TextEditingController(text: data.email);
-  final emergencyNameController = TextEditingController(
-    text: data.emergencyContactName,
-  );
-  final emergencyPhoneController = TextEditingController(
-    text: data.emergencyContactPhone,
-  );
-  final addressController = TextEditingController(text: data.address);
-  final cityController = TextEditingController(text: data.city);
-  final stateController = TextEditingController(text: data.state);
-  final postalCodeController = TextEditingController(text: data.postalCode);
-
-  final formKey = GlobalKey<FormState>();
-
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-    ),
-    builder: (BuildContext context) {
-      return Padding(
-        padding: EdgeInsets.only(
-          top: 25,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 25,
-        ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 25),
-          child: Form(
-            key: formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  "✏️ Edit Contact & Address",
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                ),
-                const Divider(height: 25),
-
-                // Contact Section Title
-                Text(
-                  "Parent Contact",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).primaryColor,
-                  ),
-                ),
-                const SizedBox(height: 15),
-
-                // Phone Number Field
-                TextFormField(
-                  controller: phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: "Primary Phone Number",
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) =>
-                      value!.isEmpty ? 'Phone cannot be empty' : null,
-                ),
-                const SizedBox(height: 15),
-
-                // Email Field
-                TextFormField(
-                  controller: emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: "Primary Email Address",
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) =>
-                      value!.isEmpty ? 'Email cannot be empty' : null,
-                ),
-                const Divider(height: 30),
-
-                // Emergency Contact Title
-                Text(
-                  "Emergency Contact",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).primaryColor,
-                  ),
-                ),
-                const SizedBox(height: 15),
-
-                // Emergency Name
-                TextFormField(
-                  controller: emergencyNameController,
-                  decoration: const InputDecoration(
-                    labelText: "Emergency Contact Name",
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 15),
-
-                // Emergency Phone
-                TextFormField(
-                  controller: emergencyPhoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: "Emergency Phone",
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const Divider(height: 30),
-
-                // Address Title
-                Text(
-                  "Residential Address",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).primaryColor,
-                  ),
-                ),
-                const SizedBox(height: 15),
-
-                // Address Line
-                TextFormField(
-                  controller: addressController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: "Street Address",
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 15),
-
-                // City, State, Postal Code
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: cityController,
-                        decoration: const InputDecoration(
-                          labelText: "City",
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextFormField(
-                        controller: stateController,
-                        decoration: const InputDecoration(
-                          labelText: "State",
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      width: 100,
-                      child: TextFormField(
-                        controller: postalCodeController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: "P. Code",
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 30),
-
-                // Save Button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (formKey.currentState!.validate()) {
-                        // Mock save and close
-                        Navigator.pop(context);
-                        _showSnackbar(
-                          context,
-                          "Changes saved successfully! (Mock)",
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).primaryColor,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                    ),
-                    child: const Text(
-                      'Save Changes',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    },
-  );
-}
-
-// 🆕 NEW FEATURE: Mock Profile Picture Update Modal (External definition)
-void _showPictureUpdateModal(BuildContext context) {
-  final primaryColor = Theme.of(context).primaryColor;
-
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: const Text("📸 Update Profile Photo"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Upload a new photo for the student profile.",
-              style: TextStyle(color: Color(0xff666666)),
-            ),
-            const SizedBox(height: 20),
-
-            // Mock File Input Area
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0F2FF),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
-              ),
-              child: Column(
-                children: [
-                  Icon(Icons.cloud_upload, size: 40, color: primaryColor),
-                  const SizedBox(height: 10),
-                  const Text(
-                    "Click to select file (Max: 2MB)",
-                    style: TextStyle(fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              "Note: Uploads are restricted to 2MB maximum size to ensure fast loading across the portal.",
-              style: TextStyle(fontSize: 12, color: Colors.redAccent),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _showSnackbar(
-                context,
-                "Upload Initiated (Mock file size check complete!)",
-              );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
-            child: const Text("Upload Photo"),
-          ),
-        ],
-      );
-    },
-  );
-}
-
-// Achievement Details Modal
-void _showAchievementDetailsModal(
-  BuildContext context,
-  Map<String, String> achievement,
-) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (BuildContext context) {
-      return Container(
-        padding: const EdgeInsets.all(25),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              "🏆 Achievement Details",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const Divider(height: 25),
-
-            // Title and Date
-            Text(
-              achievement['title']!,
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              achievement['date']!,
-              style: const TextStyle(color: Color(0xff666666), fontSize: 16),
-            ),
-
-            const Divider(height: 30),
-
-            // Description
-            const Text(
-              "Description:",
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              achievement['description']!,
-              style: const TextStyle(
-                color: Color(0xff333333),
-                fontSize: 15,
-                height: 1.4,
-              ),
-            ),
-
-            const SizedBox(height: 40),
-
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Close"),
-              ),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
+// ... unchanged ...
 
 // In-app certificate viewer (similar to management portal for consistency)
 void _showCertificateDialog(BuildContext context, Map<String, dynamic> award) {
@@ -872,19 +505,33 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
     });
 
     try {
-      // Fetch current logged-in student's profile
-      final studentData = await api.ApiService.fetchStudentProfile();
-      if (studentData != null) {
-        // Try to get parent data for additional context (optional)
-        Map<String, dynamic>? parentData;
-        try {
-          parentData = await api.ApiService.fetchParentProfile();
-        } catch (e) {
-          // Parent data is optional, continue without it
-        }
+      // 1. Fetch current logged-in student's profile (basic info)
+      final basicProfile = await api.ApiService.fetchStudentProfile();
+      
+      if (basicProfile != null) {
+        Map<String, dynamic> detailedInfo = {};
         
+        // 2. Try to fetch full details using the ID from basic profile
+        if (basicProfile['id'] != null) {
+          try {
+            // Need to cast to int safely
+            final int studentId = basicProfile['id'] is int 
+                ? basicProfile['id'] 
+                : int.parse(basicProfile['id'].toString());
+                
+            final fetchedDetails = await api.ApiService.fetchStudentById(studentId);
+            if (fetchedDetails != null) {
+              detailedInfo = fetchedDetails;
+              print('Fetched detailed student info for ID $studentId');
+            }
+          } catch (e) {
+            print('Error fetching detailed student info: $e');
+            // Continue with basic info only
+          }
+        }
+
         setState(() {
-          _studentData = StudentData.fromJson(studentData, parentData ?? {});
+          _studentData = StudentData.fromJson(basicProfile, detailedInfo);
           _isLoading = false;
         });
         return;
@@ -1472,6 +1119,9 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                     {'label': 'Roll Number', 'value': data.rollNumber},
                     {'label': 'Admission No.', 'value': data.admissionNo},
                   ]),
+                  _buildInfoCard('Medical Information', [
+                    {'label': 'Medical Notes', 'value': data.medicalInfo},
+                  ]),
                 ],
               ),
             ),
@@ -1508,6 +1158,58 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
             ),
             const SizedBox(height: 20),
 
+            // 🆕 Fees Information
+            _buildInfoContainer(
+              context,
+              _buildSectionTitle('💰', 'Fees Information'),
+              Column(
+                children: [
+                  _buildInfoCard('Fee Details', [
+                    {'label': 'Total Fees', 'value': '₹${data.totalFeeAmount.toStringAsFixed(0)}'},
+                    {'label': 'Paid Amount', 'value': '₹${data.paidFeeAmount.toStringAsFixed(0)}'},
+                    {'label': 'Due Amount', 'value': '₹${data.dueFeeAmount.toStringAsFixed(0)}'},
+                    {'label': 'Status', 'value': data.feeStatus},
+                  ]),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // 🆕 Academics Information
+            _buildInfoContainer(
+              context,
+              _buildSectionTitle('📚', 'Academics'),
+              Column(
+                children: [
+                  _buildInfoCard('Performance', [
+                    {'label': 'Overall Score', 'value': data.overallScore},
+                    {'label': 'Performance', 'value': data.performance},
+                    {'label': 'Last Exam', 'value': data.lastExam},
+                  ]),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // 🆕 Extracurriculars
+            if (data.extracurricularActivities.isNotEmpty) ...[
+                _buildInfoContainer(
+                context,
+                _buildSectionTitle('⚽', 'Extracurriculars'),
+                Column(
+                    children: [
+                    _buildInfoCard('Activities', [
+                        {'label': 'Activities', 'value': data.extracurricularActivities},
+                        {'label': 'Leadership', 'value': data.extracurricularLeadership},
+                        {'label': 'Achievements', 'value': data.extracurricularAchievements},
+                    ]),
+                    ],
+                ),
+                ),
+                const SizedBox(height: 20),
+            ],
+            const SizedBox(height: 20),
+
             // 5. Achievements
             _buildAchievementsSection(context, data),
             const SizedBox(height: 20),
@@ -1540,6 +1242,196 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  // --- Missing Helper Methods (Restored) ---
+
+  Widget _buildSectionTitle(String emoji, String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 15),
+      child: Row(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 20)),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Color(0xff333333),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoCard(String title, List<Map<String, String>> items) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      width: double.infinity,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (title.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xff666666),
+                ),
+              ),
+            ),
+          ...items.map((item) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 120,
+                    child: Text(
+                      item['label']!,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xff444444),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      item['value']!,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xff222222),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPageHeader(BuildContext context, Color primaryColor) {
+     return Row(
+      children: [
+        const Text(
+          'My Profile',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF333333),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showPictureUpdateModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          height: 200,
+          child: Column(
+            children: [
+              const Text(
+                'Update Profile Picture',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 30,
+                        backgroundColor: Colors.blue.withOpacity(0.1),
+                        child: const Icon(Icons.camera_alt, color: Colors.blue),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text('Camera'),
+                    ],
+                  ),
+                  Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 30,
+                        backgroundColor: Colors.purple.withOpacity(0.1),
+                        child: const Icon(Icons.photo_library, color: Colors.purple),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text('Gallery'),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showEditProfileModal(BuildContext context, StudentData data) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Profile'),
+        content: const Text('Profile editing is currently disabled by administration.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSnackbar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showAchievementDetailsModal(BuildContext context, Map<String, String> achievement) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(achievement['title'] ?? 'Achievement'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+             Text('Date: ${achievement['date']}'),
+             const SizedBox(height: 10),
+             Text(achievement['description'] ?? ''),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }

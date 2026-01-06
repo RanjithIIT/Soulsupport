@@ -393,34 +393,8 @@ class _GradesDashboardState extends State<GradesDashboard> {
                       ),
                     ),
 
-                    // === Refresh Icon ===
-                    IconButton(
-                      icon: const Icon(
-                        Icons.refresh,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _loadGrades();
-                        });
-                      },
-                    ),
+                    // Buttons removed
 
-                    // === Profile/User Icon ===
-                    IconButton(
-                      icon: const Icon(
-                        Icons.person,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const TeacherProfilePage()),
-                        );
-                      },
-                    ),
                     const SizedBox(width: 8),
                   ],
                 ),

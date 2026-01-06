@@ -45,6 +45,7 @@ class _DashboardPageState extends State<DashboardPage> {
       final responses = await Future.wait([
         api.get(Endpoints.teachers),
         api.get(Endpoints.students),
+        api.get(Endpoints.gallery),
       ]);
 
       if (mounted) {
@@ -94,6 +95,28 @@ class _DashboardPageState extends State<DashboardPage> {
                 'class': s['class_name'] ?? s['applying_class'] ?? '',
                 'section': s['section'] ?? '',
                 'initials': initials.toUpperCase(),
+              };
+            }).toList().cast<Map<String, dynamic>>();
+          }
+
+          // Process Gallery
+          if (responses[2].success && responses[2].data != null) {
+            final data = responses[2].data;
+            final List<dynamic> list = data is List ? data : (data['results'] is List ? data['results'] : []);
+            
+            _galleryItems = list.take(3).map((item) {
+              String imageUrl = '';
+              if (item['images'] != null && (item['images'] as List).isNotEmpty) {
+                final firstImage = (item['images'] as List).first;
+                imageUrl = firstImage['image'] ?? '';
+              }
+              
+              return {
+                'id': item['id'],
+                'title': item['title'] ?? 'Untitled Gallery',
+                'category': item['category'] ?? 'General',
+                'image': imageUrl.isNotEmpty ? imageUrl : 'https://via.placeholder.com/150',
+                'date': item['date'] ?? '',
               };
             }).toList().cast<Map<String, dynamic>>();
           }
@@ -199,44 +222,7 @@ class _DashboardPageState extends State<DashboardPage> {
     },
   ];
 
-  final List<Map<String, dynamic>> _galleryItems = [
-    {
-      'id': 1,
-      'title': 'Annual Sports Day',
-      'image': 'https://via.placeholder.com/150/667eea/ffffff?text=Sports',
-      'date': '2024-01-15',
-    },
-    {
-      'id': 2,
-      'title': 'Science Fair',
-      'image': 'https://via.placeholder.com/150/764ba2/ffffff?text=Science',
-      'date': '2024-01-20',
-    },
-    {
-      'id': 3,
-      'title': 'Cultural Program',
-      'image': 'https://via.placeholder.com/150/fa709a/ffffff?text=Culture',
-      'date': '2024-01-25',
-    },
-    {
-      'id': 4,
-      'title': 'Teacher\'s Day',
-      'image': 'https://via.placeholder.com/150/43e97b/ffffff?text=Teachers',
-      'date': '2024-01-30',
-    },
-    {
-      'id': 5,
-      'title': 'Independence Day',
-      'image': 'https://via.placeholder.com/150/ffd700/ffffff?text=Independence',
-      'date': '2024-02-01',
-    },
-    {
-      'id': 6,
-      'title': 'Republic Day',
-      'image': 'https://via.placeholder.com/150/ff6347/ffffff?text=Republic',
-      'date': '2024-02-05',
-    },
-  ];
+  List<Map<String, dynamic>> _galleryItems = [];
 
   final List<Map<String, dynamic>> _recentAdmissions = [
     {
@@ -289,80 +275,7 @@ class _DashboardPageState extends State<DashboardPage> {
     },
   ];
 
-  final List<Map<String, dynamic>> _extracurricularActivities = [
-    {
-      'id': 1,
-      'name': 'NCC (National Cadet Corps)',
-      'type': 'ncc',
-      'icon': '🎖️',
-      'description': 'Military training and discipline',
-      'incharge': 'Capt. Rajesh Kumar',
-      'schedule': 'Every Saturday 8:00 AM',
-    },
-    {
-      'id': 2,
-      'name': 'NSS (National Service Scheme)',
-      'type': 'nss',
-      'icon': '🤝',
-      'description': 'Community service and social work',
-      'incharge': 'Dr. Priya Sharma',
-      'schedule': 'Every Sunday 9:00 AM',
-    },
-    {
-      'id': 3,
-      'name': 'Basketball Team',
-      'type': 'sports',
-      'icon': '🏀',
-      'description': 'School basketball team training',
-      'incharge': 'Mr. Amit Singh',
-      'schedule': 'Mon, Wed, Fri 4:00 PM',
-    },
-    {
-      'id': 4,
-      'name': 'Music Band',
-      'type': 'arts',
-      'icon': '🎵',
-      'description': 'School music band and orchestra',
-      'incharge': 'Ms. Neha Patel',
-      'schedule': 'Tue, Thu 3:30 PM',
-    },
-    {
-      'id': 5,
-      'name': 'Science Club',
-      'type': 'academic',
-      'icon': '🔬',
-      'description': 'Science experiments and projects',
-      'incharge': 'Dr. Sanjay Verma',
-      'schedule': 'Every Friday 2:00 PM',
-    },
-    {
-      'id': 6,
-      'name': 'Debate Club',
-      'type': 'academic',
-      'icon': '🎤',
-      'description': 'Public speaking and debates',
-      'incharge': 'Ms. Ritu Gupta',
-      'schedule': 'Every Wednesday 3:00 PM',
-    },
-    {
-      'id': 7,
-      'name': 'Chess Club',
-      'type': 'academic',
-      'icon': '♟️',
-      'description': 'Chess training and tournaments',
-      'incharge': 'Mr. Deepak Malhotra',
-      'schedule': 'Every Tuesday 4:30 PM',
-    },
-    {
-      'id': 8,
-      'name': 'Art & Craft',
-      'type': 'arts',
-      'icon': '🎨',
-      'description': 'Creative arts and crafts',
-      'incharge': 'Ms. Kavita Joshi',
-      'schedule': 'Every Thursday 2:30 PM',
-    },
-  ];
+
 
   @override
   Widget build(BuildContext context) {
@@ -494,10 +407,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           _RecentAdmissionsSection(
                             admissions: _recentAdmissions,
                           ),
-                          const SizedBox(height: 24),
-                          _ExtracurricularSection(
-                            activities: _extracurricularActivities,
-                          ),
+
                           const SizedBox(height: 24),
                           _RTISection(
                             rtiRequests: _rtiRequests,
@@ -666,7 +576,7 @@ class _StatsGridState extends State<_StatsGrid> {
       fetchCount('fees', Endpoints.fees),
       fetchCount('notifications', Endpoints.notifications),
       fetchCount('activities', Endpoints.activities),
-      fetchCount('bus_routes', Endpoints.busRoutes),
+
       fetchCount('events', Endpoints.events),
       fetchCount('calendar', Endpoints.calendar),
       fetchCount('awards', Endpoints.awards),
@@ -750,14 +660,7 @@ class _StatsGridState extends State<_StatsGrid> {
         'color': const Color(0xFFA8EDEA),
         'route': 'activities',
       },
-      {
-        'icon': '🛣️',
-        'number': _isLoading ? '...' : (_counts['bus_routes'] ?? '0'),
-        'label': 'Bus Routes',
-        'description': 'Transportation network',
-        'color': const Color(0xFFFFECD2),
-        'route': 'buses',
-      },
+
       {
         'icon': '📅',
         'number': _isLoading ? '...' : (_counts['events'] ?? '0'),
@@ -790,14 +693,7 @@ class _StatsGridState extends State<_StatsGrid> {
         'color': const Color(0xFFFF69B4),
         'route': 'gallery',
       },
-      {
-        'icon': '🎭',
-        'number': _isLoading ? '...' : (_counts['activities'] ?? '0'), // Reusing activities count
-        'label': 'Extra Curricular',
-        'description': 'Click to manage activities',
-        'color': const Color(0xFF9370DB),
-        'route': 'activities',
-      },
+
       {
         'icon': '📋',
         'number': '3', // Keep hardcoded as no endpoint found
@@ -1978,9 +1874,9 @@ class _GallerySection extends StatelessWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: crossAxisCount,
-                  crossAxisSpacing: 15,
-                  mainAxisSpacing: 15,
-                  childAspectRatio: 1.0,
+                  crossAxisSpacing: 20,
+                  mainAxisSpacing: 20,
+                  childAspectRatio: 0.8,
                 ),
                 itemCount: galleryItems.length,
                 itemBuilder: (context, index) => _GalleryItem(
@@ -2015,76 +1911,104 @@ class _GalleryItemState extends State<_GalleryItem> {
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         onTap: () {
-          final navigator = Navigator.of(context);
-          navigator.pushReplacementNamed('/gallery');
+          app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/gallery');
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           transform: _isHovered
-              ? (Matrix4.identity()..scale(1.05))
+              ? (Matrix4.identity()..translate(0, -5))
               : Matrix4.identity(),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE0E0E0)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Stack(
-            fit: StackFit.expand,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                color: _isHovered
-                    ? const Color(0xFF667EEA).withValues(alpha: 0.6)
-                    : const Color(0xFF667EEA).withValues(alpha: 0.3),
-                child: Center(
-                  child: Text(
-                    widget.item['title'] as String,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
+              // Image Section
+              Expanded(
+                flex: 3,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                    child: Image.network(
+                      widget.item['image'],
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: Colors.grey[200],
+                        child: const Center(
+                          child: Icon(Icons.image_not_supported, color: Colors.grey),
+                        ),
+                      ),
                     ),
-                    textAlign: TextAlign.center,
                   ),
                 ),
               ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: 0.7),
-                      ],
-                    ),
-                  ),
-                  child: Text(
-                    widget.item['title'] as String,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+              // Content Section
+              Expanded(
+                flex: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.item['title'] as String,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.item['date'] as String,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF667EEA).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          widget.item['category'] as String,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF667EEA),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ],
           ),
-        ),
         ),
       ),
     );
@@ -2173,209 +2097,6 @@ class _RecentAdmissionsSection extends StatelessWidget {
                 },
               )),
         ],
-      ),
-    );
-  }
-}
-
-class _ExtracurricularSection extends StatelessWidget {
-  final List<Map<String, dynamic>> activities;
-
-  const _ExtracurricularSection({required this.activities});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(25),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Row(
-                children: [
-                  Text('🎭', style: TextStyle(fontSize: 20)),
-                  SizedBox(width: 10),
-                  Text(
-                    'Extra Curricular Activities',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/activities');
-                  },
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('Add New'),
-                      SizedBox(width: 4),
-                      Icon(Icons.arrow_forward, size: 14),
-                    ],
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    foregroundColor: Colors.white,
-                    shadowColor: Colors.transparent,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final crossAxisCount = constraints.maxWidth > 1200 ? 4 : constraints.maxWidth > 800 ? 3 : constraints.maxWidth > 600 ? 2 : 1;
-              return GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossAxisCount,
-                  crossAxisSpacing: 20,
-                  mainAxisSpacing: 20,
-                  childAspectRatio: 0.9,
-                ),
-                itemCount: activities.length,
-                itemBuilder: (context, index) => _ExtracurricularCard(
-                  activity: activities[index],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ExtracurricularCard extends StatefulWidget {
-  final Map<String, dynamic> activity;
-
-  const _ExtracurricularCard({required this.activity});
-
-  @override
-  State<_ExtracurricularCard> createState() => _ExtracurricularCardState();
-}
-
-class _ExtracurricularCardState extends State<_ExtracurricularCard> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: _isHovered
-              ? null
-              : Colors.white,
-          gradient: _isHovered
-              ? const LinearGradient(
-                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                )
-              : null,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Colors.grey.withValues(alpha: 0.2),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: _isHovered ? Colors.white : const Color(0xFF667EEA),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  widget.activity['icon'] as String,
-                  style: TextStyle(
-                    fontSize: 24,
-                    color: _isHovered ? const Color(0xFF667EEA) : Colors.white,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              widget.activity['name'] as String,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: _isHovered ? Colors.white : Colors.black87,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              widget.activity['description'] as String,
-              style: TextStyle(
-                fontSize: 12,
-                color: _isHovered ? Colors.white70 : Colors.grey,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Incharge: ${widget.activity['incharge'] as String}',
-              style: TextStyle(
-                fontSize: 11,
-                color: _isHovered ? Colors.white70 : Colors.grey,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
       ),
     );
   }

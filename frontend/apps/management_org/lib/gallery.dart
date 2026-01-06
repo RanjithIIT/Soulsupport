@@ -4,16 +4,18 @@ import 'package:flutter/material.dart';
 import 'widgets/school_profile_header.dart';
 import 'widgets/management_sidebar.dart';
 import 'package:core/api/api_service.dart';
-import 'package:core/api/endpoints.dart';
 import 'dart:ui';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 import 'package:main_login/main.dart' as main_login;
 import 'main.dart' as app;
 import 'dashboard.dart';
 
+
 class PhotoEntry {
   final int id;
+  final String photoId;
   final String title;
   final String category;
   final String description;
@@ -21,11 +23,12 @@ class PhotoEntry {
   final String photographer;
   final String location;
   final String emoji;
-  final List<String> imageUrls; // Changed from Uint8List images to imageUrls
   bool isFavorite;
+  List<Uint8List> images;
 
   PhotoEntry({
     required this.id,
+    required this.photoId,
     required this.title,
     required this.category,
     required this.description,
@@ -34,26 +37,13 @@ class PhotoEntry {
     required this.location,
     required this.emoji,
     this.isFavorite = false,
-    this.imageUrls = const [],
-  });
-
-  factory PhotoEntry.fromJson(Map<String, dynamic> json) {
-    var list = json['images'] as List? ?? [];
-    List<String> images = list.map((i) => i['image'] as String).toList();
-    
-    return PhotoEntry(
-      id: json['id'],
-      title: json['title'] ?? '',
-      category: json['category'] ?? 'Other',
-      description: json['description'] ?? '',
-      date: DateTime.parse(json['date']),
-      photographer: json['photographer'] ?? '',
-      location: json['location'] ?? '',
-      emoji: json['emoji'] ?? '📷',
-      imageUrls: images,
-    );
-  }
+    List<Uint8List>? images,
+  }) : images = images ?? [];
 }
+
+// ... existing code ...
+
+
 
 class PhotoGalleryPage extends StatefulWidget {
   const PhotoGalleryPage({super.key});
@@ -63,14 +53,13 @@ class PhotoGalleryPage extends StatefulWidget {
 }
 
 class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
-  List<PhotoEntry> _allPhotos = []; // Initialized as empty
-  bool _isLoading = true;
-  String? _errorMessage;
+  final List<PhotoEntry> _allPhotos = [];
 
   late List<PhotoEntry> _visiblePhotos;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   final _formKey = GlobalKey<FormState>();
+  final _photoIdController = TextEditingController(); // Added Photo ID controller
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _photographerController = TextEditingController();
@@ -78,11 +67,13 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
 
   String? _newCategory;
   DateTime? _newDate;
-  Uint8List? _selectedImageBytes;
+  List<Uint8List> _selectedImageBytes = [];
 
   String _searchQuery = '';
   String? _categoryFilter;
   String? _dateFilter;
+  bool _isLoading = true;
+  
   // -- Helper Widgets --
 
   Widget _buildUserInfo() {
@@ -125,46 +116,18 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
     );
   }
 
+
+
   @override
   void initState() {
     super.initState();
-    _visiblePhotos = [];
-    _fetchGalleryItems();
-  }
-
-  Future<void> _fetchGalleryItems() async {
-    setState(() => _isLoading = true);
-    try {
-      final apiService = ApiService();
-      await apiService.initialize();
-      final response = await apiService.get(Endpoints.gallery);
-      
-      if (response.success && response.data != null) {
-        final List<dynamic> data = response.data['results'] ?? response.data;
-        final photos = data.map((json) => PhotoEntry.fromJson(json)).toList();
-        
-        if (mounted) {
-          setState(() {
-            _allPhotos = photos;
-            _visiblePhotos = photos;
-            _isLoading = false;
-          });
-        }
-      } else {
-        throw Exception(response.error ?? 'Failed to load gallery');
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = e.toString();
-          _isLoading = false;
-        });
-      }
-    }
+    _visiblePhotos = List<PhotoEntry>.from(_allPhotos);
+    _fetchGalleries();
   }
 
   @override
   void dispose() {
+    _photoIdController.dispose();
     _titleController.dispose();
     _descriptionController.dispose();
     _photographerController.dispose();
@@ -249,14 +212,120 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
 
   Future<void> _pickPhoto() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
-    if (picked == null) return;
-    final bytes = await picked.readAsBytes();
+    final picked = await picker.pickMultiImage();
+    if (picked.isEmpty) return;
+    
+    final List<Uint8List> imageBytesList = [];
+    for (var image in picked) {
+      final bytes = await image.readAsBytes();
+      imageBytesList.add(bytes);
+    }
+    
     if (!mounted) return;
     setState(() {
-      _selectedImageBytes = bytes;
+      _selectedImageBytes = imageBytesList;
     });
   }
+
+  Future<void> _fetchGalleries() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      final response = await ApiService().get('/management-admin/galleries/');
+      
+      if (response.success && response.data != null) {
+        // Handle both paginated and non-paginated responses
+        List<dynamic> galleriesJson;
+        
+        if (response.data is Map && response.data.containsKey('results')) {
+          // Paginated response
+          galleriesJson = response.data['results'] as List<dynamic>;
+        } else if (response.data is List) {
+          // Direct array response
+          galleriesJson = response.data as List<dynamic>;
+        } else {
+          throw Exception('Unexpected response format');
+        }
+        
+        final List<PhotoEntry> fetchedPhotos = [];
+        
+        for (var galleryJson in galleriesJson) {
+          // Fetch images for this gallery
+          List<Uint8List> imageBytes = [];
+          if (galleryJson['images'] != null && galleryJson['images'] is List) {
+            for (var imageData in galleryJson['images']) {
+              try {
+                // Get the image URL from the backend
+                String imageUrl = imageData['image'];
+                
+                // If it's a relative URL, make it absolute
+                if (!imageUrl.startsWith('http')) {
+                  // Assuming backend is at localhost:8000
+                  imageUrl = 'http://localhost:8000$imageUrl';
+                }
+                
+                // Fetch the image bytes using http package
+                final imageResponse = await http.get(Uri.parse(imageUrl));
+                if (imageResponse.statusCode == 200) {
+                  imageBytes.add(imageResponse.bodyBytes);
+                }
+              } catch (e) {
+                print('Error loading image: $e');
+                // Continue with other images even if one fails
+              }
+            }
+          }
+          
+          // Parse the gallery data
+          final photoEntry = PhotoEntry(
+            id: galleryJson['id'] ?? 0,
+            photoId: galleryJson['photo_id'] ?? '',
+            title: galleryJson['title'] ?? '',
+            category: galleryJson['category'] ?? 'Other',
+            description: galleryJson['description'] ?? '',
+            date: galleryJson['date'] != null 
+                ? DateTime.parse(galleryJson['date']) 
+                : DateTime.now(),
+            photographer: galleryJson['photographer'] ?? '',
+            location: galleryJson['location'] ?? '',
+            emoji: galleryJson['emoji'] ?? '📷',
+            isFavorite: galleryJson['is_favorite'] ?? false,
+            images: imageBytes,
+          );
+          
+          fetchedPhotos.add(photoEntry);
+        }
+        
+        setState(() {
+          _allPhotos.clear();
+          _allPhotos.addAll(fetchedPhotos);
+          _filterPhotos();
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to load galleries: ${response.error ?? "Unknown error"}')),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading galleries: $e')),
+        );
+      }
+    }
+  }
+
 
   Future<void> _addPhoto() async {
     if (!_formKey.currentState!.validate()) return;
@@ -267,71 +336,117 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
       return;
     }
 
-    setState(() => _isLoading = true);
+    // Generate or use provided Photo ID
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    String photoId = _photoIdController.text.trim();
+    if (photoId.isEmpty) {
+      final randomId = (timestamp % 10000) + 1000;
+      photoId = 'PID-$timestamp-$randomId';
+    }
+
+    // Prepare data directly for API
+    final galleryData = {
+      'photo_id': photoId,
+      'title': _titleController.text.trim(),
+      'category': _newCategory!,
+      'description': _descriptionController.text.trim(),
+      'date': _newDate!.toIso8601String().split('T')[0], // YYYY-MM-DD
+      'photographer': _photographerController.text.trim(),
+      'location': _locationController.text.trim(),
+      'emoji': '📷',
+      'is_favorite': false,
+    };
 
     try {
-      final apiService = ApiService();
-      await apiService.initialize();
+      // 1. Create Gallery Entry
+      final response = await ApiService().post(
+        '/management-admin/galleries/',
+        body: galleryData,
+      );
 
-      final Map<String, String> fields = {
-        'title': _titleController.text.trim(),
-        'category': _newCategory!,
-        'description': _descriptionController.text.trim(),
-        'date': DateFormat('yyyy-MM-dd').format(_newDate!),
-        'photographer': _photographerController.text.trim(),
-        'location': _locationController.text.trim(),
-      };
-
-      late final ApiResponse response;
-
-      if (_selectedImageBytes != null) {
-        response = await apiService.uploadFile(
-          Endpoints.gallery,
-          fileBytes: _selectedImageBytes!,
-          fileName: 'gallery_image.jpg',
-          fieldName: 'image',
-          additionalFields: fields,
-        );
-      } else {
-        response = await apiService.post(
-          Endpoints.gallery,
-          body: fields,
-        );
+      if (!response.success) {
+        throw Exception(response.error ?? 'Failed to create gallery');
       }
 
-      if (response.success && response.data != null) {
-        final newPhoto = PhotoEntry.fromJson(response.data);
-        if (mounted) {
-          setState(() {
-            _allPhotos.insert(0, newPhoto);
-            _filterPhotos();
-            _isLoading = false;
-            
-            // Reset form
-            _formKey.currentState!.reset();
-            _titleController.clear();
-            _descriptionController.clear();
-            _photographerController.clear();
-            _locationController.clear();
-            _newCategory = null;
-            _newDate = null;
-            _selectedImageBytes = null;
-          });
-          
+      final createdGallery = response.data;
+      final galleryId = createdGallery['id']; // ID from DB
+
+      // 2. Upload Images if selected
+      if (_selectedImageBytes.isNotEmpty) {
+        int uploadedCount = 0;
+        int failedCount = 0;
+        
+        for (int i = 0; i < _selectedImageBytes.length; i++) {
+          try {
+            final imageBytes = _selectedImageBytes[i];
+            final uploadResponse = await ApiService().uploadFile(
+              '/management-admin/galleries/$galleryId/upload-image/',
+              fileBytes: imageBytes,
+              fileName: 'image_${timestamp}_$i.jpg',
+              fieldName: 'image',
+              additionalFields: {
+                'caption': i == 0 ? 'main image' : 'image ${i + 1}',
+              }
+            );
+
+            if (uploadResponse.success) {
+              uploadedCount++;
+            } else {
+              failedCount++;
+            }
+          } catch (e) {
+            failedCount++;
+            print('Error uploading image $i: $e');
+          }
+        }
+        
+        if (failedCount > 0) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Photo added successfully!')),
+            SnackBar(content: Text('Gallery created. $uploadedCount images uploaded, $failedCount failed.')),
           );
         }
-      } else {
-        throw Exception(response.error ?? 'Failed to add photo');
       }
+
+      // Update UI
+      final images = _selectedImageBytes.isNotEmpty ? _selectedImageBytes : <Uint8List>[];
+      final photo = PhotoEntry(
+        id: galleryId, // Use DB ID
+        photoId: photoId,
+        title: _titleController.text.trim(),
+        category: _newCategory!,
+        description: _descriptionController.text.trim(),
+        date: _newDate!,
+        photographer: _photographerController.text.trim(),
+        location: _locationController.text.trim(),
+        emoji: '📷',
+        images: images,
+      );
+
+      setState(() {
+        _allPhotos.insert(0, photo);
+        _filterPhotos();
+      });
+
+      _formKey.currentState!.reset();
+      _photoIdController.clear();
+      _titleController.clear();
+      _descriptionController.clear();
+      _photographerController.clear();
+      _locationController.clear();
+      setState(() {
+        _newCategory = null;
+        _newDate = null;
+        _selectedImageBytes = [];
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Photo added successfully!')),
+      );
+
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error adding photo: $e')),
+      );
     }
   }
 
@@ -353,37 +468,14 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop(); // Close dialog
-              setState(() => _isLoading = true);
-              
-              try {
-                final apiService = ApiService();
-                await apiService.initialize();
-                final response = await apiService.delete('${Endpoints.gallery}${photo.id}/');
-                
-                if (response.success || response.statusCode == 204) {
-                   if (mounted) {
-                    setState(() {
-                      _allPhotos.remove(photo);
-                      _filterPhotos();
-                      _isLoading = false;
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Photo deleted')),
-                    );
-                   }
-                } else {
-                  throw Exception(response.error ?? 'Failed to delete photo');
-                }
-              } catch (e) {
-                 if (mounted) {
-                   setState(() => _isLoading = false);
-                   ScaffoldMessenger.of(context).showSnackBar(
-                     SnackBar(content: Text('Error: ${e.toString()}')),
-                   );
-                 }
-              }
+            onPressed: () {
+              setState(() {
+                _allPhotos.remove(photo);
+                _filterPhotos();
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Photo deleted')),
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
@@ -396,9 +488,7 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
     );
   }
 
-  void _showFullImage(BuildContext context, List<String> imageUrls, int initialIndex) {
-    if (imageUrls.isEmpty) return;
-    
+  void _showFullImage(BuildContext context, List<Uint8List> images, int initialIndex) {
     final pageController = PageController(initialPage: initialIndex);
     showDialog<void>(
       context: context,
@@ -409,15 +499,13 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
           children: [
             PageView.builder(
               controller: pageController,
-              itemCount: imageUrls.length,
+              itemCount: images.length,
               itemBuilder: (context, index) {
                 return Center(
                   child: InteractiveViewer(
-                    child: Image.network(
-                      imageUrls[index],
+                    child: Image.memory(
+                      images[index],
                       fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.broken_image, color: Colors.white, size: 64),
                     ),
                   ),
                 );
@@ -431,7 +519,7 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
                 icon: const Icon(Icons.arrow_back),
                 label: const Text('Back'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black.withOpacity(0.7),
+                  backgroundColor: Colors.black.withValues(alpha: 0.7),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -449,114 +537,166 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
   void _viewImages(PhotoEntry photo) {
     showDialog<void>(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(20),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: const BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: Color(0xFFE0E0E0)),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(20),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: Color(0xFFE0E0E0)),
+                    ),
                   ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            photo.title,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${photo.imageUrls.length} image${photo.imageUrls.length > 1 ? 's' : ''}',
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
-              ),
-              if (photo.imageUrls.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(40),
-                  child: Column(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Icon(
-                        Icons.image_outlined,
-                        size: 64,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'No images uploaded yet',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              photo.title,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${photo.images.length} image${photo.images.length > 1 ? 's' : ''}',
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
                         ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          final picker = ImagePicker();
+                          final picked = await picker.pickImage(source: ImageSource.gallery);
+                          if (picked == null) return;
+                          final bytes = await picked.readAsBytes();
+                          if (!mounted) return;
+                          
+                          // Upload to backend
+                          try {
+                            final timestamp = DateTime.now().millisecondsSinceEpoch;
+                            final uploadResponse = await ApiService().uploadFile(
+                              '/management-admin/galleries/${photo.id}/upload-image/',
+                              fileBytes: bytes,
+                              fileName: 'image_$timestamp.jpg',
+                              fieldName: 'image',
+                              additionalFields: {
+                                'caption': 'additional image',
+                              }
+                            );
+
+                            if (uploadResponse.success) {
+                              setState(() {
+                                photo.images.add(bytes);
+                              });
+                              setDialogState(() {});
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Image uploaded successfully!')),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Upload failed: ${uploadResponse.error}')),
+                              );
+                            }
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error uploading image: $e')),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.upload, size: 18),
+                        label: const Text('Upload Photo'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF667EEA),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(context).pop(),
                       ),
                     ],
                   ),
-                )
-              else
-                Container(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.7,
-                  ),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        crossAxisSpacing: 15,
-                        mainAxisSpacing: 15,
-                        childAspectRatio: 1.0,
-                      ),
-                      itemCount: photo.imageUrls.length,
-                      itemBuilder: (context, index) {
-                        return GestureDetector(
-                          onDoubleTap: () {
-                            _showFullImage(context, photo.imageUrls, index);
-                          },
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              photo.imageUrls[index],
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Center(child: Icon(Icons.broken_image)),
-                            ),
+                ),
+                if (photo.images.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(40),
+                    child: Column(
+                      children: [
+                        const Icon(
+                          Icons.image_outlined,
+                          size: 64,
+                          color: Colors.grey,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No images uploaded yet',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
                           ),
-                        );
-                      },
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Container(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.7,
+                    ),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 4,
+                          crossAxisSpacing: 15,
+                          mainAxisSpacing: 15,
+                          childAspectRatio: 1.0,
+                        ),
+                        itemCount: photo.images.length,
+                        itemBuilder: (context, index) {
+                          return GestureDetector(
+                            onDoubleTap: () {
+                              _showFullImage(context, photo.images, index);
+                            },
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.memory(
+                                photo.images[index],
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -647,6 +787,7 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
                                     fit: FlexFit.loose,
                                     child: _AddPhotoSection(
                                       formKey: _formKey,
+                                      photoIdController: _photoIdController,
                                       titleController: _titleController,
                                       descriptionController:
                                           _descriptionController,
@@ -698,12 +839,32 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
                             },
                           ),
                           const SizedBox(height: 24),
-                          _GalleryGrid(
-                            photos: _visiblePhotos,
-                            onToggleFavorite: _toggleFavorite,
-                            onDelete: _deletePhoto,
-                            onViewImages: (photo) => _viewImages(photo),
-                          ),
+                          if (_isLoading)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(40.0),
+                                child: Column(
+                                  children: [
+                                    CircularProgressIndicator(),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      'Loading galleries...',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          else
+                            _GalleryGrid(
+                              photos: _visiblePhotos,
+                              onToggleFavorite: _toggleFavorite,
+                              onDelete: _deletePhoto,
+                              onViewImages: (photo) => _viewImages(photo),
+                            ),
                         ],
                       ),
                     ),
@@ -737,7 +898,7 @@ class _StatsOverview extends StatelessWidget {
       children: [
         _StatCard(
           icon: '🖼️',
-          label: 'Total Photos',
+          label: 'Total Albums',
           value: stats['total'].toString(),
           color: const Color(0xFF667EEA),
         ),
@@ -786,10 +947,8 @@ class _StatCard extends StatelessWidget {
       elevation: 5,
       shadowColor: Colors.black.withValues(alpha: 0.1),
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Column(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(icon, style: TextStyle(fontSize: 40, color: color)),
@@ -816,13 +975,13 @@ class _StatCard extends StatelessWidget {
           ],
         ),
       ),
-      ),
     );
   }
 }
 
 class _AddPhotoSection extends StatelessWidget {
   final GlobalKey<FormState> formKey;
+  final TextEditingController photoIdController;
   final TextEditingController titleController;
   final TextEditingController descriptionController;
   final TextEditingController photographerController;
@@ -831,12 +990,13 @@ class _AddPhotoSection extends StatelessWidget {
   final ValueChanged<String?> onCategoryChanged;
   final DateTime? date;
   final VoidCallback onPickDate;
-  final Uint8List? selectedImageBytes;
+  final List<Uint8List> selectedImageBytes;
   final Future<void> Function() onPickPhoto;
   final VoidCallback onSubmit;
 
   const _AddPhotoSection({
     required this.formKey,
+    required this.photoIdController,
     required this.titleController,
     required this.descriptionController,
     required this.photographerController,
@@ -899,15 +1059,21 @@ class _AddPhotoSection extends StatelessWidget {
                     ),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: selectedImageBytes != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.memory(
-                            selectedImageBytes!,
-                            width: 200,
-                            height: 200,
-                            fit: BoxFit.cover,
-                          ),
+                  child: selectedImageBytes.isNotEmpty
+                      ? Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: selectedImageBytes.map((imageBytes) {
+                            return ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.memory(
+                                imageBytes,
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                              ),
+                            );
+                          }).toList(),
                         )
                       : Column(
                           children: [
@@ -916,10 +1082,10 @@ class _AddPhotoSection extends StatelessWidget {
                               style: TextStyle(fontSize: 40),
                             ),
                             const SizedBox(height: 10),
-                            const Text('Click to upload photo'),
+                            const Text('Click to upload photos'),
                             const SizedBox(height: 5),
                             Text(
-                              'JPG, PNG, GIF up to 5MB',
+                              'Select multiple images (JPG, PNG, GIF)',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey[600],
@@ -939,6 +1105,17 @@ class _AddPhotoSection extends StatelessWidget {
               ),
               child: Column(
                 children: [
+                  TextFormField(
+                    controller: photoIdController,
+                    decoration: InputDecoration(
+                      labelText: 'Photo ID (Optional)',
+                      hintText: 'Leave empty to auto-generate',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
                   TextFormField(
                     controller: titleController,
                     decoration: InputDecoration(
@@ -1247,7 +1424,7 @@ class _GalleryGrid extends StatelessWidget {
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: 20,
             mainAxisSpacing: 20,
-            childAspectRatio: 0.75,
+            childAspectRatio: 0.70,
           ),
           itemCount: photos.length,
           itemBuilder: (context, index) => _PhotoCard(
@@ -1297,28 +1474,26 @@ class _PhotoCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              height: 200,
+              height: 180,
               decoration: BoxDecoration(
-                gradient: photo.imageUrls.isEmpty
+                gradient: photo.images.isEmpty
                     ? const LinearGradient(
                         colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
                       )
                     : null,
-                color: photo.imageUrls.isEmpty ? null : Colors.black,
+                color: photo.images.isEmpty ? null : Colors.black,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
               ),
               child: Stack(
                 children: [
-                  if (photo.imageUrls.isNotEmpty)
+                  if (photo.images.isNotEmpty)
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                      child: Image.network(
-                        photo.imageUrls.first,
+                      child: Image.memory(
+                        photo.images.first,
                         width: double.infinity,
                         height: 200,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                             const Center(child: Icon(Icons.broken_image, color: Colors.white)),
                       ),
                     )
                   else

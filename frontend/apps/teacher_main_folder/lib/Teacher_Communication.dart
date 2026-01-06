@@ -900,13 +900,6 @@ class _TeacherCommunicationScreenState extends State<TeacherCommunicationScreen>
             onPressed: _showCreateGroupDialog,
             tooltip: 'Create Group',
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
-              _loadData();
-            },
-            tooltip: 'Refresh',
-          ),
         ],
       ),
       body: _isLoading

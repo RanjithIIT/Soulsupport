@@ -20,15 +20,18 @@ class Teacher {
   final bool isClassTeacher;
   final String? classTeacherClass;
   final String? classTeacherGrade;
-  final String experience;
+  final dynamic experience;
   final String qualifications;
   final String specializations;
   final List<String> subjects;
   final String joiningDate;
   final String salary;
+  final String emergencyContact;
+  final String emergencyContactRelation;
+  final String maritalStatus;
+  final String permanentAddress;
   final String status;
   final String? profilePhotoUrl;
-  final String emergencyContactRelation;
 
   Teacher({
     required this.employeeNo,
@@ -46,8 +49,11 @@ class Teacher {
     required this.subjects,
     required this.joiningDate,
     required this.salary,
-    required this.status,
+    required this.emergencyContact,
     required this.emergencyContactRelation,
+    required this.maritalStatus,
+    required this.permanentAddress,
+    required this.status,
     this.profilePhotoUrl,
     this.classTeacherClass,
     this.classTeacherGrade,
@@ -85,13 +91,16 @@ class Teacher {
       isClassTeacher: json['is_class_teacher'] as bool? ?? false,
       classTeacherClass: json['class_teacher_class'] as String?,
       classTeacherGrade: json['class_teacher_grade'] as String?,
-      experience: json['experience'] as String? ?? '',
+      experience: (json['experience'] ?? '0').toString(),
       qualifications: json['qualification'] as String? ?? json['qualifications'] as String? ?? '',
       specializations: json['subject_specialization'] as String? ?? json['specializations'] as String? ?? '',
       subjects: [],
       joiningDate: json['joining_date'] as String? ?? json['hire_date'] as String? ?? '',
-      salary: json['salary'] as String? ?? '',
+      salary: (json['salary'] ?? '0').toString(),
+      emergencyContact: json['emergency_contact'] as String? ?? '',
       emergencyContactRelation: json['emergency_contact_relation'] as String? ?? '',
+      maritalStatus: json['marital_status'] as String? ?? '',
+      permanentAddress: json['permanent_address'] as String? ?? '',
       status: json['is_active'] == true ? 'Active' : 'Inactive',
       profilePhotoUrl: profilePhotoUrl,
     );
@@ -417,6 +426,9 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
                                                     'Phone: ${teacher.phone}',
                                                     'Email: ${teacher.email}',
                                                     'Address: ${teacher.address}',
+                                                    'Permanent Address: ${teacher.permanentAddress}',
+                                                    'Emergency Contact: ${teacher.emergencyContact} (${teacher.emergencyContactRelation})',
+                                                    'Marital Status: ${teacher.maritalStatus}',
                                                   ],
                                                 ),
                                                 _DetailCard(
@@ -1079,10 +1091,8 @@ class _StatCard extends StatelessWidget {
       elevation: 5,
       shadowColor: Colors.black.withValues(alpha: 0.1),
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Column(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(icon, style: TextStyle(fontSize: 40, color: color)),
@@ -1108,7 +1118,6 @@ class _StatCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
       ),
     );
   }

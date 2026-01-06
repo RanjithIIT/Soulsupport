@@ -170,16 +170,7 @@ class TestManagementPage extends StatelessWidget {
         ),
         centerTitle: false,
 
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () => _showAction(context, "Data Refreshed!"),
-          ),
-          IconButton(
-            icon: const Icon(Icons.person, color: Colors.white),
-            onPressed: () => _showAction(context, "Profile Page (Simulated)"),
-          ),
-        ],
+        actions: const [],
       ),
 
       body: SingleChildScrollView(

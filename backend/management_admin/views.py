@@ -8,7 +8,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, Activity, Gallery, GalleryImage
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, Activity
 from super_admin.models import School
 from .serializers import (
     FileSerializer,
@@ -25,9 +25,7 @@ from .serializers import (
     EventSerializer,
     AwardSerializer,
     CampusFeatureSerializer,
-    ActivitySerializer,
-    GallerySerializer,
-    GalleryImageSerializer
+    ActivitySerializer
 )
 
 
@@ -256,7 +254,7 @@ class StudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['school', 'applying_class', 'category', 'gender', 'student_id']
+    filterset_fields = ['school', 'applying_class', 'category', 'gender']
     search_fields = ['student_name', 'parent_name', 'admission_number', 'email']
     ordering_fields = ['created_at', 'student_name']
     ordering = ['-created_at']
@@ -1730,63 +1728,29 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     ordering_fields = ['date', 'created_at', 'title']
     ordering = ['-date', '-created_at']
     
-    def create(self, request, *args, **kwargs):
-        """Override create to handle school assignment and validation"""
-        # Get school from request data if provided
-        school_id = request.data.get('school_id') or request.data.get('school')
+    def get_permissions(self):
+        """Allow read/create/update/delete without auth for development - can be adjusted"""
+        if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
+            return [AllowAny()]
+        return [IsAuthenticated(), IsManagementAdmin()]
+    
+    def perform_create(self, serializer):
+        """Set school_id when creating award"""
+        award = serializer.save()
         
-        # If school_id not provided, try to get it from the logged-in user
-        if not school_id:
-            if request.user.is_authenticated:
-                from main_login.utils import get_user_school_id
-                school_id = get_user_school_id(request.user)
-            
-            # For development/unauthenticated, get first school
-            if not school_id:
-                from super_admin.models import School
-                school = School.objects.first()
-                if school:
-                    school_id = school.school_id
-        
-        # Add school_id to data
-        mutable_data = request.data.copy()
+        # Set school_id after save (since it's read-only in serializer)
+        school_id = self.get_school_id()
         if school_id:
-            mutable_data['school_id'] = school_id
-            
-            # Also try to set school_name
             from super_admin.models import School
+            Award.objects.filter(pk=award.pk).update(school_id=school_id)
             try:
                 school = School.objects.get(school_id=school_id)
-                mutable_data['school_name'] = school.school_name
+                Award.objects.filter(pk=award.pk).update(school_name=school.school_name)
             except School.DoesNotExist:
                 pass
-        
-        serializer = self.get_serializer(data=mutable_data)
-        if serializer.is_valid():
-            self.perform_create(serializer)
-            return Response(
-                {
-                    'success': True,
-                    'data': serializer.data
-                },
-                status=status.HTTP_201_CREATED
-            )
-        
-        return Response(
-            {
-                'success': False,
-                'message': 'Validation error',
-                'errors': serializer.errors
-            },
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    def perform_create(self, serializer):
-        """Set school reference when creating award"""
-        serializer.save()
-
+    
     def perform_update(self, serializer):
-        """Update award"""
+        """Update award - school_id should already be set"""
         serializer.save()
 
 
@@ -1828,31 +1792,4 @@ class ActivityViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     def perform_update(self, serializer):
         """Update activity"""
         serializer.save()
-
-
-class GalleryViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
-    """ViewSet for Gallery management"""
-    queryset = Gallery.objects.prefetch_related('images').all()
-    serializer_class = GallerySerializer
-    permission_classes = [IsAuthenticated, IsManagementAdmin]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['category', 'date', 'school_id']
-    search_fields = ['title', 'description', 'photographer', 'location']
-    ordering_fields = ['date', 'created_at']
-    ordering = ['-date']
-    
-    def perform_create(self, serializer):
-        """Override to handle image uploads if any"""
-        gallery = serializer.save()
-        
-        # Handle multiple image uploads if present in request.FILES
-        # Expecting keys like 'images[0]', 'images[1]' or just 'images' list
-        if self.request.FILES:
-            for key, file in self.request.FILES.items():
-                if key.startswith('image'):
-                    # Save each image
-                    GalleryImage.objects.create(
-                        gallery=gallery,
-                        image=file  # Django handles file upload to MEDIA_ROOT
-                    )
 

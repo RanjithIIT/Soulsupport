@@ -220,9 +220,6 @@ class Teacher(models.Model):
     class_teacher_grade = models.CharField(max_length=10, null=True, blank=True, help_text='Grade level for class teacher assignment (e.g., A, B, C, D)')
     subject_specialization = models.TextField(null=True, blank=True, help_text='Subject specialization details')
     emergency_contact = models.CharField(max_length=20, null=True, blank=True, help_text='Emergency contact number')
-    emergency_contact_relation = models.CharField(max_length=50, null=True, blank=True, help_text='Relation with emergency contact')
-    salary = models.CharField(max_length=50, null=True, blank=True, help_text='Salary information')
-    experience = models.CharField(max_length=50, null=True, blank=True, help_text='Years of experience')
     
     profile_photo = models.CharField(
         max_length=100,
@@ -360,11 +357,6 @@ class Student(models.Model):
         blank=True,
         help_text='Profile photo URL or file path'
     )
-    activities = models.TextField(null=True, blank=True, help_text="Extracurricular activities")
-    leadership = models.TextField(null=True, blank=True, help_text="Leadership roles")
-    achievements = models.TextField(null=True, blank=True, help_text="Other achievements")
-    participation = models.TextField(null=True, blank=True, help_text="Participation record")
-
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1228,9 +1220,6 @@ class Award(models.Model):
         ('Leadership', 'Leadership'),
         ('Innovation', 'Innovation'),
         ('Community', 'Community'),
-        ('Science Fair', 'Science Fair'),
-        ('NSS', 'NSS'),
-        ('NCC', 'NCC'),
         ('Other', 'Other'),
     ]
     
@@ -1274,12 +1263,6 @@ class Award(models.Model):
         max_length=255, 
         blank=True, 
         help_text='Presented by (organization or person)'
-    )
-    document = models.FileField(
-        upload_to='awards/certificates/', 
-        blank=True, 
-        null=True, 
-        help_text='Award document/certificate'
     )
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1373,78 +1356,3 @@ class Activity(models.Model):
         verbose_name = 'School Activity'
         verbose_name_plural = 'School Activities'
         ordering = ['-created_at']
-
-
-class Gallery(models.Model):
-    """Gallery model for photo albums/events"""
-    
-    CATEGORY_CHOICES = [
-        ('Sports', 'Sports'),
-        ('Academic', 'Academic'),
-        ('Cultural', 'Cultural'),
-        ('Awards', 'Awards'),
-        ('Activities', 'Activities'),
-        ('Other', 'Other'),
-    ]
-
-    school_id = models.CharField(
-        max_length=100, 
-        db_index=True, 
-        null=True, 
-        blank=True, 
-        editable=False, 
-        help_text='School ID for filtering'
-    )
-    school_name = models.CharField(
-        max_length=255, 
-        null=True, 
-        blank=True, 
-        editable=False, 
-        help_text='School name'
-    )
-    
-    title = models.CharField(max_length=255, help_text='Gallery title')
-    category = models.CharField(
-        max_length=50, 
-        choices=CATEGORY_CHOICES, 
-        default='Other',
-        help_text='Event category'
-    )
-    description = models.TextField(blank=True, help_text='Description')
-    date = models.DateField(help_text='Event date')
-    photographer = models.CharField(max_length=255, blank=True, help_text='Photographer name')
-    location = models.CharField(max_length=255, blank=True, help_text='Location')
-    emoji = models.CharField(max_length=10, blank=True, default='📷', help_text='Emoji icon')
-    
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    def __str__(self):
-        return f"{self.title} - {self.date}"
-    
-    class Meta:
-        db_table = 'gallery'
-        verbose_name = 'Gallery'
-        verbose_name_plural = 'Galleries'
-        ordering = ['-date', '-created_at']
-
-
-class GalleryImage(models.Model):
-    """Images for a gallery event"""
-    gallery = models.ForeignKey(
-        Gallery, 
-        on_delete=models.CASCADE, 
-        related_name='images',
-        help_text='Parent gallery'
-    )
-    image = models.CharField(
-        max_length=255,
-        help_text='Image URL or path'
-    )
-    alt_text = models.CharField(max_length=255, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        db_table = 'gallery_images'
-        verbose_name = 'Gallery Image'
-        verbose_name_plural = 'Gallery Images'

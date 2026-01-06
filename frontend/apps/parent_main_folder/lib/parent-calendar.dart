@@ -1044,14 +1044,7 @@ class _AcademicCalendarPageState extends State<AcademicCalendarPage> {
           ),
         ),
         centerTitle: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person, color: Colors.white),
-            onPressed: () => ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text("User Profile"))),
-          ),
-        ],
+        actions: const [],
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),

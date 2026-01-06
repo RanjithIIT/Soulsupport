@@ -100,6 +100,12 @@ class _FeesManagementPageState extends State<FeesManagementPage> {
   final _lateFeeController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _searchController = TextEditingController(); // Controller for search field
+  
+  String? _selectedSearchClass; // Selected class for filter
+  String? _selectedSearchSection; // Selected section for filter
+
+  final List<String> _classOptions = List.generate(10, (index) => 'Class ${index + 1}');
+  final List<String> _sectionOptions = ['A', 'B', 'C'];
 
   String? _newFeeType;
   String? _newFrequency;
@@ -136,6 +142,7 @@ class _FeesManagementPageState extends State<FeesManagementPage> {
     _lateFeeController.dispose();
     _descriptionController.dispose();
     _searchController.dispose();
+
     super.dispose();
   }
 
@@ -769,17 +776,52 @@ class _FeesManagementPageState extends State<FeesManagementPage> {
 
   void _filterFees() {
     setState(() {
-      if (_searchQuery.isEmpty) {
-        // Show all records if search is empty
-        _visibleFees = List<FeeRecord>.from(_allFees);
-      } else {
       _visibleFees = _allFees.where((fee) {
           final query = _searchQuery.toLowerCase();
+          final classQuery = _selectedSearchClass?.toLowerCase() ?? '';
+          final sectionQuery = _selectedSearchSection?.toLowerCase() ?? '';
+
           // Search by name or student ID
-          return fee.studentName.toLowerCase().contains(query) ||
+          bool matchesSearch = query.isEmpty ||
+              fee.studentName.toLowerCase().contains(query) ||
               (fee.studentId != null && fee.studentId!.toLowerCase().contains(query));
+              
+          // Search by Class - robust matching
+          bool matchesClass = classQuery.isEmpty;
+          if (!matchesClass) {
+            // Extract numbers for comparison (handles "Class 1", "1", "Class-1" etc)
+            final classDigits = classQuery.replaceAll(RegExp(r'[^0-9]'), '');
+            final feeClassDigits = fee.applyingClass.toString().replaceAll(RegExp(r'[^0-9]'), '');
+            
+            if (classDigits.isNotEmpty && feeClassDigits.isNotEmpty) {
+              // Exact number match (avoids "1" matching "10")
+              matchesClass = feeClassDigits == classDigits;
+            } else {
+              // Fallback to text text search if no digits found
+               matchesClass = fee.applyingClass.toLowerCase().contains(classQuery);
+            }
+          }
+              
+          // Search by Section/Grade - robust matching
+          bool matchesSection = sectionQuery.isEmpty;
+          if (!matchesSection) {
+             // Handle "A" vs "Section A" vs "10A"
+             final sectionLetter = sectionQuery.replaceAll(RegExp(r'[^a-zA-Z]'), '');
+             final feeGradeLetter = fee.grade.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '');
+             
+             // If we have just a letter like 'A', look for it specifically
+             if (sectionLetter.isNotEmpty && feeGradeLetter.isNotEmpty) {
+                // Check if the fee grade *ends with* the section letter (common for '10A')
+                // OR if it equals it exactly
+                matchesSection = feeGradeLetter == sectionLetter || 
+                                 fee.grade.toLowerCase().endsWith(sectionQuery);
+             } else {
+                matchesSection = fee.grade.toLowerCase().contains(sectionQuery);
+             }
+          }
+
+          return matchesSearch && matchesClass && matchesSection;
       }).toList();
-      }
     });
   }
 
@@ -1544,6 +1586,22 @@ class _FeesManagementPageState extends State<FeesManagementPage> {
                                     child: _SearchFilterSection(
                                       searchQuery: _searchQuery,
                                       searchController: _searchController,
+                                      selectedClass: _selectedSearchClass,
+                                      selectedSection: _selectedSearchSection,
+                                      classOptions: _classOptions,
+                                      sectionOptions: _sectionOptions,
+                                      onClassChanged: (value) {
+                                        setState(() {
+                                          _selectedSearchClass = value;
+                                        });
+                                        _filterFees();
+                                      },
+                                      onSectionChanged: (value) {
+                                        setState(() {
+                                          _selectedSearchSection = value;
+                                        });
+                                        _filterFees();
+                                      },
                                       onSearchChanged: (value) async {
                                         setState(() {
                                           _searchQuery = value;
@@ -2150,7 +2208,7 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -2163,9 +2221,7 @@ class _StatCard extends StatelessWidget {
           ),
         ],
       ),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
@@ -2199,7 +2255,6 @@ class _StatCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
       ),
     );
   }
@@ -2608,6 +2663,12 @@ class _AddFeeSection extends StatelessWidget {
 class _SearchFilterSection extends StatelessWidget {
   final String searchQuery;
   final TextEditingController searchController;
+  final String? selectedClass;
+  final String? selectedSection;
+  final List<String> classOptions;
+  final List<String> sectionOptions;
+  final ValueChanged<String?> onClassChanged;
+  final ValueChanged<String?> onSectionChanged;
   final ValueChanged<String> onSearchChanged;
   final List<FeeRecord> fees;
   final ValueChanged<FeeRecord> onMarkPaid;
@@ -2624,6 +2685,12 @@ class _SearchFilterSection extends StatelessWidget {
   const _SearchFilterSection({
     required this.searchQuery,
     required this.searchController,
+    required this.selectedClass,
+    required this.selectedSection,
+    required this.classOptions,
+    required this.sectionOptions,
+    required this.onClassChanged,
+    required this.onSectionChanged,
     required this.onSearchChanged,
     required this.fees,
     required this.onMarkPaid,
@@ -2673,6 +2740,7 @@ class _SearchFilterSection extends StatelessWidget {
           Row(
             children: [
               Expanded(
+                flex: 2,
                 child: TextField(
                   controller: searchController,
                   decoration: InputDecoration(
@@ -2682,6 +2750,58 @@ class _SearchFilterSection extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 1,
+                child: DropdownButtonFormField<String>(
+                  value: selectedClass,
+                  decoration: InputDecoration(
+                    labelText: 'Class',
+                    prefixIcon: const Icon(Icons.class_),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String>(
+                      value: '',
+                      child: Text('All'),
+                    ),
+                    ...classOptions.map((c) => DropdownMenuItem(
+                      value: c,
+                      child: Text(c),
+                    )),
+                  ],
+                  onChanged: onClassChanged,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 1,
+                child: DropdownButtonFormField<String>(
+                  value: selectedSection,
+                  decoration: InputDecoration(
+                    labelText: 'Section',
+                    prefixIcon: const Icon(Icons.grade),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String>(
+                      value: '',
+                      child: Text('All'),
+                    ),
+                    ...sectionOptions.map((s) => DropdownMenuItem(
+                      value: s,
+                      child: Text(s),
+                    )),
+                  ],
+                  onChanged: onSectionChanged,
                 ),
               ),
               const SizedBox(width: 12),
@@ -2732,8 +2852,97 @@ class _SearchFilterSection extends StatelessWidget {
                 ),
               ),
             )
-          else if (searchQuery.trim().isNotEmpty && !isLoadingSummary)
-            // Show "No student data" message when search query entered but not found
+          else if (fees.isNotEmpty)
+            Container(
+              constraints: const BoxConstraints(maxHeight: 600),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: fees.length,
+                itemBuilder: (context, index) {
+                  final fee = fees[index];
+                  return Card(
+                    elevation: 2,
+                    margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      horizontalTitleGap: 16,
+                      leading: CircleAvatar(
+                        backgroundColor: const Color(0xFF667EEA).withValues(alpha: 0.1),
+                        child: Text(
+                          fee.studentName.isNotEmpty ? fee.studentName[0].toUpperCase() : '?',
+                          style: const TextStyle(color: Color(0xFF667EEA), fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      title: Text(
+                        fee.studentName,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                      ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.class_, size: 14, color: Colors.grey[600]),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${fee.applyingClass}  •  Section ${fee.grade}',
+                                  style: TextStyle(color: Colors.grey[700]),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(Icons.attach_money, size: 14, color: Colors.grey[600]),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Due: ₹${fee.dueAmount}',
+                                  style: TextStyle(
+                                    color: fee.dueAmount > 0 ? Colors.red[700] : Colors.green[700],
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: fee.status == FeeStatus.paid 
+                              ? Colors.green.withValues(alpha: 0.1) 
+                              : Colors.orange.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: fee.status == FeeStatus.paid 
+                                ? Colors.green.withValues(alpha: 0.5) 
+                                : Colors.orange.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: Text(
+                          fee.status.name.toUpperCase(),
+                          style: TextStyle(
+                            color: fee.status == FeeStatus.paid ? Colors.green : Colors.orange,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      onTap: () {
+                         // Trigger search to show the detail view
+                         onSearchChanged(fee.studentId ?? fee.studentName);
+                      },
+                    ),
+                  );
+                },
+              ),
+            )
+          else
+            // Show "No student data" message when no fees found
             Center(
               child: Padding(
                 padding: const EdgeInsets.all(32.0),
@@ -2756,7 +2965,7 @@ class _SearchFilterSection extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Please check the Student ID and try again',
+                      'Try adjusting your filters',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey.shade600,
@@ -3690,6 +3899,9 @@ class _TableCell extends StatelessWidget {
                                     child: Image.network(
                                       _buildReceiptImageUrl(receiptPath),
                                       fit: BoxFit.contain,
+                                      headers: ApiService().authToken != null 
+                                          ? {'Authorization': 'Bearer ${ApiService().authToken}'}
+                                          : null,
                                       errorBuilder: (context, error, stackTrace) {
                                         final fullUrl = _buildReceiptImageUrl(receiptPath);
                                         return Column(
