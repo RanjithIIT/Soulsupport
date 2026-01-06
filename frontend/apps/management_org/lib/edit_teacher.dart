@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
 import 'widgets/school_profile_header.dart';
+import 'widgets/management_sidebar.dart';
 
 // Blood group options
 const List<String> bloodGroupOptions = [
@@ -351,7 +352,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
     return Scaffold(
       body: Row(
         children: [
-          _Sidebar(gradient: gradient),
+          ManagementSidebar(gradient: gradient, activeRoute: '/teachers'),
           Expanded(
             child: Container(
               color: const Color(0xFFF5F6FA),
@@ -444,133 +445,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
   }
 }
 
-class _Sidebar extends StatelessWidget {
-  final LinearGradient gradient;
 
-  const _Sidebar({required this.gradient});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 280,
-      decoration: BoxDecoration(
-        gradient: gradient,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(2, 0),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-                  Container(
-                    margin: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        width: 1.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.asset(
-                        'packages/management_org/assets/Vidyarambh.png',
-                        fit: BoxFit.contain,
-                        filterQuality: FilterQuality.high,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            height: 120,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.school,
-                              size: 56,
-                              color: Color(0xFF667EEA),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _NavItem(
-                    icon: '📊',
-                    title: 'Overview',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/dashboard'),
-                  ),
-                  _NavItem(
-                    icon: '👨‍🏫',
-                    title: 'Teachers',
-                    isActive: true,
-                  ),
-                  _NavItem(
-                    icon: '👥',
-                    title: 'Students',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/students'),
-                  ),
-                  _NavItem(
-                    icon: '🚌',
-                    title: 'Buses',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/buses'),
-                  ),
-                  _NavItem(
-                    icon: '🎯',
-                    title: 'Activities',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/activities'),
-                  ),
-                  _NavItem(
-                    icon: '📅',
-                    title: 'Events',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/events'),
-                  ),
-                  _NavItem(
-                    icon: '📆',
-                    title: 'Calendar',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/calendar'),
-                  ),
-                  _NavItem(
-                    icon: '🔔',
-                    title: 'Notifications',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/notifications'),
-                  ),
-                  _NavItem(
-                    icon: '🛣️',
-                    title: 'Bus Routes',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/bus-routes'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _Header extends StatelessWidget {
   final LinearGradient gradient;

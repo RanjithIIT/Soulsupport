@@ -2,12 +2,15 @@
 Serializers for management_admin app
 """
 from rest_framework import serializers
-from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, Activity
+
 from main_login.serializers import UserSerializer
 from main_login.serializer_mixins import SchoolIdMixin
 from main_login.utils import get_user_school_id
 from super_admin.serializers import SchoolSerializer
 from super_admin.models import School
+
+
 
 
 class FileSerializer(serializers.ModelSerializer):
@@ -463,15 +466,20 @@ class BusSerializer(SchoolIdMixin, serializers.ModelSerializer):
 
 class EventSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Event model"""
+    computed_status = serializers.SerializerMethodField()
     
     class Meta:
         model = Event
         fields = [
-            'id', 'school_id', 'school_name', 'name', 'category', 'date',
-            'time', 'location', 'organizer', 'participants', 'status',
+            'id', 'school_id', 'school_name', 'name', 'category', 'start_datetime', 'end_datetime',
+            'location', 'organizer', 'participants', 'status', 'computed_status',
             'description', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'school_id', 'school_name', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'school_id', 'school_name', 'created_at', 'updated_at', 'computed_status']
+    
+    def get_computed_status(self, obj):
+        """Get the automatically computed status"""
+        return obj.computed_status
     
     def update(self, instance, validated_data):
         """Update event instance"""
@@ -537,6 +545,26 @@ class AwardSerializer(SchoolIdMixin, serializers.ModelSerializer):
     
     def update(self, instance, validated_data):
         """Update award instance"""
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+
+
+class ActivitySerializer(SchoolIdMixin, serializers.ModelSerializer):
+    """Serializer for Activity model"""
+    
+    class Meta:
+        model = Activity
+        fields = [
+            'id', 'school_id', 'school_name', 'name', 'category', 'instructor',
+            'max_participants', 'schedule', 'location', 'status', 'start_date', 'end_date',
+            'description', 'requirements', 'notes', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'school_id', 'school_name', 'created_at', 'updated_at']
+    
+    def update(self, instance, validated_data):
+        """Update activity instance"""
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()

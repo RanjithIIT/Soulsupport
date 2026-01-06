@@ -7,6 +7,7 @@ import 'main.dart' as app;
 import 'dashboard.dart';
 import 'admissions.dart';
 import 'widgets/school_profile_header.dart';
+import 'widgets/management_sidebar.dart';
 
 class StudentAcademics {
   final String overallScore;
@@ -682,7 +683,17 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(width: 280, child: _buildSidebar()),
+                SizedBox(
+                  width: 280,
+                  child: ManagementSidebar(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    activeRoute: '/students',
+                  ),
+                ),
                 Expanded(
                   child: Container(
                     color: const Color(0xFFF5F6FA),
@@ -697,138 +708,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
     );
   }
 
-  Widget _buildSidebar() {
-    final gradient = const LinearGradient(
-      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
 
-    // Safe navigation helper for sidebar
-    void navigateToRoute(String route) {
-      final navigator = app.SchoolManagementApp.navigatorKey.currentState;
-      if (navigator != null) {
-        if (navigator.canPop() || route != '/dashboard') {
-          navigator.pushReplacementNamed(route);
-        } else {
-          navigator.pushNamed(route);
-        }
-      }
-    }
-
-    return Container(
-      width: 280,
-      decoration: BoxDecoration(
-        gradient: gradient,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(2, 0),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  'packages/management_org/assets/Vidyarambh.png',
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      height: 120,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.school,
-                        size: 56,
-                        color: Color(0xFF667EEA),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _NavItem(
-                    icon: '📊',
-                    title: 'Overview',
-                    isActive: false,
-                    onTap: () => navigateToRoute('/dashboard'),
-                  ),
-                  _NavItem(
-                    icon: '👨‍🏫',
-                    title: 'Teachers',
-                    onTap: () => navigateToRoute('/teachers'),
-                  ),
-                  _NavItem(
-                    icon: '👥',
-                    title: 'Students',
-                    isActive: true,
-                    onTap: () => navigateToRoute('/students'),
-                  ),
-                  _NavItem(
-                    icon: '🚌',
-                    title: 'Buses',
-                    onTap: () => navigateToRoute('/buses'),
-                  ),
-                  _NavItem(
-                    icon: '🎯',
-                    title: 'Activities',
-                    onTap: () => navigateToRoute('/activities'),
-                  ),
-                  _NavItem(
-                    icon: '📅',
-                    title: 'Events',
-                    onTap: () => navigateToRoute('/events'),
-                  ),
-                  _NavItem(
-                    icon: '📆',
-                    title: 'Calendar',
-                    onTap: () => navigateToRoute('/calendar'),
-                  ),
-                  _NavItem(
-                    icon: '🔔',
-                    title: 'Notifications',
-                    onTap: () => navigateToRoute('/notifications'),
-                  ),
-                  _NavItem(
-                    icon: '🛣️',
-                    title: 'Bus Routes',
-                    onTap: () => navigateToRoute('/bus-routes'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildMainContent({required bool isMobile}) {
     return SingleChildScrollView(
@@ -1404,50 +1284,7 @@ class GlassContainer extends StatelessWidget {
   }
 }
 
-class _NavItem extends StatelessWidget {
-  final String icon;
-  final String title;
-  final VoidCallback? onTap;
-  final bool isActive;
 
-  const _NavItem({
-    required this.icon,
-    required this.title,
-    this.onTap,
-    this.isActive = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: isActive
-            ? Colors.white.withValues(alpha: 0.3)
-            : Colors.white.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListTile(
-        leading: Text(
-          icon,
-          style: const TextStyle(fontSize: 18),
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            fontSize: 14,
-          ),
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        onTap: onTap,
-      ),
-    );
-  }
-}
 
 class _StatCard extends StatelessWidget {
   final String label;

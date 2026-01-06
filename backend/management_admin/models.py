@@ -1173,8 +1173,16 @@ class Event(models.Model):
         default='Other',
         help_text='Event category'
     )
-    date = models.DateField(help_text='Event date')
-    time = models.CharField(max_length=100, blank=True, help_text='Event time (e.g., 09:00 AM - 12:00 PM)')
+    start_datetime = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Event start date and time'
+    )
+    end_datetime = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Event end date and time'
+    )
     location = models.CharField(max_length=255, blank=True, help_text='Event location')
     organizer = models.CharField(max_length=255, blank=True, help_text='Event organizer')
     participants = models.IntegerField(
@@ -1193,13 +1201,48 @@ class Event(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return f"{self.name} - {self.date}"
+        return f"{self.name}"
+    
+    @property
+    def computed_status(self):
+        """Automatically compute event status based on current time and datetime fields"""
+        from django.utils import timezone
+        now = timezone.now()
+        
+        # If no datetime fields are set, return the manual status
+        if not self.start_datetime and not self.end_datetime:
+            return self.status
+        
+        # If only start_datetime is set
+        if self.start_datetime and not self.end_datetime:
+            if now < self.start_datetime:
+                return 'Upcoming'
+            else:
+                return 'Ongoing'
+        
+        # If only end_datetime is set
+        if not self.start_datetime and self.end_datetime:
+            if now < self.end_datetime:
+                return 'Upcoming'
+            else:
+                return 'Completed'
+        
+        # If both are set
+        if self.start_datetime and self.end_datetime:
+            if now < self.start_datetime:
+                return 'Upcoming'
+            elif self.start_datetime <= now < self.end_datetime:
+                return 'Ongoing'
+            else:
+                return 'Completed'
+        
+        return self.status
     
     class Meta:
         db_table = 'events'
         verbose_name = 'Event'
         verbose_name_plural = 'Events'
-        ordering = ['-date', '-created_at']
+        ordering = ['-created_at']
 
 
 class Award(models.Model):
@@ -1277,3 +1320,82 @@ class Award(models.Model):
         verbose_name_plural = 'Awards'
         ordering = ['-date', '-created_at']
 
+
+class Activity(models.Model):
+    """Activity Model"""
+    CATEGORY_CHOICES = [
+        ('Sports', 'Sports'),
+        ('Academic', 'Academic'),
+        ('Arts', 'Arts'),
+        ('Games', 'Games'),
+        ('Cultural', 'Cultural'),
+        ('Technical', 'Technical'),
+    ]
+
+    STATUS_CHOICES = [
+        ('Active', 'Active'),
+        ('Inactive', 'Inactive'),
+        ('Suspended', 'Suspended'),
+        ('Completed', 'Completed'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    school = models.ForeignKey(
+        School,
+        on_delete=models.CASCADE,
+        related_name='school_activities',
+        db_column='school_id'
+    )
+    school_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        editable=False,
+        help_text='School name (read-only, auto-populated from schools table)'
+    )
+    name = models.CharField(max_length=255, help_text='Activity name')
+    category = models.CharField(
+        max_length=50,
+        choices=CATEGORY_CHOICES,
+        help_text='Activity category'
+    )
+    instructor = models.CharField(max_length=255, help_text='Instructor name')
+    max_participants = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1)],
+        help_text='Maximum number of participants'
+    )
+    schedule = models.CharField(
+        max_length=255,
+        help_text='Activity schedule (e.g., Monday, Wednesday 3:00 PM)'
+    )
+    location = models.CharField(max_length=255, help_text='Activity location')
+    status = models.CharField(
+        max_length=50,
+        choices=STATUS_CHOICES,
+        default='Active',
+        help_text='Activity status'
+    )
+    start_date = models.DateField(null=True, blank=True, help_text='Activity start date')
+    end_date = models.DateField(null=True, blank=True, help_text='Activity end date')
+    description = models.TextField(help_text='Detailed activity description')
+    requirements = models.TextField(blank=True, help_text='Requirements or prerequisites')
+    notes = models.TextField(blank=True, help_text='Additional notes or comments')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if self.school and not self.school_name:
+            self.school_name = self.school.school_name
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.name} - {self.category}"
+
+    class Meta:
+        db_table = 'school_activities'
+        verbose_name = 'School Activity'
+        verbose_name_plural = 'School Activities'
+        ordering = ['-created_at']

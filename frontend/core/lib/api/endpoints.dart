@@ -31,7 +31,7 @@ class Endpoints {
   static const String admissions = '/management-admin/admissions/';
   static const String examinations = '/management-admin/examinations/';
   static const String events = '/management-admin/events/';
-  static const String activities = '/management/activities';
+  static const String activities = '/management-admin/activities/';
   static const String awards = '/management-admin/awards/';
   static const String campusFeatures = '/management-admin/campus-features/';
   static const String gallery = '/management/gallery';
