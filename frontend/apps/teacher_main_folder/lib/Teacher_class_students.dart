@@ -324,12 +324,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                       ),
                     ),
                   ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-
-                    ],
-                  ),
+                  const SizedBox.shrink(),
                 ],
               ),
             ),

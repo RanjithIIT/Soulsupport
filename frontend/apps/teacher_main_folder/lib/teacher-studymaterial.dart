@@ -474,7 +474,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                   const Spacer(),
-
+                  const SizedBox.shrink(),
                 ],
               ),
             ),

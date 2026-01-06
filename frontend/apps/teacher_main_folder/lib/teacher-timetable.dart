@@ -299,7 +299,7 @@ class _TeacherTimetableScreenState extends State<TeacherTimetableScreen> {
                 leading: IconButton(
                   icon: const Icon(Icons.arrow_back, color: Colors.white),
                   onPressed: () {
-                    // Back action
+                    Navigator.pop(context);
                   },
                 ),
                 // Title: "Teacher Timetable"
@@ -311,9 +311,7 @@ class _TeacherTimetableScreenState extends State<TeacherTimetableScreen> {
                   ),
                 ),
                 // Actions: Refresh/Loop icon and Person icon
-                actions: [
-
-                ],
+                actions: const [],
               ),
             ),
           ),

@@ -1540,8 +1540,8 @@ class _AcademicsPageState extends State<AcademicsPage> {
           ),
         ),
         centerTitle: false,
-        actions: [
-
+        actions: const [
+          SizedBox(width: 8),
         ],
       ),
 

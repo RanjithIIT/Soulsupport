@@ -293,7 +293,7 @@ class _StudentProjectsPageState extends State<StudentProjectsPage> {
         centerTitle: false,
 
         // Actions: Refresh and Profile
-
+        actions: const [],
       ),
 
       body: SingleChildScrollView(

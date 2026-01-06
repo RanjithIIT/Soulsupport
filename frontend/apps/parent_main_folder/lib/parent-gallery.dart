@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:core/api/api_service.dart';
+import 'package:http/http.dart' as http;
+import 'dart:typed_data';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
+import 'package:core/api/endpoints.dart';
 
 void main() => runApp(
   const MaterialApp(
@@ -8,42 +14,32 @@ void main() => runApp(
   ),
 );
 
-// Reusing your data models
+// Updated data model to match backend Gallery structure
 class GalleryPhoto {
   final int id;
+  final String photoId;
   final String title;
   final String category;
   final DateTime date;
   final String description;
-  final String image; // Emoji
-  final String event;
-  final int participants;
+  final String photographer;
   final String location;
+  final String emoji;
+  final bool isFavorite;
+  final List<String> imageUrls; // URLs from backend
 
   GalleryPhoto({
     required this.id,
+    required this.photoId,
     required this.title,
     required this.category,
     required this.date,
     required this.description,
-    required this.image,
-    required this.event,
-    required this.participants,
+    required this.photographer,
     required this.location,
-  });
-}
-
-class RecentEvent {
-  final String title;
-  final DateTime date;
-  final String category;
-  final int participants;
-
-  RecentEvent({
-    required this.title,
-    required this.date,
-    required this.category,
-    required this.participants,
+    required this.emoji,
+    this.isFavorite = false,
+    this.imageUrls = const [],
   });
 }
 
@@ -55,97 +51,164 @@ class SchoolGalleryPage extends StatefulWidget {
 }
 
 class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
-  late List<GalleryPhoto> photos;
-  late List<RecentEvent> events;
+  List<GalleryPhoto> photos = [];
   String categoryFilter = 'all';
   String yearFilter = 'all';
   String searchTerm = '';
   String sortCriteria = 'date_desc'; // Default: newest first
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    // Added emojis for a better mobile visual
-    photos = [
-      GalleryPhoto(
-        id: 1,
-        title: 'Annual Sports Day',
-        category: 'sports',
-        date: DateTime(2024, 11, 15),
-        description:
-            "Annual Sports Day promotes fitness, fun, and friendly competition.",
-        image: '🏅',
-        event: 'Sports Day 2024',
-        participants: 150,
-        location: 'School Ground',
-      ),
-      GalleryPhoto(
-        id: 2,
-        title: 'Science Fair Exhibition',
-        category: 'academic',
-        date: DateTime(2024, 10, 20),
-        description:
-            'Students display creative and innovative projects at exhibition.',
-        image: '🧪',
-        event: 'Science Fair 2024',
-        participants: 80,
-        location: 'School Auditorium',
-      ),
-      GalleryPhoto(
-        id: 3,
-        title: "Food Festival",
-        category: "activities",
-        date: DateTime(2024, 10, 31),
-        description:
-            "Students enjoy diverse and delicious cuisines at the festival.",
-        image: '🍕',
-        event: "Food Festival 2024",
-        participants: 100,
-        location: "School Canteen",
-      ),
-      GalleryPhoto(
-        id: 4,
-        title: "Campus Tour",
-        category: "campus",
-        date: DateTime(2024, 9, 10),
-        description: "New students getting familiar with the school premises.",
-        image: '🏫',
-        event: "Orientation",
-        participants: 50,
-        location: "Main Block",
-      ),
-      GalleryPhoto(
-        id: 5,
-        title: "Art Workshop",
-        category: "activities",
-        date: DateTime(2023, 12, 5),
-        description: "Creative drawing and painting session for all grades.",
-        image: '🎨',
-        event: "Art Week",
-        participants: 65,
-        location: "Art Room",
-      ),
-    ];
-    events = [
-      RecentEvent(
-        title: 'Annual Sports Day',
-        date: DateTime(2024, 11, 15),
-        category: 'sports',
-        participants: 150,
-      ),
-      RecentEvent(
-        title: 'Science Fair',
-        date: DateTime(2024, 10, 20),
-        category: 'academic',
-        participants: 80,
-      ),
-      RecentEvent(
-        title: 'Food Festival',
-        date: DateTime(2024, 10, 31),
-        category: 'activities',
-        participants: 100,
-      ),
-    ];
+    _loadGalleryData();
+  }
+
+  @override
+  Future<void> _loadGalleryData() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final apiService = ApiService();
+      
+      // Fetch all data concurrently
+      final results = await Future.wait([
+        apiService.get('/management-admin/galleries/'),
+        apiService.get(Endpoints.events),
+        apiService.get(Endpoints.activities),
+      ]);
+
+      final galleryResponse = results[0];
+      final eventResponse = results[1];
+      final activityResponse = results[2];
+      
+      final List<GalleryPhoto> fetchedItems = [];
+      
+      // 1. Process Galleries
+      if (galleryResponse.success && galleryResponse.data != null) {
+        List<dynamic> galleriesJson = _parseResponseList(galleryResponse.data);
+        
+        for (var galleryJson in galleriesJson) {
+          List<String> imageUrls = [];
+          if (galleryJson['images'] != null && galleryJson['images'] is List) {
+            for (var imageData in galleryJson['images']) {
+              String imageUrl = imageData['image'];
+              // Make relative URLs absolute
+              if (!imageUrl.startsWith('http')) {
+                imageUrl = 'http://localhost:8000$imageUrl';
+              }
+              imageUrls.add(imageUrl);
+            }
+          }
+          
+          fetchedItems.add(GalleryPhoto(
+            id: galleryJson['id'] ?? 0,
+            photoId: galleryJson['photo_id'] ?? '',
+            title: galleryJson['title'] ?? '',
+            category: galleryJson['category']?.toLowerCase() ?? 'other',
+            description: galleryJson['description'] ?? '',
+            date: galleryJson['date'] != null 
+                ? DateTime.parse(galleryJson['date']) 
+                : DateTime.now(),
+            photographer: galleryJson['photographer'] ?? '',
+            location: galleryJson['location'] ?? '',
+            emoji: galleryJson['emoji'] ?? '📷',
+            isFavorite: galleryJson['is_favorite'] ?? false,
+            imageUrls: imageUrls,
+          ));
+        }
+      }
+
+      // 2. Process Events
+      if (eventResponse.success && eventResponse.data != null) {
+        List<dynamic> eventsJson = _parseResponseList(eventResponse.data);
+        
+        for (var eventJson in eventsJson) {
+          // Filter: Show only Upcoming or Ongoing events (exclude Completed/Cancelled)
+          String status = (eventJson['status'] ?? 'Upcoming').toString();
+          if (status == 'Completed' || status == 'Cancelled') continue;
+          
+          fetchedItems.add(GalleryPhoto(
+            id:  10000 + (eventJson['id'] as int? ?? 0), // Offset ID to avoid collision
+            photoId: 'evt_${eventJson['id']}',
+            title: eventJson['name'] ?? 'Event',
+            category: 'events', // Force category to 'events'
+            description: eventJson['description'] ?? '',
+            date: eventJson['date'] != null 
+                ? DateTime.parse(eventJson['date']) 
+                : DateTime.now(),
+            photographer: eventJson['organizer'] ?? 'School Event', // Map organizer to photographer field
+            location: eventJson['location'] ?? '',
+            emoji: '📅',
+            isFavorite: false,
+            imageUrls: [], // No images for events yet
+          ));
+        }
+      }
+
+      // 3. Process Activities
+      if (activityResponse.success && activityResponse.data != null) {
+        List<dynamic> activitiesJson = _parseResponseList(activityResponse.data);
+        
+        for (var activityJson in activitiesJson) {
+
+
+          fetchedItems.add(GalleryPhoto(
+            id: 20000 + (activityJson['id'] as int? ?? 0), // Offset ID
+            photoId: 'act_${activityJson['id']}',
+            title: activityJson['name'] ?? 'Activity',
+            category: 'activities', // Force category to 'activities'
+            description: '${activityJson['description'] ?? ''}\nInstructor: ${activityJson['instructor'] ?? 'N/A'}\nSchedule: ${activityJson['schedule'] ?? 'N/A'}',
+            date: _parseActivityDate(activityJson['schedule']),
+            photographer: activityJson['instructor'] ?? 'Activity Instructor',
+            location: activityJson['location'] ?? '',
+            emoji: '⚽',
+            isFavorite: false,
+            imageUrls: [], // No images for activities yet
+          ));
+        }
+      }
+      
+      setState(() {
+        photos = fetchedItems;
+        _isLoading = false;
+      });
+      
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading data: $e')),
+        );
+      }
+    }
+  }
+
+  // Helper to standardise response parsing
+  List<dynamic> _parseResponseList(dynamic data) {
+    if (data is Map && data.containsKey('results')) {
+      return data['results'] as List<dynamic>;
+    } else if (data is Map && data.containsKey('data')) {
+      return data['data'] as List<dynamic>;
+    } else if (data is List) {
+      return data as List<dynamic>;
+    } else if (data is Map) {
+      return [data];
+    }
+    return [];
+  }
+
+  DateTime _parseActivityDate(String? schedule) {
+    if (schedule == null || schedule.isEmpty) return DateTime.now();
+    try {
+      return DateFormat('yyyy-MM-dd hh:mm a').parse(schedule);
+    } catch (e) {
+      return DateTime.now();
+    }
   }
 
   List<GalleryPhoto> get filteredPhotos {
@@ -158,7 +221,7 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
           searchTerm.isEmpty ||
           p.title.toLowerCase().contains(searchTerm) ||
           p.description.toLowerCase().contains(searchTerm) ||
-          p.event.toLowerCase().contains(searchTerm);
+          p.photographer.toLowerCase().contains(searchTerm);
       return matchesCategory && matchesYear && matchesSearch;
     }).toList();
 
@@ -297,44 +360,6 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
               onChanged: (v) => setState(() => searchTerm = v.toLowerCase()),
             ),
           ),
-          const SizedBox(height: 12),
-
-          // Filters (Horizontal Scrollable Row)
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildFilterDropdown(
-                  'Category',
-                  categoryFilter,
-                  {
-                    'all': 'All Categories',
-                    'events': 'Events',
-                    'activities': 'Activities',
-                    'campus': 'Campus',
-                    'sports': 'Sports',
-                    'academic': 'Academic',
-                  },
-                  (v) => setState(() => categoryFilter = v),
-                ),
-                const SizedBox(width: 12),
-                _buildFilterDropdown('Year', yearFilter, {
-                  'all': 'All Years',
-                  '2024': '2024',
-                  '2023': '2023',
-                  '2022': '2022',
-                }, (v) => setState(() => yearFilter = v)),
-                const SizedBox(width: 12),
-                // Sort By
-                _buildFilterDropdown('Sort By', sortCriteria, {
-                  'date_desc': 'Newest First',
-                  'date_asc': 'Oldest First',
-                  'title_asc': 'Title (A-Z)',
-                  'title_desc': 'Title (Z-A)',
-                }, (v) => setState(() => sortCriteria = v)),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -367,34 +392,247 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
   }
 
   Widget _buildGalleryGrid() {
-    final photos = filteredPhotos;
-    if (photos.isEmpty) {
+    if (_isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40.0),
+          child: Column(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text(
+                'Loading data...',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    final allItems = filteredPhotos;
+    if (allItems.isEmpty) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(32.0),
           child: Text(
-            "No photos found matching the filters. Try adjusting your search!",
+            "No items found matching the filters. Try adjusting your search!",
           ),
         ),
       );
     }
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2, // 2 columns is optimal for most phones
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio:
-            0.62, // Aspect ratio to ensure space for the whole grid
-      ),
-      itemCount: photos.length,
-      itemBuilder: (context, index) => _buildGalleryCard(photos[index]),
+    // Segregate items
+    final galleryItems = allItems.where((p) => p.category != 'events' && p.category != 'activities').toList();
+    final eventItems = allItems.where((p) => p.category == 'events').toList();
+    final activityItems = allItems.where((p) => p.category == 'activities').toList();
+
+    // If a specific category filter is applied, adapt the view
+    if (categoryFilter != 'all') {
+      if (categoryFilter == 'events' || categoryFilter == 'activities') {
+         return _buildListSection(allItems, 'Search Results');
+      }
+      return _buildFilteredGrid(allItems, 'Search Results');
+    }
+
+    // Mixed View: Galleries (Grid), Events (List), Activities (List)
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (eventItems.isNotEmpty) ...[
+          _buildSectionTitle('📅 Upcoming Events'),
+          _buildListSection(eventItems, null),
+          const SizedBox(height: 24),
+        ],
+        
+        if (activityItems.isNotEmpty) ...[
+          _buildSectionTitle('🏆 School Activities'),
+          _buildListSection(activityItems, null),
+          const SizedBox(height: 24),
+        ],
+
+        if (galleryItems.isNotEmpty) ...[
+          _buildSectionTitle('📸 Photo Galleries'),
+          _buildFilteredGrid(galleryItems, null),
+          const SizedBox(height: 24),
+        ],
+      ],
     );
   }
 
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 24,
+            decoration: BoxDecoration(
+              color: const Color(0xff667eea),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Color(0xff333333),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildListSection(List<GalleryPhoto> items, String? title) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (title != null) _buildSectionTitle(title),
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          itemCount: items.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 12),
+          itemBuilder: (context, index) => _buildListItem(items[index]),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildListItem(GalleryPhoto item) {
+    final monthFormat = DateFormat('MMM');
+    final dayFormat = DateFormat('dd');
+    
+    // Determine color based on category/id (pseudo-random but consistent)
+    final badgeColor = item.category == 'events' 
+        ? const Color(0xFFE8F5E9) // Light Green for Events
+        : const Color(0xFFE3F2FD); // Light Blue for Activities
+    final badgeTextColor = item.category == 'events'
+        ? const Color(0xFF2E7D32)
+        : const Color(0xFF1565C0);
+
+    return GestureDetector(
+      onTap: () => _showImageModal(item),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Date Badge
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: badgeColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    monthFormat.format(item.date).toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: badgeTextColor,
+                    ),
+                  ),
+                  Text(
+                    dayFormat.format(item.date),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: badgeTextColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF333333),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        '${item.category[0].toUpperCase()}${item.category.substring(1)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      if (item.photographer.isNotEmpty) ...[
+                        Text(
+                          ' • ${item.photographer}', // Organizer/Instructor
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilteredGrid(List<GalleryPhoto> items, String? title) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (title != null) _buildSectionTitle(title),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 4, // 4 columns for wider displays
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 0.75, // Aspect ratio adjusted for 4 columns
+          ),
+          itemCount: items.length,
+          itemBuilder: (context, index) => _buildGalleryCard(items[index]),
+        ),
+      ],
+    );
+  }
+
+  // Old card method, kept for the grid view
   Widget _buildGalleryCard(GalleryPhoto photo) {
     final dateFormatter = DateFormat('MMM dd, yyyy');
     return GestureDetector(
@@ -410,20 +648,44 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
               flex: 3,
               child: Container(
                 width: double.infinity,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
+                decoration: BoxDecoration(
+                  gradient: photo.imageUrls.isEmpty ? const LinearGradient(
                     colors: [Color(0xff667eea), Color(0xff764ba2)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                  ) : null,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                 ),
-                child: Center(
-                  child: Text(
-                    photo.image.isEmpty ? '📷' : photo.image,
-                    style: const TextStyle(fontSize: 50, color: Colors.white),
-                  ),
-                ),
+                child: photo.imageUrls.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                        child: Image.network(
+                          photo.imageUrls.first,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Color(0xff667eea), Color(0xff764ba2)],
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  photo.emoji,
+                                  style: const TextStyle(fontSize: 50, color: Colors.white),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      )
+                    : Center(
+                        child: Text(
+                          photo.emoji,
+                          style: const TextStyle(fontSize: 50, color: Colors.white),
+                        ),
+                      ),
               ),
             ),
 
@@ -500,229 +762,24 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
     );
   }
 
-  // Refactored Modal for mobile readability (using showModalBottomSheet is often better, but keeping Dialog for now)
+  // Full-screen image viewer with horizontal swipe
   void _showImageModal(GalleryPhoto photo) {
+    // If it's an event or activity, show a dedicated detail dialog
+    if (photo.category == 'events' || photo.category == 'activities') {
+      showDialog(
+        context: context,
+        builder: (context) => _EventDetailDialog(photo: photo),
+      );
+      return;
+    }
+
+    // Otherwise show the full-screen image viewer for photos
     showDialog(
       context: context,
+      barrierColor: Colors.black,
       builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-          titlePadding: EdgeInsets.zero,
-          contentPadding: const EdgeInsets.all(20),
-          // Custom header for style
-          title: Container(
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 22),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xff667eea), Color(0xff764ba2)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    photo.title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                GestureDetector(
-                  child: const Icon(Icons.close, color: Colors.white, size: 28),
-                  onTap: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
-          ),
-
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Text(
-                  photo.image.isEmpty ? '📷' : photo.image,
-                  style: const TextStyle(fontSize: 70),
-                ),
-              ),
-              const SizedBox(height: 15),
-              Text(
-                photo.description,
-                style: const TextStyle(color: Colors.black87, fontSize: 14),
-              ),
-              const Divider(height: 25),
-
-              // Key Info section
-              _modalInfoRow('Event:', photo.event),
-              _modalInfoRow(
-                'Date:',
-                DateFormat('yyyy-MM-dd').format(photo.date),
-              ),
-              _modalInfoRow('Location:', photo.location),
-              _modalInfoRow('Participants:', photo.participants.toString()),
-
-              const SizedBox(height: 20),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xff764ba2),
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Downloading: ${photo.title}')),
-                    );
-                  },
-                  icon: const Icon(Icons.download),
-                  label: const Text("Download Photo"),
-                ),
-              ),
-            ],
-          ),
-        );
+        return _FullScreenImageViewer(photo: photo);
       },
-    );
-  }
-
-  // Helper for Modal Info Rows
-  Widget _modalInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-          Text(value, style: const TextStyle(color: Colors.grey)),
-        ],
-      ),
-    );
-  }
-
-  // Build Recent Events List (now full width)
-  Widget _buildRecentEvents() {
-    final dateFormatter = DateFormat('MMM dd');
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: const [
-              Icon(Icons.calendar_today, color: Color(0xff764ba2)),
-              SizedBox(width: 8),
-              Text(
-                "Recent Events",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
-              ),
-            ],
-          ),
-          const Divider(height: 20),
-          ...events.map(
-            (e) => Card(
-              margin: const EdgeInsets.only(bottom: 10),
-              elevation: 1,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.all(8),
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xff28a745).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    dateFormatter.format(e.date),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xff28a745),
-                    ),
-                  ),
-                ),
-                title: Text(
-                  e.title,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: Text(
-                  "Category: ${e.category[0].toUpperCase() + e.category.substring(1)} • ${e.participants} Participants",
-                ),
-                trailing: const Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16,
-                  color: Colors.grey,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Build Gallery Statistics (now full width)
-  Widget _buildGalleryStatistics() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: const [
-              Icon(Icons.bar_chart, color: Color(0xff764ba2)),
-              SizedBox(width: 8),
-              Text(
-                "Gallery Statistics",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
-              ),
-            ],
-          ),
-          const Divider(height: 20),
-          _statBar('Events Coverage', 95, const Color(0xff667eea)),
-          _statBar('Student Participation', 88, const Color(0xff764ba2)),
-          _statBar('Photo Quality', 92, const Color(0xfff093fb)),
-        ],
-      ),
-    );
-  }
-
-  Widget _statBar(String label, int percent, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-              Text("$percent%"),
-            ],
-          ),
-          const SizedBox(height: 3),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: percent / 100,
-              backgroundColor: const Color(0xffe9ecef),
-              valueColor: AlwaysStoppedAnimation(color),
-              minHeight: 8,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -755,7 +812,7 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-
+        actions: const [],
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -786,19 +843,614 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
               ),
             ),
 
-            // 3. Gallery Grid (2 columns)
+            // 3. Gallery Grid (4 columns)
             _buildGalleryGrid(),
-
-            const SizedBox(height: 20),
-
-            // 4. Sidebar Content (Stacked Vertically)
-            _buildRecentEvents(),
-
-            _buildGalleryStatistics(),
 
             const SizedBox(height: 20), // Bottom padding
           ],
         ),
+      ),
+    );
+  }
+}
+
+// Full-screen image viewer widget
+class _FullScreenImageViewer extends StatefulWidget {
+  final GalleryPhoto photo;
+
+  const _FullScreenImageViewer({required this.photo});
+
+  @override
+  State<_FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+}
+
+class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
+  late PageController _pageController;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImages = widget.photo.imageUrls.isNotEmpty;
+    final imageCount = widget.photo.imageUrls.length;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // Full-screen image viewer with PageView
+          Center(
+            child: hasImages
+                ? PageView.builder(
+                    controller: _pageController,
+                    itemCount: imageCount,
+                    onPageChanged: (index) {
+                      setState(() {
+                        _currentPage = index;
+                      });
+                    },
+                    itemBuilder: (context, index) {
+                      return Center(
+                        child: Image.network(
+                          widget.photo.imageUrls[index],
+                          fit: BoxFit.contain,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Center(
+                              child: CircularProgressIndicator(
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                    : null,
+                                color: Colors.white,
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    widget.photo.emoji,
+                                    style: const TextStyle(fontSize: 100),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  const Text(
+                                    'Failed to load image',
+                                    style: TextStyle(color: Colors.white70),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  )
+                : Center(
+                    child: Text(
+                      widget.photo.emoji,
+                      style: const TextStyle(fontSize: 100),
+                    ),
+                  ),
+          ),
+
+          // Previous button
+          if (hasImages && imageCount > 1 && _currentPage > 0)
+            Positioned(
+              left: 16,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: IconButton(
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.chevron_left,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                  onPressed: () {
+                    _pageController.previousPage(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                ),
+              ),
+            ),
+
+          // Next button
+          if (hasImages && imageCount > 1 && _currentPage < imageCount - 1)
+            Positioned(
+              right: 16,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: IconButton(
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.chevron_right,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                  onPressed: () {
+                    _pageController.nextPage(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                ),
+              ),
+            ),
+
+          // Top bar with title and close button
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + 8,
+                left: 16,
+                right: 16,
+                bottom: 16,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.7),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.photo.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Page indicator (if multiple images)
+          if (hasImages && imageCount > 1)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 60,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${_currentPage + 1} / $imageCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // Bottom info panel
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.8),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.photo.description.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        widget.photo.description,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _InfoChip(
+                          icon: Icons.category,
+                          label: widget.photo.category[0].toUpperCase() +
+                              widget.photo.category.substring(1),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _InfoChip(
+                          icon: Icons.calendar_today,
+                          label: DateFormat('MMM dd, yyyy').format(widget.photo.date),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      if (widget.photo.location.isNotEmpty)
+                        Expanded(
+                          child: _InfoChip(
+                            icon: Icons.location_on,
+                            label: widget.photo.location,
+                          ),
+                        ),
+                      if (widget.photo.location.isNotEmpty && widget.photo.photographer.isNotEmpty)
+                        const SizedBox(width: 8),
+                      if (widget.photo.photographer.isNotEmpty)
+                        Expanded(
+                          child: _InfoChip(
+                            icon: Icons.camera_alt,
+                            label: widget.photo.photographer,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Download button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xff667eea),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed: () async {
+                        try {
+                          // Get current image URL
+                          final currentImageUrl = widget.photo.imageUrls[_currentPage];
+                          
+                          // Show loading indicator
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Downloading image...'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                          
+                          // Fetch the image
+                          final response = await http.get(Uri.parse(currentImageUrl));
+                          
+                          if (response.statusCode == 200) {
+                            // Create a blob from the image bytes
+                            final blob = html.Blob([response.bodyBytes]);
+                            final url = html.Url.createObjectUrlFromBlob(blob);
+                            
+                            // Sanitize title for filename (remove special characters)
+                            final sanitizedTitle = widget.photo.title
+                                .replaceAll(RegExp(r'[^\w\s-]'), '')
+                                .replaceAll(RegExp(r'\s+'), '_')
+                                .toLowerCase();
+                            
+                            // Create a temporary anchor element and trigger download
+                            final anchor = html.AnchorElement(href: url)
+                              ..setAttribute('download', '${sanitizedTitle}_${_currentPage + 1}.jpg')
+                              ..click();
+                            
+                            // Clean up
+                            html.Url.revokeObjectUrl(url);
+                            
+                            // Show success message
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Image ${_currentPage + 1} downloaded successfully!',
+                                  ),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          } else {
+                            throw Exception('Failed to download image');
+                          }
+                        } catch (e) {
+                          // Show error message
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to download image: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      icon: const Icon(Icons.download),
+                      label: Text(
+                        hasImages && imageCount > 1
+                            ? 'Download Image ${_currentPage + 1}'
+                            : 'Download Image',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Info chip widget for displaying metadata
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _InfoChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white70),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EventDetailDialog extends StatelessWidget {
+  final GalleryPhoto photo;
+
+  const _EventDetailDialog({required this.photo});
+
+  @override
+  Widget build(BuildContext context) {
+    final isEvent = photo.category == 'events';
+    final primaryColor = isEvent ? const Color(0xff667eea) : const Color(0xFF1565C0);
+    final icon = isEvent ? Icons.calendar_today : Icons.sports_soccer;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: primaryColor, size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        photo.title,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF333333),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        DateFormat('EEEE, MMMM d, yyyy').format(photo.date),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Info Rows
+            _buildInfoRow(Icons.location_on_outlined, 'Location', photo.location),
+            if (photo.photographer.isNotEmpty)
+              _buildInfoRow(
+                  Icons.person_outline, 
+                  isEvent ? 'Organizer' : 'Instructor', 
+                  photo.photographer
+              ),
+            
+            const SizedBox(height: 24),
+            
+            // Description
+            const Text(
+              "About",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF333333),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F9FA),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE9ECEF)),
+              ),
+              child: Text(
+                photo.description,
+                style: TextStyle(
+                  fontSize: 15,
+                  height: 1.5,
+                  color: Colors.grey[800],
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Close Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Text(
+                  'Close',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    if (value.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: Colors.grey[500]),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: Color(0xFF333333),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

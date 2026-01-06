@@ -900,7 +900,6 @@ class _TeacherCommunicationScreenState extends State<TeacherCommunicationScreen>
             onPressed: _showCreateGroupDialog,
             tooltip: 'Create Group',
           ),
-
         ],
       ),
       body: _isLoading

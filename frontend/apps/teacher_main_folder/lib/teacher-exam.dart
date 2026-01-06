@@ -309,10 +309,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           ),
         ),
       ),
-      actions: [
-
-        const SizedBox(width: 8),
-      ],
+      actions: const [],
     );
   }
 

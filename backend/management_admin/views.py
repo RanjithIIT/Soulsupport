@@ -27,10 +27,13 @@ from .serializers import (
     CampusFeatureSerializer,
     ActivitySerializer
 )
+
+
 from main_login.permissions import IsManagementAdmin
 from main_login.mixins import SchoolFilterMixin
 from main_login.utils import get_user_school_id
 from django.conf import settings
+
 
 
 class FileViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
@@ -1450,7 +1453,7 @@ class SchoolViewSet(viewsets.ViewSet):
                     status=status.HTTP_404_NOT_FOUND
                 )
             
-            serializer = SchoolSerializer(school, context={'request': request})
+            serializer = SchoolSerializer(school)
             return Response(
                 {
                     'success': True,
@@ -1464,66 +1467,6 @@ class SchoolViewSet(viewsets.ViewSet):
                     'success': False,
                     'message': str(e),
                     'error': 'Failed to fetch school'
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @action(detail=False, methods=['post'], url_path='upload-logo')
-    def upload_logo(self, request):
-        """Upload school logo"""
-        from super_admin.models import School
-        from super_admin.serializers import SchoolSerializer
-        
-        try:
-            # Get school from user's school_account relationship
-            school = School.objects.filter(user=request.user).first()
-            
-            if not school:
-                return Response(
-                    {
-                        'success': False,
-                        'message': 'No school found for this user. Please contact administrator.',
-                        'error': 'School not found'
-                    },
-                    status=status.HTTP_404_NOT_FOUND
-                )
-            
-            # Handle logo file upload
-            logo_file = request.FILES.get('logo')
-            if not logo_file:
-                return Response(
-                    {
-                        'success': False,
-                        'message': 'No logo file provided.',
-                        'error': 'File required'
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Save the logo
-            school.logo = logo_file
-            school.save()
-            
-            school.save()
-            
-            serializer = SchoolSerializer(school, context={'request': request})
-            return Response(
-                {
-                    'success': True,
-                    'message': 'Logo uploaded successfully',
-                    'data': serializer.data
-                },
-                status=status.HTTP_200_OK
-            )
-        except Exception as e:
-            import traceback
-            print(f"Error uploading logo: {str(e)}")
-            print(traceback.format_exc())
-            return Response(
-                {
-                    'success': False,
-                    'message': str(e),
-                    'error': 'Failed to upload logo'
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -1811,56 +1754,42 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         serializer.save()
 
 
-
-class ActivityViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for Activity management
-    """
+class ActivityViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
+    """ViewSet for Activity management"""
     queryset = Activity.objects.all()
     serializer_class = ActivitySerializer
     permission_classes = [IsAuthenticated, IsManagementAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['category', 'status', 'instructor']
+    filterset_fields = ['category', 'status', 'start_date', 'end_date']
     search_fields = ['name', 'instructor', 'location', 'description']
-    ordering_fields = ['name', 'start_date', 'created_at']
+    ordering_fields = ['created_at', 'start_date', 'name']
     ordering = ['-created_at']
-
+    
     def get_permissions(self):
-        # Allow read/create/update/delete without auth for development - can be adjusted
-        if settings.DEBUG:
-            return []
-        return super().get_permissions()
+        """Allow read/create/update/delete without auth for development - can be adjusted"""
+        if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
+            return [AllowAny()]
+        return [IsAuthenticated(), IsManagementAdmin()]
 
     def perform_create(self, serializer):
-        # Set school_id when creating activity
-        try:
-            school_id = get_user_school_id(self.request.user)
-            if school_id:
-                # Use filter().first() instead of get() to avoid 404 if school doesn't exist
-                from super_admin.models import School
-                school = School.objects.filter(school_id=school_id).first()
-                if school:
-                    serializer.save(school=school)
-                else:
-                    # Fallback: try to get school from request data if provided (for testing)
-                    if 'school' in self.request.data:
-                        school_val = self.request.data['school']
-                        # if it's an ID string
-                        if isinstance(school_val, str):
-                             school = School.objects.filter(school_id=school_val).first()
-                             if school:
-                                 serializer.save(school=school)
-                                 return
-                    
-                    # If we still don't have a school, let validation fail or save without it if allowed
-                    # But Activity needs a school
-                    print(f"Warning: Could not find school for activity creation. User: {self.request.user}")
-                    serializer.save()
-            else:
-                serializer.save()
-        except Exception as e:
-            print(f"Error in ActivityViewSet.perform_create: {e}")
-            serializer.save()
+        """Set school reference when creating activity"""
+        activity = serializer.save()
+        
+        school_id = self.get_school_id()
+        if school_id:
+            from super_admin.models import School
+            # Create a separate update query to set the foreign key directly by ID
+            # This avoids needing to fetch the School object if we only have the ID
+            Activity.objects.filter(pk=activity.pk).update(school_id=school_id)
+            
+            # Try to set school_name as well if possible
+            try:
+                school = School.objects.get(school_id=school_id)
+                Activity.objects.filter(pk=activity.pk).update(school_name=school.school_name)
+            except School.DoesNotExist:
+                pass
 
     def perform_update(self, serializer):
+        """Update activity"""
         serializer.save()
+

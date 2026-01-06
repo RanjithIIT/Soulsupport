@@ -257,9 +257,7 @@ class ResultsPage extends StatelessWidget {
         centerTitle: false,
 
         // Actions (Refresh and Profile Icons from the image)
-        actions: [
-
-        ],
+        actions: const [],
       ),
 
       body: SingleChildScrollView(

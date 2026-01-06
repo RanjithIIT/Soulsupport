@@ -17,8 +17,8 @@ class TeacherProfileApp extends StatelessWidget {
       title: 'Teacher Profile',
       theme: ThemeData(
         useMaterial3: true,
-        scaffoldBackgroundColor: Colors.white,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueGrey),
+        scaffoldBackgroundColor: const Color(0xFFF8F9FE), // Soft blue-grey background
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6A1B9A)),
         // === BOLDNESS/SHARPNESS INCREASED HERE ===
         textTheme: const TextTheme(
           bodyLarge: TextStyle(
@@ -84,9 +84,8 @@ class TeacherProfilePage extends StatefulWidget {
   State<TeacherProfilePage> createState() => _TeacherProfilePageState();
 }
 
-class _TeacherProfilePageState extends State<TeacherProfilePage>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _TeacherProfilePageState extends State<TeacherProfilePage> {
+
 
   // ====================== METADATA VARIABLES ==========================
   // NOTE: These are made mutable for demonstration, but should typically remain read-only in a production environment.
@@ -321,13 +320,11 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
   void initState() {
     super.initState();
     _initializeData(); // Set defaults first
-    _tabController = TabController(length: 4, vsync: this);
     _loadTeacherData(); // Then load from API
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
     _subjectController.dispose();
     super.dispose();
   }
@@ -426,6 +423,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
     }
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FE),
       appBar: AppBar(
         automaticallyImplyLeading: false,
         toolbarHeight: 60,
@@ -446,112 +444,89 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
           'Teacher Profile',
           style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
         ),
-
+        actions: const [],
         elevation: 0,
       ),
-      body: Column(
-        children: [
-          // -------------------- PROFILE HEADER TAB --------------------
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-            color: Colors.white,
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: _pickImage,
-                  child: CircleAvatar(
-                    radius: 35,
-                    backgroundColor: Colors.grey.shade200,
-                    backgroundImage: _profileImage != null
-                        ? FileImage(_profileImage!)
-                        : (profilePhotoUrl != null && profilePhotoUrl!.isNotEmpty
-                            ? NetworkImage(profilePhotoUrl!) as ImageProvider
-                            : null),
-                    child: _profileImage == null && (profilePhotoUrl == null || profilePhotoUrl!.isEmpty)
-                        ? Icon(
-                            Icons.camera_alt,
-                            color: Colors.grey.shade600,
-                            size: 30,
-                          )
-                        : null,
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // -------------------- PROFILE HEADER --------------------
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+              color: Colors.white,
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: _pickImage,
+                    child: CircleAvatar(
+                      radius: 35,
+                      backgroundColor: Colors.grey.shade200,
+                      backgroundImage: _profileImage != null
+                          ? FileImage(_profileImage!)
+                          : (profilePhotoUrl != null && profilePhotoUrl!.isNotEmpty
+                              ? NetworkImage(profilePhotoUrl!) as ImageProvider
+                              : null),
+                      child: _profileImage == null && (profilePhotoUrl == null || profilePhotoUrl!.isEmpty)
+                          ? Icon(
+                              Icons.camera_alt,
+                              color: Colors.grey.shade600,
+                              size: 30,
+                            )
+                          : null,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 15),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // BOLDER NAME
-                    Text(
-                      profileName,
-                      style: Theme.of(context).textTheme.titleMedium!.copyWith(
-                        color: Colors.black,
-                        fontWeight: FontWeight.w900,
+                  const SizedBox(width: 15),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        profileName,
+                        style: Theme.of(context).textTheme.titleMedium!.copyWith(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    // BOLDER SUBJECT/DESIGNATION
-                    Text(
-                      '$designation - $department',
-                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                        color: Colors.black87,
-                        fontWeight: FontWeight.w700,
+                      const SizedBox(height: 4),
+                      Text(
+                        '$designation - $department',
+                        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                          color: Colors.black87,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    // BOLDER ID
-                    Text(
-                      'Employee ID: $employeeNo',
-                      style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                        color: Colors.black54,
-                        fontWeight: FontWeight.w600,
+                      const SizedBox(height: 4),
+                      Text(
+                        'Employee ID: $employeeNo',
+                        style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                          color: Colors.black54,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.grey),
-                  onPressed: () {
-                    _show('Edit profile (simulated)');
-                  },
-                ),
-              ],
+                    ],
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.grey),
+                    onPressed: () {
+                      _show('Edit profile (simulated)');
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Divider(height: 1, color: Colors.grey),
+            const Divider(height: 1, color: Colors.grey),
 
-          // -------------------- TABS --------------------
-          Container(
-            color: Colors.grey.shade100,
-            child: TabBar(
-              controller: _tabController,
-              labelColor: Colors.black,
-              labelStyle: const TextStyle(fontWeight: FontWeight.w700),
-              unselectedLabelColor: Colors.grey,
-              indicatorColor: Colors.black,
-              indicatorWeight: 3,
-              tabs: const [
-                Tab(text: 'Personal'),
-                Tab(text: 'Professional'),
-                Tab(text: 'Notifications'),
-                Tab(text: 'Security'),
-              ],
-            ),
-          ),
-
-          // -------------------- CONTENT --------------------
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildPersonalTab(isMobile),
-                _buildProfessionalTab(isMobile),
-                _buildNotificationsTab(),
-                _buildSecurityTab(),
-              ],
-            ),
-          ),
-        ],
+            // -------------------- SECTIONS --------------------
+            _buildPersonalTab(isMobile),
+            const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
+            _buildProfessionalTab(isMobile),
+            const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
+            _buildNotificationsTab(),
+            const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
+            _buildSecurityTab(),
+            const SizedBox(height: 30),
+          ],
+        ),
       ),
     );
   }
@@ -560,19 +535,15 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
   // PERSONAL TAB — ALL FIELDS EDITABLE
   // ============================================================================
   Widget _buildPersonalTab(bool isMobile) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _title('Personal Information'),
-
-          _row(isMobile, [
-            _input('First Name', firstName, (v) => firstName = v),
-            _input('Middle Name', middleName, (v) => middleName = v),
-            _input('Last Name', lastName, (v) => lastName = v),
-            _input('Employee Number', employeeNo, (v) => employeeNo = v),
-          ]),
+    return _buildSectionCard(
+      title: 'Personal Information',
+      children: [
+        _row(isMobile, [
+          _input('First Name', firstName, (v) => firstName = v),
+          _input('Middle Name', middleName, (v) => middleName = v),
+          _input('Last Name', lastName, (v) => lastName = v),
+          _input('Employee Number', employeeNo, (v) => employeeNo = v),
+        ]),
 
           _row(isMobile, [
             _input(
@@ -614,8 +585,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
 
           const SizedBox(height: 30),
           _saveButton(() => _show('Personal Info Saved!')),
-        ],
-      ),
+      ],
     );
   }
 
@@ -623,23 +593,19 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
   // PROFESSIONAL TAB — ALL FIELDS EDITABLE
   // ============================================================================
   Widget _buildProfessionalTab(bool isMobile) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _title('Professional Details'),
-
-          _row(isMobile, [
-            _input('Department', department, (v) => department = v),
-            _input('Designation', designation, (v) => designation = v),
-            _input('Qualification', qualification, (v) => qualification = v),
-            _input(
-              'Joining Date (YYYY-MM-DD)',
-              joiningDate,
-              (v) => joiningDate = v,
-            ),
-          ]),
+    return _buildSectionCard(
+      title: 'Professional Details',
+      children: [
+        _row(isMobile, [
+          _input('Department', department, (v) => department = v),
+          _input('Designation', designation, (v) => designation = v),
+          _input('Qualification', qualification, (v) => qualification = v),
+          _input(
+            'Joining Date (YYYY-MM-DD)',
+            joiningDate,
+            (v) => joiningDate = v,
+          ),
+        ]),
 
           const SizedBox(height: 20),
           _title('System Assignment'),
@@ -752,8 +718,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
           const SizedBox(height: 30),
 
           _saveButton(() => _show('Professional Info Saved!')),
-        ],
-      ),
+      ],
     );
   }
 
@@ -761,10 +726,9 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
   // NOTIFICATIONS TAB
   // ============================================================================
   Widget _buildNotificationsTab() {
-    return ListView(
-      padding: const EdgeInsets.all(20),
+    return _buildSectionCard(
+      title: 'Alert Preferences',
       children: [
-        _title('Alert Preferences'),
         _notifyTile(
           'Assignment Submissions',
           assignmentsEnabled,
@@ -801,17 +765,37 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
   // SECURITY TAB — System fields moved to Professional tab, security actions remain.
   // ============================================================================
   Widget _buildSecurityTab() {
-    return ListView(
-      padding: const EdgeInsets.all(20),
+    return _buildSectionCard(
+      title: 'Account & Security',
       children: [
-        _title('Account Status (Metadata)'),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Text(
+            'Account Status (Metadata)',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
+            ),
+          ),
+        ),
         _readonly('School ID', schoolId),
         _readonly('Created By', createdBy),
         _readonly('Created At', createdAt),
         _readonly('Last Updated At', updatedAt),
 
-        const SizedBox(height: 20),
-        _title('Credentials and Sessions'),
+        const SizedBox(height: 24),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Text(
+            'Credentials and Sessions',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
+            ),
+          ),
+        ),
         _securityTile(
           'Change Password',
           Icons.lock,
@@ -835,26 +819,57 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
   }
 
   // ============================================================================
-  // -------------------------- UI HELPERS --------------------------------------
-  // (Note: _input is used throughout for editable fields, _readonly is now only for pure metadata)
+  // -------------------------- PREMIUM UI HELPERS ------------------------------
   // ============================================================================
+
+  Widget _buildSectionCard({required String title, required List<Widget> children}) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (title.isNotEmpty) ...[
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF2D3142),
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+          ...children,
+        ],
+      ),
+    );
+  }
 
   Widget _row(bool mobile, List<Widget> items) {
     return mobile
         ? Column(
             children: items
-                .map(
-                  (e) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: e,
-                  ),
-                )
+                .map((e) => Padding(padding: const EdgeInsets.only(bottom: 16), child: e))
                 .toList(),
           )
         : Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: items.map((e) => SizedBox(width: 280, child: e)).toList(),
+            spacing: 20,
+            runSpacing: 20,
+            children: items.map((e) => SizedBox(width: 300, child: e)).toList(),
           );
   }
 
@@ -862,22 +877,40 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Bolder Label
         Text(
           label,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Colors.black,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         TextFormField(
           initialValue: value,
           onChanged: (v) => setState(() => onChanged(v)),
           style: const TextStyle(
             fontWeight: FontWeight.w600,
             color: Colors.black87,
-          ), // Bolder input text
+            fontSize: 15,
+          ),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFFF5F7FA),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none, // Clean look
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF8B47E6), width: 1.5),
+            ),
+          ),
         ),
       ],
     );
@@ -887,33 +920,33 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Bolder Label
         Text(
           label,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Colors.black54,
-          ),
-        ), // Slightly muted for metadata
-        const SizedBox(height: 6),
-        TextFormField(
-          initialValue: value,
-          readOnly: true,
-          style: const TextStyle(
+          style: TextStyle(
+            fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Colors.black54,
+            color: Colors.grey[600],
           ),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.grey.shade50,
-            border: OutlineInputBorder(
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: Colors.black54,
             ),
           ),
         ),
+        const SizedBox(height: 16),
       ],
     );
   }
@@ -922,15 +955,15 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Bolder Label
         Text(
           label,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Colors.black,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         TextFormField(
           initialValue: value,
           maxLines: 3,
@@ -938,77 +971,134 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
           style: const TextStyle(
             fontWeight: FontWeight.w600,
             color: Colors.black87,
-          ), // Bolder input text
+            fontSize: 15,
+          ),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFFF5F7FA),
+            contentPadding: const EdgeInsets.all(16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF8B47E6), width: 1.5),
+            ),
+          ),
         ),
       ],
     );
   }
 
   Widget _notifyTile(String title, bool value, Function(bool) onChanged) {
-    return SwitchListTile(
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          color: Colors.black87,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+       color: value ? const Color(0xFFF3E5F5) : const Color(0xFFF5F7FA),
+        borderRadius: BorderRadius.circular(12),
+        border: value ? Border.all(color: const Color(0xFF8B47E6).withOpacity(0.3)) : null,
+      ),
+      child: SwitchListTile(
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: value ? const Color(0xFF6A1B9A) : Colors.black87,
+          ),
         ),
-      ), // Bolder title
-      value: value,
-      onChanged: onChanged,
-      contentPadding: EdgeInsets.zero,
+        value: value,
+        activeColor: const Color(0xFF8B47E6),
+        onChanged: onChanged,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
     );
   }
 
   Widget _securityTile(String title, IconData i, VoidCallback onTap) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          color: Colors.black87,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
         ),
-      ), // Bolder title
-      leading: Icon(i, color: Colors.black54), // Sharper icon color
-      trailing: const Icon(
-        Icons.chevron_right,
-        color: Colors.black54,
-      ), // Sharper icon color
-      onTap: onTap,
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF8B47E6).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(i, color: const Color(0xFF8B47E6), size: 20),
+        ),
+        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+        onTap: onTap,
+      ),
     );
   }
 
   Widget _title(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.only(bottom: 16),
     child: Text(
       text,
       style: const TextStyle(
         fontSize: 18,
-        fontWeight: FontWeight.w900,
-        color: Colors.black,
-      ), // Very bold section title
+        fontWeight: FontWeight.w800,
+        color: Color(0xFF2D3142),
+      ), 
     ),
   );
 
   Widget _saveButton(VoidCallback f) {
     return Align(
       alignment: Alignment.centerRight,
-      child: ElevatedButton(
+      child: ElevatedButton.icon(
         onPressed: f,
+        icon: const Icon(Icons.check_circle_outline, size: 20),
+        label: const Text('Save Changes'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.black,
+          backgroundColor: const Color(0xFF2D3142),
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           textStyle: const TextStyle(
+            fontSize: 15,
             fontWeight: FontWeight.w700,
-          ), // Bolder button text
+            letterSpacing: 0.5,
+          ),
         ),
-        child: const Text('Save'),
       ),
     );
   }
 
   void _show(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(20),
+      ),
+    );
   }
 }

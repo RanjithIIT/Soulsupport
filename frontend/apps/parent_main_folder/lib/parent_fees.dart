@@ -586,7 +586,7 @@ class _StudentFeesPageState extends State<StudentFeesPage> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-
+        actions: const [],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(40.0),
           child: Container(

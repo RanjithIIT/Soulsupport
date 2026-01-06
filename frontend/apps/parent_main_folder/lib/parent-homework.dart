@@ -504,7 +504,7 @@ class _HomeworkManagementPageState extends State<HomeworkManagementPage> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-
+        actions: const [],
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: primaryAccent))

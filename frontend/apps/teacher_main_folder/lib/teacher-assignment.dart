@@ -1164,9 +1164,7 @@ class _AssignmentDashboardScreenState extends State<AssignmentDashboardScreen> {
             ),
           ),
         ),
-        actions: [
-          const SizedBox(width: 10),
-        ],
+        actions: const [],
         // --- END NEW APP BAR IMPLEMENTATION ---
       ),
       body: SingleChildScrollView(

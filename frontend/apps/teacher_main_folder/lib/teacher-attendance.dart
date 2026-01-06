@@ -1,8 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'services/api_service.dart';
+
+// --- CONSTANTS & MOCK DATA CONFIGURATION ---
+
+const List<String> allClasses = [
+  'Nursery',
+  'LKG',
+  'UKG',
+  'I',
+  'II',
+  'III',
+  'IV',
+  'V',
+  'VI',
+  'VII',
+  'VIII',
+  'IX',
+  'X',
+  'XI',
+  'XII',
+];
+
+const Map<String, List<String>> mockSections = {
+  'Nursery': ['Teddy Bears', 'Tiny Tots'],
+  'LKG': ['Little Stars', 'Sunshine'],
+  'UKG': ['Rising Stars', 'Bright Buds'],
+  'I': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
+  'II': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
+  'III': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
+  'IV': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
+  'V': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
+  'VI': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
+  'VII': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
+  'VIII': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
+  'IX': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
+  'X': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
+  'XI': ['Science - A', 'Commerce - B', 'Arts - C'],
+  'XII': ['Science - A', 'Commerce - B', 'Arts - C'],
+};
 
 // --- MODELS ---
 
@@ -18,53 +53,6 @@ class Student {
     required this.rollNo,
     required this.avatarInitials,
   });
-
-  factory Student.fromJson(Map<String, dynamic> json) {
-    String name = json['student_name'] ?? 'Unknown';
-    String rollNo = json['student_id'] ?? json['id'].toString(); // Fallback to ID if no custom ID
-    
-    // Generate initials
-    String initials = '';
-    if (name.isNotEmpty) {
-      List<String> parts = name.trim().split(' ');
-      if (parts.isNotEmpty) {
-        initials = parts[0][0];
-        if (parts.length > 1) {
-          initials += parts[1][0];
-        } else if (parts[0].length > 1) {
-          initials += parts[0][1];
-        }
-      }
-    }
-    
-    return Student(
-      id: json['id'],
-      name: name,
-      rollNo: rollNo,
-      avatarInitials: initials.toUpperCase(),
-    );
-  }
-}
-
-class ClassModel {
-  final int id;
-  final String name;
-  final String section;
-
-  ClassModel({required this.id, required this.name, required this.section});
-
-  factory ClassModel.fromJson(Map<String, dynamic> json) {
-    return ClassModel(
-      id: json['id'],
-      name: json['name'] ?? '',
-      section: json['section'] ?? '',
-    );
-  }
-  
-  @override
-  String toString() {
-    return '$name - $section';
-  }
 }
 
 enum AttendanceStatus { present, absent, late }
@@ -97,23 +85,92 @@ extension AttendanceStatusExtension on AttendanceStatus {
       case AttendanceStatus.present:
         return Colors.green.shade100;
       case AttendanceStatus.absent:
-        return Colors.grey.shade200;
       case AttendanceStatus.late:
         return Colors.grey.shade200;
-    }
-  }
-  
-  String toApiValue() {
-     switch (this) {
-      case AttendanceStatus.present:
-        return 'present';
-      case AttendanceStatus.absent:
-        return 'absent';
-      case AttendanceStatus.late:
-        return 'late';
     }
   }
 }
+
+// --- MOCK DATA POPULATION ---
+// We map the complex Section names to our student lists using a composite key: "$Class_$Section"
+final Map<String, List<Student>> mockStudents = {
+  // Nursery
+  'Nursery_Teddy Bears': [
+    Student(id: 16, name: 'Leo Khan', rollNo: 'NA01', avatarInitials: 'LK'),
+    Student(id: 17, name: 'Mia Ray', rollNo: 'NA02', avatarInitials: 'MR'),
+  ],
+  'Nursery_Tiny Tots': [
+    Student(id: 48, name: 'Naveen Raj', rollNo: 'NB01', avatarInitials: 'NR'),
+    Student(id: 49, name: 'Priya Sen', rollNo: 'NB02', avatarInitials: 'PS'),
+  ],
+
+  // LKG
+  'LKG_Little Stars': [
+    Student(id: 18, name: 'Noah Bell', rollNo: 'LA01', avatarInitials: 'NB'),
+    Student(id: 19, name: 'Olivia Gray', rollNo: 'LA02', avatarInitials: 'OG'),
+  ],
+
+  // UKG
+  'UKG_Rising Stars': [
+    Student(id: 20, name: 'Peter Hall', rollNo: 'UA01', avatarInitials: 'PH'),
+    Student(id: 21, name: 'Quinn Ivy', rollNo: 'UA02', avatarInitials: 'QI'),
+  ],
+
+  // Class I
+  'I_A - Fredo Fighters': [
+    Student(id: 24, name: 'Tyler Lewis', rollNo: '1A01', avatarInitials: 'TL'),
+    Student(id: 25, name: 'Vera Moon', rollNo: '1A02', avatarInitials: 'VM'),
+  ],
+  'I_B - Galileo': [
+    Student(id: 56, name: 'Wanda Paul', rollNo: '1B01', avatarInitials: 'WP'),
+    Student(id: 57, name: 'Yusuf Chen', rollNo: '1B02', avatarInitials: 'YC'),
+  ],
+
+  // Class X
+  'X_A - Fredo Fighters': [
+    Student(
+      id: 1,
+      name: 'Sarah Johnson',
+      rollNo: '10A01',
+      avatarInitials: 'SJ',
+    ),
+    Student(id: 2, name: 'Mike Chen', rollNo: '10A02', avatarInitials: 'MC'),
+    Student(id: 3, name: 'Emma Davis', rollNo: '10A03', avatarInitials: 'ED'),
+  ],
+  'X_B - Galileo': [
+    Student(id: 6, name: 'David Wilson', rollNo: '10B01', avatarInitials: 'DW'),
+    Student(id: 7, name: 'Maria Garcia', rollNo: '10B02', avatarInitials: 'MG'),
+  ],
+
+  // Class XI
+  'XI_Science - A': [
+    Student(
+      id: 11,
+      name: 'Rachel Green',
+      rollNo: '11S01',
+      avatarInitials: 'RG',
+    ),
+    Student(id: 12, name: 'Kevin Patel', rollNo: '11S02', avatarInitials: 'KP'),
+  ],
+  'XI_Commerce - B': [
+    Student(id: 42, name: 'Max Stone', rollNo: '11C01', avatarInitials: 'MS'),
+    Student(id: 43, name: 'Zoe Vance', rollNo: '11C02', avatarInitials: 'ZV'),
+  ],
+
+  // Class XII
+  'XII_Science - A': [
+    Student(id: 44, name: 'John Baker', rollNo: '12S01', avatarInitials: 'JB'),
+    Student(id: 45, name: 'Tina Clark', rollNo: '12S02', avatarInitials: 'TC'),
+  ],
+  'XII_Arts - C': [
+    Student(
+      id: 99,
+      name: 'Artie Fischel',
+      rollNo: '12A01',
+      avatarInitials: 'AF',
+    ),
+  ],
+};
 
 // --- THEME COLORS ---
 const Color primaryColor = Color(0xFF1565C0);
@@ -160,224 +217,47 @@ class AttendanceDashboard extends StatefulWidget {
 }
 
 class _AttendanceDashboardState extends State<AttendanceDashboard> {
-
-  
   // State for Class & Section Separation
-  List<ClassModel> _classes = [];
-  ClassModel? _selectedClass; 
+  String? _selectedClass; // e.g., "I", "X"
+  String? _selectedSection; // e.g., "A - Fredo Fighters"
 
   DateTime _selectedDate = DateTime.now();
   List<Student> _students = [];
   final Map<int, AttendanceStatus> _attendanceRecords = {};
   final Map<int, String> _remarks = {};
-  
-  bool _isLoadingClasses = false;
-  bool _isLoadingStudents = false;
-  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    _loadClasses();
-  }
-  
-  Future<void> _loadClasses() async {
-    setState(() => _isLoadingClasses = true);
-    try {
-      debugPrint('LOADING CLASSES: Fetching from teacher/classes/');
-      final response = await ApiService.authenticatedRequest('teacher/classes/', method: 'GET');
-      debugPrint('LOADING CLASSES: Status ${response.statusCode}');
-      debugPrint('LOADING CLASSES: Body ${response.body}');
-      
-      if (response.statusCode == 200) {
-        final dynamic data = json.decode(response.body);
-        
-        List<dynamic> classesJson = [];
-        if (data is Map && data.containsKey('results')) {
-           classesJson = data['results']; 
-        } else if (data is List) {
-           classesJson = data;
-        }
-        
-        debugPrint('LOADING CLASSES: Parsed ${classesJson.length} classes');
+    _initializeAllPossibleAttendance();
 
-        setState(() {
-          _classes = classesJson.map((json) => ClassModel.fromJson(json)).toList();
-          if (_classes.isNotEmpty) {
-             _selectedClass = _classes.first;
-             _loadStudents();
-          }
-        });
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load classes: ${response.statusCode}')));
+    // Default selection initialization
+    _selectedClass = allClasses.first;
+    _selectedSection = mockSections[_selectedClass]!.first;
+    _loadStudents();
+  }
+
+  // Initializes records for all students in mock db to avoid null errors
+  void _initializeAllPossibleAttendance() {
+    for (var list in mockStudents.values) {
+      for (var student in list) {
+        if (!_attendanceRecords.containsKey(student.id)) {
+          _attendanceRecords[student.id] = AttendanceStatus.present;
+          _remarks[student.id] = '';
+        }
       }
-    } catch (e, stack) {
-      debugPrint('LOADING CLASSES ERROR: $e\n$stack');
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error loading classes: $e')));
-    } finally {
-      setState(() => _isLoadingClasses = false);
     }
   }
 
-  Future<void> _loadStudents() async {
-    if (_selectedClass == null) return;
-    
+  void _loadStudents() {
+    if (_selectedClass == null || _selectedSection == null) return;
+
+    // Construct the composite key to look up students
+    final String lookupKey = "${_selectedClass}_$_selectedSection";
+
     setState(() {
-      _isLoadingStudents = true;
-      _students = [];
-      _attendanceRecords.clear();
-      _remarks.clear();
+      _students = mockStudents[lookupKey] ?? [];
     });
-
-    try {
-      // 1. Fetch Students linked to this class
-      // Uses ClassStudentViewSet filter: filterset_fields = ['class_obj', 'student']
-      final response = await ApiService.authenticatedRequest('teacher/class-students/?class_obj=${_selectedClass!.id}', method: 'GET');
-      
-      if (response.statusCode == 200) {
-        final dynamic data = json.decode(response.body);
-        List<dynamic> studentsJson = [];
-        if (data is Map && data.containsKey('results')) {
-           studentsJson = data['results']; 
-        } else if (data is List) {
-           studentsJson = data; // Usually ModelViewSet list returns simple list if no pagination
-        }
-        
-        // ClassStudent serializer has 'student' nested object
-        List<Student> loadedStudents = [];
-        for (var item in studentsJson) {
-          if (item['student'] != null) {
-            loadedStudents.add(Student.fromJson(item['student']));
-          }
-        }
-
-        // 2. Fetch existing attendance for this date?
-        // Query: teacher/attendance/?class_obj=ID&date=YYYY-MM-DD
-        final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-        final attResponse = await ApiService.authenticatedRequest('teacher/attendance/?class_obj=${_selectedClass!.id}&date=$dateStr', method: 'GET');
-        
-        Map<int, AttendanceStatus> existingMap = {};
-        if (attResponse.statusCode == 200) {
-            final dynamic attData = json.decode(attResponse.body);
-            List<dynamic> attList = [];
-            if (attData is Map && attData.containsKey('results')) {
-               attList = attData['results'];
-            } else if (attData is List) {
-               attList = attData;
-            }
-            
-            for (var rec in attList) {
-               int studentId = rec['student']['id'] ?? rec['student']; // Depending on serializer
-               // Wait, AttendanceSerializer has nested StudentSerializer.
-               // It returns full student object usually.
-               if (rec['student'] is Map) {
-                  studentId = rec['student']['id'];
-               } else {
-                  studentId = rec['student'];
-               }
-               
-               String statusStr = rec['status'];
-               AttendanceStatus status = AttendanceStatus.present;
-               if (statusStr == 'absent') status = AttendanceStatus.absent;
-               else if (statusStr == 'late') status = AttendanceStatus.late;
-               
-               existingMap[studentId] = status;
-            }
-        }
-
-        setState(() {
-          _students = loadedStudents;
-          // Initialize records
-          for (var s in _students) {
-            _attendanceRecords[s.id] = existingMap[s.id] ?? AttendanceStatus.present;
-            _remarks[s.id] = ''; // Remarks not yet implementing fetch
-          }
-        });
-        
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load students: ${response.statusCode}')));
-      }
-
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error loading data: $e')));
-    } finally {
-      setState(() => _isLoadingStudents = false);
-    }
-  }
-  
-  Future<void> _saveAttendance() async {
-    if (_selectedClass == null || _students.isEmpty) return;
-    
-    setState(() => _isSaving = true);
-    
-    // We need to submit for each student.
-    // Ideally bulk API, but loop for now.
-    // TODO: Optimize with bulk endpoint.
-    
-    int successCount = 0;
-    int failCount = 0;
-    
-    final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-    
-    for (var student in _students) {
-       final status = _attendanceRecords[student.id] ?? AttendanceStatus.present;
-       
-       // Check if record exists (we can't easily check without storing ID).
-       // We can iterate fetch results or just try POST (create). 
-       // If unique constraint matches (class, student, date), it will fail (400).
-       // So we should try to match existing logic later. 
-       // For now, simpler implementation: Just Create. If fail, show error?
-       // Actually, we must handle updates.
-       // The 'teacher/attendance/' endpoint is standard ModelViewSet.
-       // It doesn't support "update or create" by default.
-       
-       // Hack for demo: Just POST. If 400 (exists), maybe ignore or assume it's done? 
-       // Real impl: Find record ID and PUT/PATCH.
-       
-       // Let's rely on the fact that we can filter by date/student to find ID if needed.
-       // But I removed the 'fetching existing attendance IDs' logic above for brevity.
-       
-       // Revised Plan: Fetch existing first (done in _loadStudents). 
-       // Wait, I didn't store IDs in _attendanceRecords.
-       // I'll just do a "blind" create for now. If it fails, fine. 
-       // This is "MVP".
-       
-       Map<String, dynamic> body = {
-         'class_obj': _selectedClass!.id,
-         'student': student.id,
-         'date': dateStr,
-         'status': status.toApiValue(),
-       };
-       
-       try {
-         final response = await ApiService.authenticatedRequest(
-           'teacher/attendance/', 
-           method: 'POST',
-           body: body
-         );
-         
-         if (response.statusCode == 201) {
-           successCount++;
-         } else {
-           // Maybe it exists?
-           // print('Failed to save for ${student.name}: ${response.body}');
-           failCount++;
-         }
-       } catch (e) {
-         failCount++;
-       }
-    }
-    
-    setState(() => _isSaving = false);
-    
-    if (mounted) {
-       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Saved: $successCount, Failed/Exists: $failCount'),
-          backgroundColor: failCount == 0 ? primaryColor : Colors.orange,
-        ),
-      );
-    }
   }
 
   void _updateAttendance(int studentId, AttendanceStatus status) {
@@ -480,21 +360,18 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
           fontWeight: FontWeight.w500,
         ),
       ),
-      actions: [
-        const SizedBox(width: 8),
-      ],
+      actions: const [],
       elevation: 8,
     );
   }
 
-  // --- REVISED CONTROLS CARD (Merged Class & Section) ---
+  // --- REVISED CONTROLS CARD (Split Class & Section) ---
   Widget _buildControlsCard(BuildContext context) {
-    
-    if (_isLoadingClasses) {
-      return const Card(child: Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator())));
-    }
-    
     final isWide = MediaQuery.of(context).size.width > 600;
+    // Get available sections based on selected class
+    final List<String> availableSections = _selectedClass != null
+        ? (mockSections[_selectedClass] ?? [])
+        : [];
 
     return Card(
       elevation: 6,
@@ -518,14 +395,14 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
               runSpacing: 16,
               crossAxisAlignment: WrapCrossAlignment.end,
               children: [
-                // 1. CLASS DROPDOWN
+                // 1. GRADE DROPDOWN
                 SizedBox(
                   width: isWide
-                      ? 250
-                      : (MediaQuery.of(context).size.width - 32),
-                  child: DropdownButtonFormField<int>(
+                      ? 180
+                      : (MediaQuery.of(context).size.width / 2 - 32),
+                  child: DropdownButtonFormField<String>(
                     decoration: InputDecoration(
-                      labelText: 'Class / Section',
+                      labelText: 'Class / Grade',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -534,30 +411,67 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
                         vertical: 10,
                       ),
                     ),
-                    value: _selectedClass?.id,
-                    hint: const Text('Select Class'),
-                    items: _classes.map((ClassModel cls) {
-                      return DropdownMenuItem<int>(
-                        value: cls.id,
-                        child: Text('${cls.name} - ${cls.section}'),
+                    initialValue: _selectedClass,
+                    hint: const Text('Select'),
+                    items: allClasses.map((String cls) {
+                      return DropdownMenuItem<String>(
+                        value: cls,
+                        child: Text(cls),
                       );
                     }).toList(),
-                    onChanged: (int? newValue) {
-                      if (newValue != null && newValue != _selectedClass?.id) {
-                         final newClass = _classes.firstWhere(
-                          (c) => c.id == newValue,
-                          orElse: () => _classes.first
-                        );
-                        setState(() {
-                          _selectedClass = newClass;
-                        });
-                        _loadStudents();
-                      }
+                    onChanged: (String? newValue) {
+                      setState(() {
+                        _selectedClass = newValue;
+                        // Reset section when class changes
+                        _selectedSection = null;
+                        _students = []; // Clear list until section selected
+                      });
                     },
                   ),
                 ),
 
-                // 2. DATE PICKER
+                // 2. SECTION DROPDOWN (Dependent on Grade)
+                SizedBox(
+                  width: isWide
+                      ? 240
+                      : (MediaQuery.of(context).size.width / 2 - 32),
+                  child: DropdownButtonFormField<String>(
+                    decoration: InputDecoration(
+                      labelText: 'Section',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                    ),
+                    initialValue: _selectedSection,
+                    hint: const Text('Select Section'),
+                    disabledHint: const Text('Select Class first'),
+                    // If no class selected, disable this dropdown
+                    items: _selectedClass == null
+                        ? []
+                        : availableSections.map((String sec) {
+                            return DropdownMenuItem<String>(
+                              value: sec,
+                              child: Text(sec, overflow: TextOverflow.ellipsis),
+                            );
+                          }).toList(),
+                    onChanged: _selectedClass == null
+                        ? null
+                        : (String? newValue) {
+                            setState(() {
+                              _selectedSection = newValue;
+                              _loadStudents(); // Load automatically on section select
+                            });
+                          },
+                    isExpanded:
+                        true, // Handle long section names like "Fredo Fighters"
+                  ),
+                ),
+
+                // 3. DATE PICKER
                 SizedBox(
                   width: isWide ? 180 : double.infinity,
                   child: InkWell(
@@ -572,7 +486,6 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
                         setState(() {
                           _selectedDate = picked;
                         });
-                        _loadStudents(); // Reload to check existing attendance for new date
                       }
                     },
                     child: InputDecorator(
@@ -684,28 +597,12 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
   }
 
   Widget _buildAttendanceList() {
-    if (_isLoadingStudents) {
-      return const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()));
-    }
-    
-    if (_classes.isEmpty) {
-        return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(40),
-          child: Text(
-            'No classes found. Please contact admin.',
-            style: TextStyle(color: Colors.black54),
-          ),
-        ),
-      );
-    }
-    
-    if (_selectedClass == null) {
+    if (_selectedClass == null || _selectedSection == null) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(40),
           child: Text(
-            'Please select a Class.',
+            'Please select a Class and Section.',
             style: TextStyle(color: Colors.black54),
           ),
         ),
@@ -721,7 +618,7 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
               const Icon(Icons.person_off, size: 48, color: Colors.grey),
               const SizedBox(height: 10),
               Text(
-                'No student records found for\n${_selectedClass!.name} - ${_selectedClass!.section}',
+                'No student records found for\n$_selectedClass - $_selectedSection',
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 16, color: Colors.black54),
               ),
@@ -748,13 +645,11 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
                 ),
               ),
               ElevatedButton.icon(
-                onPressed: _isSaving ? null : _saveAttendance,
-                icon: _isSaving 
-                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                   : const Icon(Icons.save, color: Colors.white, size: 20),
-                label: Text(
-                  _isSaving ? 'Saving...' : 'Save All',
-                  style: const TextStyle(
+                onPressed: _saveAttendance,
+                icon: const Icon(Icons.save, color: Colors.white, size: 20),
+                label: const Text(
+                  'Save All',
+                  style: TextStyle(
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
                   ),
@@ -783,8 +678,19 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
     );
   }
 
+  void _saveAttendance() {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Attendance saved successfully!'),
+          backgroundColor: primaryColor,
+        ),
+      );
+    }
+  }
+
   Widget _buildStudentCard(Student student, AttendanceStatus currentStatus) {
-    final String remarksText = (_remarks[student.id]?.isNotEmpty ?? false)
+    final String remarksText = _remarks[student.id]!.isNotEmpty
         ? ' | Remarks: ${_remarks[student.id]}'
         : '';
     final String rollAndRemark = 'Roll No: ${student.rollNo}$remarksText';
@@ -854,7 +760,7 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
                         style: TextStyle(
                           color: Colors.black,
                           fontSize: 15,
-                          fontStyle: (_remarks[student.id]?.isEmpty ?? true)
+                          fontStyle: _remarks[student.id]!.isEmpty
                               ? FontStyle.italic
                               : FontStyle.normal,
                         ),
@@ -889,30 +795,19 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 14,
-                color: Colors.black54,
+                color: Colors.black87,
               ),
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                _buildStatusButton(
-                  student,
-                  AttendanceStatus.present,
-                  currentStatus == AttendanceStatus.present,
-                ),
-                const SizedBox(width: 10),
-                _buildStatusButton(
-                  student,
-                  AttendanceStatus.absent,
-                  currentStatus == AttendanceStatus.absent,
-                ),
-                const SizedBox(width: 10),
-                _buildStatusButton(
-                  student,
-                  AttendanceStatus.late,
-                  currentStatus == AttendanceStatus.late,
-                ),
-              ],
+            Wrap(
+              spacing: 4.0,
+              runSpacing: 4.0,
+              children: AttendanceStatus.values
+                  .map(
+                    (status) =>
+                        _buildStatusButton(student.id, status, currentStatus),
+                  )
+                  .toList(),
             ),
           ],
         ),
@@ -921,30 +816,31 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
   }
 
   Widget _buildStatusButton(
-    Student student,
+    int studentId,
     AttendanceStatus status,
-    bool isSelected,
+    AttendanceStatus currentStatus,
   ) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => _updateAttendance(student.id, status),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: isSelected ? status.color : status.backgroundColor,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isSelected ? status.color : Colors.transparent,
-              width: 1.5,
-            ),
+    final isSelected = currentStatus == status;
+    return GestureDetector(
+      onTap: () => _updateAttendance(studentId, status),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? status.color
+              : status.backgroundColor.withValues(alpha: 0.5),
+          border: Border.all(
+            color: isSelected ? status.color : Colors.black26,
+            width: 1.5,
           ),
-          alignment: Alignment.center,
-          child: Text(
-            status.displayName,
-            style: TextStyle(
-              color: isSelected ? Colors.white : Colors.black87,
-              fontWeight: FontWeight.w600,
-            ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          status.displayName,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.black87,
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
           ),
         ),
       ),
@@ -953,55 +849,43 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: _buildAppBar(),
-      body: SingleChildScrollView(
+    return PopScope(
+      canPop: true,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        Navigator.of(context).pop();
+      },
+      child: Scaffold(
+        appBar: _buildAppBar(),
+        body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-             _buildControlsCard(context),
-            const SizedBox(height: 20),
-             _buildStatsGrid(),
-             _buildAttendanceList(),
-          ],
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Attendance',
+                  style: TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _buildControlsCard(context),
+                const SizedBox(height: 25),
+                _buildStatsGrid(),
+                const SizedBox(height: 10),
+                _buildAttendanceList(),
+                const SizedBox(height: 40),
+              ],
+            ),
+          ),
         ),
+      ),
       ),
     );
   }
 }
-const List<String> allClasses = [
-  'Nursery',
-  'LKG',
-  'UKG',
-  'I',
-  'II',
-  'III',
-  'IV',
-  'V',
-  'VI',
-  'VII',
-  'VIII',
-  'IX',
-  'X',
-  'XI',
-  'XII',
-];
-
-const Map<String, List<String>> mockSections = {
-  'Nursery': ['Teddy Bears', 'Tiny Tots'],
-  'LKG': ['Little Stars', 'Sunshine'],
-  'UKG': ['Rising Stars', 'Bright Buds'],
-  'I': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'II': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'III': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'IV': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'V': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'VI': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'VII': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'VIII': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'IX': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'X': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'XI': ['Science - A', 'Commerce - B', 'Arts - C'],
-  'XII': ['Science - A', 'Commerce - B', 'Arts - C'],
-};
-

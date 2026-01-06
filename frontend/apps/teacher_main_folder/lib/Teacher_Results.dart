@@ -409,7 +409,8 @@ class _EnterResultsScreenState extends State<EnterResultsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildPageHeader(context),
+                    // _buildPageHeader(context) removed
+
                     const SizedBox(height: 30),
                     _buildSetupSection(isLargeScreen),
                     if (_isLoading) _buildLoadingSpinner(),
@@ -479,100 +480,10 @@ class _EnterResultsScreenState extends State<EnterResultsScreen> {
         icon: const Icon(Icons.arrow_back, color: Colors.white),
         onPressed: () => Navigator.of(context).pop(),
       ),
-      actions: [
-        if (isLargeScreen)
-          TextButton(
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (BuildContext dialogContext) {
-                  return AlertDialog(
-                    title: const Text('Logout'),
-                    content: const Text('Are you sure you want to logout?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(dialogContext).pop();
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const main_login.LoginScreen(),
-                            ),
-                            (route) => false,
-                          );
-                        },
-                        child: const Text('Logout', style: TextStyle(color: Colors.red)),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              backgroundColor: Colors.white.withValues(alpha: 0.1),
-            ),
-            child: const Text('Logout'),
-          ),
-      ],
+      actions: const [],
     );
   }
 
-  Widget _buildPageHeader(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Title: Uses Expanded to prevent horizontal overflow on small screens
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ShaderMask(
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-                ).createShader(bounds),
-                child: Text(
-                  '📊 Enter Results',
-                  style: TextStyle(
-                    fontSize: isMobile ? 32 : 40, // Reduced size for mobile
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white, // Required for ShaderMask
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 10),
-        // Button is always visible, but maintains its padding
-        ElevatedButton.icon(
-          onPressed: () {
-            Navigator.of(context).popUntil((route) => route.isFirst);
-          },
-          icon: const Icon(Icons.arrow_back),
-          label: isMobile
-              ? const SizedBox.shrink()
-              : const Text('Back to Dashboard'), // Hide text on small screen
-          style: ElevatedButton.styleFrom(
-            foregroundColor: Colors.white,
-            backgroundColor: const Color(0xFF667eea),
-            padding: EdgeInsets.symmetric(
-              horizontal: isMobile ? 12 : 24,
-              vertical: 12,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildSetupSection(bool isLargeScreen) {
     return Container(

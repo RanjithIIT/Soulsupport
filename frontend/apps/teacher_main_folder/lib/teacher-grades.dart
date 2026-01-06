@@ -393,6 +393,7 @@ class _GradesDashboardState extends State<GradesDashboard> {
                       ),
                     ),
 
+                    // Buttons removed
 
                     const SizedBox(width: 8),
                   ],
