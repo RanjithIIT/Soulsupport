@@ -293,16 +293,7 @@ class _StudentProjectsPageState extends State<StudentProjectsPage> {
         centerTitle: false,
 
         // Actions: Refresh and Profile
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () => _showSnackbar("Data Refreshed!"),
-          ),
-          IconButton(
-            icon: const Icon(Icons.person, color: Colors.white),
-            onPressed: () => _showSnackbar("Showing Profile"),
-          ),
-        ],
+
       ),
 
       body: SingleChildScrollView(

@@ -855,7 +855,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                                       child: DropdownButtonFormField<String>(
                                                         value: _classTeacherClass,
                                                         decoration: _inputDecoration(hint: 'Select Class'),
-                                                        items: ['Grade 9', 'Grade 10', 'Grade 11', 'Grade 12']
+                                                        items: List.generate(10, (index) => 'Class ${index + 1}')
                                                             .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                                                             .toList(),
                                                         onChanged: (v) => setState(() => _classTeacherClass = v),

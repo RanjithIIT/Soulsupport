@@ -474,27 +474,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                   const Spacer(),
-                  IconButton(
-                    onPressed: () {
-                      // refresh behaviour: simple reorder and notify
-                      setState(() {
-                        _materials.shuffle();
-                      });
-                      _showSnack('Materials refreshed');
-                    },
-                    icon: const Icon(Icons.refresh, color: Colors.white),
-                  ),
-                  const SizedBox(width: 6),
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Center(
-                      child: Icon(Icons.person, color: Colors.white, size: 24),
-                    ),
-                  ),
+
                 ],
               ),
             ),

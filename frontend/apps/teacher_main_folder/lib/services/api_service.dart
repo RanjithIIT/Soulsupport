@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
+  static const baseUrl = 'http://localhost:8000/api';
   static const _base = 'http://localhost:8000/api/management-admin';
   static const teachersEndpoint = '$_base/teachers/';
   static const studentsEndpoint = '$_base/students/';
@@ -246,6 +247,53 @@ class ApiService {
     } catch (e) {
       debugPrint('Error fetching students from classes: $e');
       return [];
+    }
+  }
+
+
+  /// General authenticated request helper
+  static Future<http.Response> authenticatedRequest(String endpoint, {String method = 'GET', Map<String, dynamic>? body}) async {
+    final headers = await _getAuthHeaders();
+    
+    // Handle both full URLs and relative paths
+    Uri uri;
+    if (endpoint.startsWith('http')) {
+      uri = Uri.parse(endpoint);
+    } else {
+      // Ensure clean slash handling
+      final cleanBase = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+      final cleanEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
+      uri = Uri.parse('$cleanBase/$cleanEndpoint');
+    }
+    
+    debugPrint('Making $method request to: $uri');
+    
+    http.Response response;
+    try {
+      switch (method.toUpperCase()) {
+        case 'GET':
+          response = await http.get(uri, headers: headers);
+          break;
+        case 'POST':
+          response = await http.post(uri, headers: headers, body: jsonEncode(body));
+          break;
+        case 'PUT':
+          response = await http.put(uri, headers: headers, body: jsonEncode(body));
+          break;
+        case 'PATCH':
+          response = await http.patch(uri, headers: headers, body: jsonEncode(body));
+          break;
+        case 'DELETE':
+          response = await http.delete(uri, headers: headers);
+          break;
+        default:
+          throw Exception('Unsupported method: $method');
+      }
+      return response;
+    } catch (e) {
+      debugPrint('Error in authenticatedRequest: $e');
+      // Return a 500 equivalent response on error
+      return http.Response('{"error": "$e"}', 500); 
     }
   }
 }

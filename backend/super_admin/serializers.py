@@ -52,16 +52,17 @@ class SchoolSerializer(serializers.ModelSerializer):
     generated_password = serializers.SerializerMethodField()
     user_id = serializers.UUIDField(source='user.user_id', read_only=True)
     username = serializers.CharField(source='user.username', read_only=True)
+    logo_url = serializers.SerializerMethodField()
     
     class Meta:
         model = School
         fields = [
             'school_id', 'school_name', 'location', 'statecode', 'districtcode', 'registration_number',
             'email', 'phone', 'address', 'principal_name', 'established_year', 'status',
-            'license_expiry', 'user', 'user_id', 'username', 'stats', 'generated_password',
+            'license_expiry', 'logo', 'logo_url', 'user', 'user_id', 'username', 'stats', 'generated_password',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['school_id', 'user', 'user_id', 'username', 'created_at', 'updated_at']
+        read_only_fields = ['school_id', 'user', 'user_id', 'username', 'created_at', 'updated_at', 'logo_url']
     
     def validate(self, data):
         """Validate that required fields for school_id generation are provided"""
@@ -98,6 +99,15 @@ class SchoolSerializer(serializers.ModelSerializer):
     def get_generated_password(self, obj):
         """Get generated password from context (only available during creation)"""
         return self.context.get('generated_password', None)
+
+    def get_logo_url(self, obj):
+        """Get full URL for logo"""
+        if obj.logo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.logo.url)
+            return obj.logo.url
+        return None
 
 
 class ActivitySerializer(serializers.ModelSerializer):

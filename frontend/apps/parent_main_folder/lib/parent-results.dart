@@ -258,14 +258,7 @@ class ResultsPage extends StatelessWidget {
 
         // Actions (Refresh and Profile Icons from the image)
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () => _showSnackbar(context, "Data refreshed!"),
-          ),
-          IconButton(
-            icon: const Icon(Icons.person, color: Colors.white),
-            onPressed: () => _showSnackbar(context, "Showing user profile..."),
-          ),
+
         ],
       ),
 

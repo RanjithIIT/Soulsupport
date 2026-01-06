@@ -270,10 +270,7 @@ class ActivityScreen extends StatelessWidget {
             );
           },
         ),
-        IconButton(
-          icon: const Icon(Icons.person),
-          onPressed: () => _handleAction(context, 'Profile'),
-        ),
+
         IconButton(
           icon: const Icon(Icons.logout),
           onPressed: () => _handleAction(context, 'Logout'),

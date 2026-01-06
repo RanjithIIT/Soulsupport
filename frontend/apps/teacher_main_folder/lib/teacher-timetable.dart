@@ -312,21 +312,7 @@ class _TeacherTimetableScreenState extends State<TeacherTimetableScreen> {
                 ),
                 // Actions: Refresh/Loop icon and Person icon
                 actions: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.refresh_outlined,
-                      color: Colors.white,
-                    ),
-                    onPressed: () {
-                      // Refresh action
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.person_outline, color: Colors.white),
-                    onPressed: () {
-                      // Profile action
-                    },
-                  ),
+
                 ],
               ),
             ),

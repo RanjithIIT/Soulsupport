@@ -20,6 +20,7 @@ class SchoolProfileHeader extends StatefulWidget {
 class _SchoolProfileHeaderState extends State<SchoolProfileHeader> {
   String? _schoolName;
   String? _schoolId;
+  String? _schoolLogoUrl;
   bool _isLoading = true;
 
   @override
@@ -56,32 +57,27 @@ class _SchoolProfileHeaderState extends State<SchoolProfileHeader> {
           // The response might be wrapped in 'data' field or directly be the school data
           final schoolData = data['data'] ?? data;
           if (schoolData is Map) {
-            if (mounted) {
-              setState(() {
-                _schoolName = _getSchoolName(schoolData);
-                _schoolId = schoolData['school_id']?.toString() ?? 
-                           schoolData['id']?.toString();
-                _isLoading = false;
-              });
-            }
+            setState(() {
+              _schoolName = _getSchoolName(schoolData);
+              _schoolId = schoolData['school_id']?.toString() ?? 
+                         schoolData['id']?.toString();
+              _schoolLogoUrl = schoolData['logo_url']?.toString();
+              _isLoading = false;
+            });
             return;
           }
         }
       }
       
-      if (mounted) {
-        setState(() {
-          _schoolName = _schoolName ?? 'School';
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _schoolName = _schoolName ?? 'School';
+        _isLoading = false;
+      });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _schoolName = _schoolName ?? 'School';
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _schoolName = _schoolName ?? 'School';
+        _isLoading = false;
+      });
     }
   }
 
@@ -93,7 +89,10 @@ class _SchoolProfileHeaderState extends State<SchoolProfileHeader> {
           schoolId: _schoolId!,
           apiService: widget.apiService,
         ),
-      );
+      ).then((_) {
+        // Reload data to reflect any changes made in the dialog (like logo upload)
+        _loadSchoolData();
+      });
     }
   }
 
@@ -133,21 +132,42 @@ class _SchoolProfileHeaderState extends State<SchoolProfileHeader> {
     return Container(
       width: 45,
       height: 45,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(
+        gradient: _schoolLogoUrl == null ? const LinearGradient(
           colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-        ),
+        ) : null,
       ),
-      child: Center(
-        child: Text(
-          initial,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
+      child: ClipOval(
+        child: _schoolLogoUrl != null
+            ? Image.network(
+                _schoolLogoUrl!,
+                width: 45,
+                height: 45,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Center(
+                    child: Text(
+                      initial,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  );
+                },
+              )
+            : Center(
+                child: Text(
+                  initial,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
       ),
     );
   }

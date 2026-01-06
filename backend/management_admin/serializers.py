@@ -2,15 +2,12 @@
 Serializers for management_admin app
 """
 from rest_framework import serializers
-from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, Activity, Gallery, GalleryImage
-
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, Activity
 from main_login.serializers import UserSerializer
 from main_login.serializer_mixins import SchoolIdMixin
 from main_login.utils import get_user_school_id
 from super_admin.serializers import SchoolSerializer
 from super_admin.models import School
-
-
 
 
 class FileSerializer(serializers.ModelSerializer):
@@ -62,6 +59,7 @@ class TeacherSerializer(SchoolIdMixin, serializers.ModelSerializer):
         help_text='Department ID (optional)'
     )
     profile_photo_url = serializers.SerializerMethodField()
+    logo_url = serializers.SerializerMethodField()
     
     # Make employee_no required but allow auto-generation if not provided
     employee_no = serializers.CharField(max_length=50, required=False, help_text='Employee number (auto-generated if not provided)')
@@ -78,8 +76,9 @@ class TeacherSerializer(SchoolIdMixin, serializers.ModelSerializer):
             'joining_date', 'dob', 'gender',
             'blood_group', 'nationality', 'mobile_no', 'email', 'address',
             'class_teacher_class', 'class_teacher_grade', 'subject_specialization',
-            'emergency_contact', 'emergency_contact_relation', 'profile_photo', 'profile_photo_url', 
-            'is_class_teacher', 'is_active', 'salary', 'experience',
+            'emergency_contact', 'emergency_contact_relation', 'salary', 'experience',
+            'profile_photo', 'profile_photo_url', 'logo_url',
+            'is_class_teacher', 'is_active',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at', 'user', 'profile_photo_url']
@@ -103,7 +102,24 @@ class TeacherSerializer(SchoolIdMixin, serializers.ModelSerializer):
             # If no request context, return as-is (may be used in management commands)
             return obj.profile_photo
         return None
-    
+
+    def get_logo_url(self, obj):
+        """Get school logo URL directly in profile"""
+        # Try to get school
+        school = None
+        if obj.department and obj.department.school:
+            school = obj.department.school
+        elif obj.school_id:
+            from super_admin.models import School
+            school = School.objects.filter(school_id=obj.school_id).first()
+        
+        if school and school.logo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(school.logo.url)
+            return school.logo.url
+        return None
+
     def create(self, validated_data):
         import random
         import string
@@ -217,22 +233,21 @@ class StudentSerializer(serializers.ModelSerializer):
     due_fee_amount = serializers.SerializerMethodField()
     fees_count = serializers.SerializerMethodField()
     profile_photo_url = serializers.SerializerMethodField()
+    logo_url = serializers.SerializerMethodField()
     
     bus_route = serializers.SerializerMethodField()
-    awards = serializers.SerializerMethodField()
 
     class Meta:
         model = Student
         fields = [
-            'email', 'user', 'school', 'school_id', 'school_name', 'student_id',
+            'email', 'user', 'school', 'school_id', 'school_name', 'logo_url', 'student_id',
             'student_name', 'parent_name', 'date_of_birth', 'gender',
             'applying_class', 'grade', 'address', 'category', 'admission_number',
             'parent_phone', 'emergency_contact', 'medical_information',
             'blood_group', 'previous_school', 'remarks',
             'profile_photo', 'profile_photo_url',
-            'activities', 'leadership', 'achievements', 'participation',
             'total_fee_amount', 'paid_fee_amount', 'due_fee_amount', 'fees_count',
-            'bus_route', 'awards',
+            'bus_route',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['email', 'school_id', 'created_at', 'updated_at', 'user', 'profile_photo_url']
@@ -248,19 +263,10 @@ class StudentSerializer(serializers.ModelSerializer):
         if obj.profile_photo:
             request = self.context.get('request')
             if request:
-                # If it's already a full URL, return it
+                # If it's already a full URL, return it; otherwise build absolute URI
                 if obj.profile_photo.startswith('http://') or obj.profile_photo.startswith('https://'):
                     return obj.profile_photo
-                # If it starts with /media/, it's a media file URL - build absolute URI
-                if obj.profile_photo.startswith('/media/'):
-                    return request.build_absolute_uri(obj.profile_photo)
-                # If it doesn't start with /, add /media/ prefix (for relative paths like 'profile_photos/...')
-                if not obj.profile_photo.startswith('/'):
-                    media_path = f'/media/{obj.profile_photo}'
-                    return request.build_absolute_uri(media_path)
-                # For other absolute paths, build absolute URI
                 return request.build_absolute_uri(obj.profile_photo)
-            # If no request context, return as-is
             return obj.profile_photo
         return None
     
@@ -279,7 +285,6 @@ class StudentSerializer(serializers.ModelSerializer):
             return float(paid)
         except:
             return 0.0
-    
     def get_due_fee_amount(self, obj):
         from django.db.models import Sum
         try:
@@ -287,24 +292,21 @@ class StudentSerializer(serializers.ModelSerializer):
             return float(due)
         except:
             return 0.0
+
+    def get_logo_url(self, obj):
+        """Get school logo URL directly in profile"""
+        if obj.school and obj.school.logo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.school.logo.url)
+            return obj.school.logo.url
+        return None
     
     def get_fees_count(self, obj):
         try:
             return obj.management_fees.count()
         except:
             return 0
-
-    def get_awards(self, obj):
-        from .models import Award
-        from .serializers import AwardSerializer
-        try:
-             # Find awards where student_ids contains the student_id
-             if not obj.student_id: return []
-             awards = Award.objects.filter(student_ids__icontains=obj.student_id)
-             # Use AwardSerializer to get fully qualified URLs
-             return AwardSerializer(awards, many=True, context=self.context).data
-        except:
-            return []
 
 
 # -------------- FIXED SERIALIZER BELOW -----------------
@@ -551,25 +553,14 @@ class CampusFeatureSerializer(serializers.ModelSerializer):
 
 class AwardSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Award model"""
-    document_url = serializers.SerializerMethodField()
     
     class Meta:
         model = Award
         fields = [
-            'id', 'school_id', 'school_name', 'title', 'category', 'recipient', 
-            'student_ids', 'date', 'description', 'level', 'presented_by', 'document',
-            'document_url', 'created_at', 'updated_at'
+            'id', 'school_id', 'school_name', 'title', 'category', 'recipient',
+            'student_ids', 'date', 'description', 'level', 'presented_by',
+            'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'school_id', 'school_name', 'created_at', 'updated_at']
-
-    def get_document_url(self, obj):
-        """Get the URL to access the document"""
-        if obj.document:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.document.url)
-            return obj.document.url
-        return None
         read_only_fields = ['id', 'school_id', 'school_name', 'created_at', 'updated_at']
     
     def update(self, instance, validated_data):
@@ -580,43 +571,24 @@ class AwardSerializer(SchoolIdMixin, serializers.ModelSerializer):
         return instance
 
 
-class ActivitySerializer(SchoolIdMixin, serializers.ModelSerializer):
-    """Serializer for Activity model"""
+class ActivitySerializer(serializers.ModelSerializer):
+    """
+    Serializer for Activity model
+    """
+    school_name = serializers.CharField(source='school.school_name', read_only=True)
+
     class Meta:
         model = Activity
         fields = [
-            'id', 'school_id', 'school_name', 'name', 'category', 
-            'instructor', 'max_participants', 'schedule', 'location', 
-            'status', 'start_date', 'end_date', 'description', 
-            'requirements', 'notes', 'created_at'
+            'id', 'school', 'school_name', 'name', 'category', 'instructor',
+            'max_participants', 'schedule', 'location', 'status',
+            'start_date', 'end_date', 'description', 'requirements', 'notes',
+            'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'school_id', 'school_name', 'created_at']
-    
+        read_only_fields = ['id', 'school', 'school_name', 'created_at', 'updated_at']
+
     def update(self, instance, validated_data):
-        """Update activity instance"""
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        return instance
-
-
-class GalleryImageSerializer(serializers.ModelSerializer):
-    """Serializer for GalleryImage"""
-    class Meta:
-        model = GalleryImage
-        fields = ['id', 'image', 'alt_text']
-
-
-class GallerySerializer(SchoolIdMixin, serializers.ModelSerializer):
-    """Serializer for Gallery model"""
-    images = GalleryImageSerializer(many=True, read_only=True)
-    
-    class Meta:
-        model = Gallery
-        fields = [
-            'id', 'school_id', 'school_name', 'title', 'category',
-            'description', 'date', 'photographer', 'location', 
-            'emoji', 'images', 'created_at'
-        ]
-        read_only_fields = ['id', 'school_id', 'school_name', 'created_at']
-
+        # Prevent school modification
+        if 'school' in validated_data:
+            validated_data.pop('school')
+        return super().update(instance, validated_data)

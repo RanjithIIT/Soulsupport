@@ -221,8 +221,8 @@ class Teacher(models.Model):
     subject_specialization = models.TextField(null=True, blank=True, help_text='Subject specialization details')
     emergency_contact = models.CharField(max_length=20, null=True, blank=True, help_text='Emergency contact number')
     emergency_contact_relation = models.CharField(max_length=50, null=True, blank=True, help_text='Relation with emergency contact')
-    salary = models.CharField(max_length=50, null=True, blank=True, help_text='Salary information')
-    experience = models.CharField(max_length=50, null=True, blank=True, help_text='Years of experience')
+    salary = models.CharField(max_length=50, null=True, blank=True, help_text='Salary details')
+    experience = models.CharField(max_length=50, null=True, blank=True, help_text='Experience details (e.g. 5 years)')
     
     profile_photo = models.CharField(
         max_length=100,
@@ -360,11 +360,6 @@ class Student(models.Model):
         blank=True,
         help_text='Profile photo URL or file path'
     )
-    activities = models.TextField(null=True, blank=True, help_text="Extracurricular activities")
-    leadership = models.TextField(null=True, blank=True, help_text="Leadership roles")
-    achievements = models.TextField(null=True, blank=True, help_text="Other achievements")
-    participation = models.TextField(null=True, blank=True, help_text="Participation record")
-
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1228,9 +1223,6 @@ class Award(models.Model):
         ('Leadership', 'Leadership'),
         ('Innovation', 'Innovation'),
         ('Community', 'Community'),
-        ('Science Fair', 'Science Fair'),
-        ('NSS', 'NSS'),
-        ('NCC', 'NCC'),
         ('Other', 'Other'),
     ]
     
@@ -1275,12 +1267,6 @@ class Award(models.Model):
         blank=True, 
         help_text='Presented by (organization or person)'
     )
-    document = models.FileField(
-        upload_to='awards/certificates/', 
-        blank=True, 
-        null=True, 
-        help_text='Award document/certificate'
-    )
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1288,85 +1274,47 @@ class Award(models.Model):
     def __str__(self):
         return f"{self.title} - {self.recipient}"
     
-    class Meta:
-        db_table = 'awards'
-        verbose_name = 'Award'
-        verbose_name_plural = 'Awards'
-        ordering = ['-date', '-created_at']
-
 
 class Activity(models.Model):
-    """Activity Model"""
-    CATEGORY_CHOICES = [
+    id = models.AutoField(primary_key=True)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='school_activities', db_column='school_id')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text="School name (read-only, auto-populated from schools table)")
+    name = models.CharField(max_length=255, help_text="Activity name")
+    category = models.CharField(max_length=50, choices=[
         ('Sports', 'Sports'),
         ('Academic', 'Academic'),
         ('Arts', 'Arts'),
         ('Games', 'Games'),
         ('Cultural', 'Cultural'),
         ('Technical', 'Technical'),
-    ]
-
-    STATUS_CHOICES = [
+    ], help_text="Activity category")
+    instructor = models.CharField(max_length=255, help_text="Instructor name")
+    max_participants = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1)], help_text="Maximum number of participants")
+    schedule = models.CharField(max_length=255, help_text="Activity schedule (e.g., Monday, Wednesday 3:00 PM)")
+    location = models.CharField(max_length=255, help_text="Activity location")
+    status = models.CharField(max_length=50, choices=[
         ('Active', 'Active'),
         ('Inactive', 'Inactive'),
         ('Suspended', 'Suspended'),
         ('Completed', 'Completed'),
-    ]
-
-    id = models.AutoField(primary_key=True)
-    school = models.ForeignKey(
-        School,
-        on_delete=models.CASCADE,
-        related_name='school_activities',
-        db_column='school_id'
-    )
-    school_name = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-        editable=False,
-        help_text='School name (read-only, auto-populated from schools table)'
-    )
-    name = models.CharField(max_length=255, help_text='Activity name')
-    category = models.CharField(
-        max_length=50,
-        choices=CATEGORY_CHOICES,
-        help_text='Activity category'
-    )
-    instructor = models.CharField(max_length=255, help_text='Instructor name')
-    max_participants = models.IntegerField(
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(1)],
-        help_text='Maximum number of participants'
-    )
-    schedule = models.CharField(
-        max_length=255,
-        help_text='Activity schedule (e.g., Monday, Wednesday 3:00 PM)'
-    )
-    location = models.CharField(max_length=255, help_text='Activity location')
-    status = models.CharField(
-        max_length=50,
-        choices=STATUS_CHOICES,
-        default='Active',
-        help_text='Activity status'
-    )
-    start_date = models.DateField(null=True, blank=True, help_text='Activity start date')
-    end_date = models.DateField(null=True, blank=True, help_text='Activity end date')
-    description = models.TextField(help_text='Detailed activity description')
-    requirements = models.TextField(blank=True, help_text='Requirements or prerequisites')
-    notes = models.TextField(blank=True, help_text='Additional notes or comments')
+    ], default='Active', help_text="Activity status")
+    start_date = models.DateField(null=True, blank=True, help_text="Activity start date")
+    end_date = models.DateField(null=True, blank=True, help_text="Activity end date")
+    description = models.TextField(help_text="Detailed activity description")
+    requirements = models.TextField(blank=True, help_text="Requirements or prerequisites")
+    notes = models.TextField(blank=True, help_text="Additional notes or comments")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
+        # Auto-populate school_name from school ForeignKey
         if self.school and not self.school_name:
             self.school_name = self.school.school_name
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.name} - {self.category}"
+        return f"{self.name} ({self.category})"
 
     class Meta:
         db_table = 'school_activities'
@@ -1375,76 +1323,3 @@ class Activity(models.Model):
         ordering = ['-created_at']
 
 
-class Gallery(models.Model):
-    """Gallery model for photo albums/events"""
-    
-    CATEGORY_CHOICES = [
-        ('Sports', 'Sports'),
-        ('Academic', 'Academic'),
-        ('Cultural', 'Cultural'),
-        ('Awards', 'Awards'),
-        ('Activities', 'Activities'),
-        ('Other', 'Other'),
-    ]
-
-    school_id = models.CharField(
-        max_length=100, 
-        db_index=True, 
-        null=True, 
-        blank=True, 
-        editable=False, 
-        help_text='School ID for filtering'
-    )
-    school_name = models.CharField(
-        max_length=255, 
-        null=True, 
-        blank=True, 
-        editable=False, 
-        help_text='School name'
-    )
-    
-    title = models.CharField(max_length=255, help_text='Gallery title')
-    category = models.CharField(
-        max_length=50, 
-        choices=CATEGORY_CHOICES, 
-        default='Other',
-        help_text='Event category'
-    )
-    description = models.TextField(blank=True, help_text='Description')
-    date = models.DateField(help_text='Event date')
-    photographer = models.CharField(max_length=255, blank=True, help_text='Photographer name')
-    location = models.CharField(max_length=255, blank=True, help_text='Location')
-    emoji = models.CharField(max_length=10, blank=True, default='📷', help_text='Emoji icon')
-    
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    def __str__(self):
-        return f"{self.title} - {self.date}"
-    
-    class Meta:
-        db_table = 'gallery'
-        verbose_name = 'Gallery'
-        verbose_name_plural = 'Galleries'
-        ordering = ['-date', '-created_at']
-
-
-class GalleryImage(models.Model):
-    """Images for a gallery event"""
-    gallery = models.ForeignKey(
-        Gallery, 
-        on_delete=models.CASCADE, 
-        related_name='images',
-        help_text='Parent gallery'
-    )
-    image = models.CharField(
-        max_length=255,
-        help_text='Image URL or path'
-    )
-    alt_text = models.CharField(max_length=255, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        db_table = 'gallery_images'
-        verbose_name = 'Gallery Image'
-        verbose_name_plural = 'Gallery Images'

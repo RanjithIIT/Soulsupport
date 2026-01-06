@@ -480,24 +480,6 @@ class _EnterResultsScreenState extends State<EnterResultsScreen> {
         onPressed: () => Navigator.of(context).pop(),
       ),
       actions: [
-        // Added Refresh icon (part of the overall design theme)
-        IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white),
-          onPressed: () {
-            setState(() {
-              // Refresh results data
-            });
-          },
-        ),
-        IconButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const TeacherProfilePage()),
-            );
-          },
-          icon: const Icon(Icons.person, color: Colors.white),
-        ),
         if (isLargeScreen)
           TextButton(
             onPressed: () {
