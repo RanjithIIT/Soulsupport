@@ -360,17 +360,7 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
           fontWeight: FontWeight.w500,
         ),
       ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white),
-          onPressed: () {},
-        ),
-        IconButton(
-          icon: const Icon(Icons.person, color: Colors.white),
-          onPressed: () {},
-        ),
-        const SizedBox(width: 8),
-      ],
+      actions: const [],
       elevation: 8,
     );
   }

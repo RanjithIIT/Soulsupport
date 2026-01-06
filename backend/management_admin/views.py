@@ -8,7 +8,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, Activity, Gallery, GalleryImage
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, Activity
 from super_admin.models import School
 from .serializers import (
     FileSerializer,
@@ -25,9 +25,7 @@ from .serializers import (
     EventSerializer,
     AwardSerializer,
     CampusFeatureSerializer,
-    ActivitySerializer,
-    GallerySerializer,
-    GalleryImageSerializer
+    ActivitySerializer
 )
 
 
@@ -1671,20 +1669,19 @@ class DepartmentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """Set school reference when creating department"""
+        department = serializer.save()
+        
         school_id = self.get_school_id()
         if school_id:
             from super_admin.models import School
             try:
                 school = School.objects.get(school_id=school_id)
-                serializer.save(
+                Department.objects.filter(pk=department.pk).update(
                     school=school,
                     school_name=school.school_name
                 )
             except School.DoesNotExist:
-                # If school not found, try saving without it (might fail if required)
-                serializer.save()
-        else:
-            serializer.save()
+                pass
 
 
 class CampusFeatureViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
@@ -1763,9 +1760,9 @@ class ActivityViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     serializer_class = ActivitySerializer
     permission_classes = [IsAuthenticated, IsManagementAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['category']
+    filterset_fields = ['category', 'status', 'start_date', 'end_date']
     search_fields = ['name', 'instructor', 'location', 'description']
-    ordering_fields = ['created_at', 'name']
+    ordering_fields = ['created_at', 'start_date', 'name']
     ordering = ['-created_at']
     
     def get_permissions(self):
@@ -1796,47 +1793,3 @@ class ActivityViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         """Update activity"""
         serializer.save()
 
-
-class GalleryViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
-    """ViewSet for Gallery management"""
-    queryset = Gallery.objects.all()
-    serializer_class = GallerySerializer
-    permission_classes = [IsAuthenticated, IsManagementAdmin]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['category', 'is_favorite']
-    search_fields = ['title', 'description', 'photographer', 'location']
-    ordering_fields = ['date', 'created_at']
-    ordering = ['-date']
-
-    def get_permissions(self):
-        """Allow read/create/update/delete without auth for development - can be adjusted"""
-        if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
-            return [AllowAny()]
-        return [IsAuthenticated(), IsManagementAdmin()]
-
-    @action(detail=True, methods=['post'], url_path='upload-image')
-    def upload_image(self, request, pk=None):
-        """Upload an image to the gallery"""
-        gallery = self.get_object()
-        
-        if 'image' not in request.FILES:
-            return Response({'error': 'No image provided'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        image_file = request.FILES['image']
-        caption = request.data.get('caption', '')
-        
-        gallery_image = GalleryImage.objects.create(
-            gallery=gallery,
-            image=image_file,
-            caption=caption
-        )
-        
-        return Response(GalleryImageSerializer(gallery_image).data, status=status.HTTP_201_CREATED)
-
-    @action(detail=True, methods=['post'], url_path='toggle-favorite')
-    def toggle_favorite(self, request, pk=None):
-        """Toggle favorite status"""
-        gallery = self.get_object()
-        gallery.is_favorite = not gallery.is_favorite
-        gallery.save()
-        return Response({'is_favorite': gallery.is_favorite})

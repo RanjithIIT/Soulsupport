@@ -42,39 +42,13 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
   final _nationalityController = TextEditingController();
   final _subjectSpecializationController = TextEditingController();
   final _emergencyContactController = TextEditingController();
-  final _emergencyContactRelationController = TextEditingController();
-  final _permanentAddressController = TextEditingController();
-  final _salaryController = TextEditingController();
-  final _experienceController = TextEditingController();
-  
-  String? _maritalStatus;
-  final List<String> _maritalStatusOptions = ['Single', 'Married', 'Divorced', 'Widowed'];
-
-  String? _selectedDepartmentId;
-  List<Map<String, dynamic>> _departments = [];
-  bool _isLoadingDepartments = false;
+  final _departmentController = TextEditingController();
   String? _gender;
   String? _bloodGroup;
   bool _isClassTeacher = false;
   String? _classTeacherClass;
   String? _classTeacherGrade;
   
-  // Default department names (from old designation dropdown)
-  static const List<String> _defaultDepartmentNames = [
-    'Mathematics',
-    'Physics',
-    'Chemistry',
-    'Biology',
-    'English',
-    'History',
-    'Geography',
-    'Computer Science',
-    'Art',
-    'Music',
-    'Principal',
-    'Vice Principal',
-    'Coordinator',
-  ];
   DateTime? _dob;
   DateTime? _joiningDate;
   Uint8List? _photoBytes;
@@ -84,58 +58,12 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
   bool _showError = false;
   String _errorMessage = '';
 
+
+
   @override
   void initState() {
     super.initState();
-    _loadDepartments();
     _loadTeacherData();
-  }
-
-  Future<void> _loadDepartments() async {
-    setState(() => _isLoadingDepartments = true);
-    try {
-      final apiService = ApiService();
-      await apiService.initialize();
-      final response = await apiService.get(Endpoints.departments);
-      
-      if (response.success && response.data != null) {
-        List<dynamic> data = [];
-        if (response.data is List) {
-          data = response.data as List;
-        } else if (response.data is Map && (response.data as Map)['results'] != null) {
-          data = (response.data as Map)['results'] as List;
-        }
-        
-        if (mounted) {
-          setState(() {
-            _departments = data.map((d) => d as Map<String, dynamic>).toList();
-            // If no departments from API, add default ones as fallback
-            if (_departments.isEmpty) {
-              _departments = _defaultDepartmentNames.map((name) => <String, dynamic>{
-                'id': name,
-                'name': name,
-              }).toList();
-            }
-            _isLoadingDepartments = false;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            // If API fails, use default departments as fallback
-            _departments = _defaultDepartmentNames.map((name) => <String, dynamic>{
-              'id': name,
-              'name': name,
-            }).toList();
-            _isLoadingDepartments = false;
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingDepartments = false);
-      }
-    }
   }
 
   Future<void> _loadTeacherData() async {
@@ -156,12 +84,14 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
       _firstNameController.text = data['first_name'] as String? ?? '';
       _lastNameController.text = data['last_name'] as String? ?? '';
       _qualificationController.text = data['qualification'] as String? ?? '';
-      // Set department from data - department can be an ID or an object
-      if (data['department'] != null) {
+      // Set department - prioritize department_name if available, else try department object/string
+      if (data['department_name'] != null && data['department_name'].toString().isNotEmpty) {
+        _departmentController.text = data['department_name'].toString();
+      } else if (data['department'] != null) {
         if (data['department'] is Map) {
-          _selectedDepartmentId = data['department']['id']?.toString();
+          _departmentController.text = data['department']['name']?.toString() ?? '';
         } else {
-          _selectedDepartmentId = data['department'].toString();
+          _departmentController.text = data['department'].toString();
         }
       }
       _gender = data['gender'] as String?;
@@ -172,14 +102,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
       _nationalityController.text = data['nationality'] as String? ?? '';
       _subjectSpecializationController.text = data['subject_specialization'] as String? ?? '';
       _emergencyContactController.text = data['emergency_contact'] as String? ?? '';
-      _emergencyContactRelationController.text = data['emergency_contact_relation'] as String? ?? '';
-      _permanentAddressController.text = data['permanent_address'] as String? ?? '';
-      _maritalStatus = data['marital_status'] as String?;
-      if (_maritalStatus != null && !_maritalStatusOptions.contains(_maritalStatus)) {
-        _maritalStatus = null;
-      }
-      _salaryController.text = (data['salary'] ?? '').toString();
-      _experienceController.text = (data['experience'] ?? '').toString();
       _isClassTeacher = data['is_class_teacher'] as bool? ?? false;
       _classTeacherClass = data['class_teacher_class'] as String?;
       _classTeacherGrade = data['class_teacher_grade'] as String?;
@@ -202,6 +124,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
 
   @override
   void dispose() {
+    _departmentController.dispose();
     _employeeNoController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
@@ -212,10 +135,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
       _nationalityController.dispose();
     _subjectSpecializationController.dispose();
     _emergencyContactController.dispose();
-    _emergencyContactRelationController.dispose();
-    _permanentAddressController.dispose();
-    _salaryController.dispose();
-    _experienceController.dispose();
     super.dispose();
   }
 
@@ -256,6 +175,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
             ? DateFormat('yyyy-MM-dd').format(_dob!) 
             : null,
         'gender': _gender,
+        'department': _departmentController.text.trim(),
         'mobile_no': _mobileNoController.text.trim(),
         'email': _emailController.text.trim(),
         'address': _addressController.text.trim(),
@@ -268,11 +188,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
           'class_teacher_grade': _classTeacherGrade,
         'subject_specialization': _subjectSpecializationController.text.trim(),
         'emergency_contact': _emergencyContactController.text.trim(),
-        'emergency_contact_relation': _emergencyContactRelationController.text.trim(),
-        'permanent_address': _permanentAddressController.text.trim(),
-        'marital_status': _maritalStatus,
-        'salary': _salaryController.text.trim().isNotEmpty ? _salaryController.text.trim() : null,
-        'experience': _experienceController.text.trim().isNotEmpty ? _experienceController.text.trim() : null,
       };
 
       if (widget.employeeNo != null && widget.employeeNo!.isNotEmpty) {
@@ -336,9 +251,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
             children: [
               _PreviewItem('Employee No', _employeeNoController.text),
               _PreviewItem('Name', '${_firstNameController.text} ${_lastNameController.text}'.trim()),
-              _PreviewItem('Department', _selectedDepartmentId != null 
-                  ? _departments.firstWhere((d) => d['id'].toString() == _selectedDepartmentId, orElse: () => {})['name'] ?? 'Not provided'
-                  : 'Not provided'),
+              _PreviewItem('Department', _departmentController.text),
               _PreviewItem('Gender', _gender ?? 'Not provided'),
               _PreviewItem('Mobile No', _mobileNoController.text),
               _PreviewItem('Email', _emailController.text),
@@ -347,11 +260,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
               _PreviewItem('Nationality', _nationalityController.text),
               _PreviewItem('Qualification', _qualificationController.text),
               _PreviewItem('Subject Specialization', _subjectSpecializationController.text),
-              _PreviewItem('Emergency Contact', '${_emergencyContactController.text} (${_emergencyContactRelationController.text})'),
-              _PreviewItem('Marital Status', _maritalStatus ?? 'Not provided'),
-              _PreviewItem('Permanent Address', _permanentAddressController.text),
-              _PreviewItem('Experience', '${_experienceController.text} years'),
-              _PreviewItem('Salary', _salaryController.text),
+              _PreviewItem('Emergency Contact', _emergencyContactController.text),
             ],
           ),
         ),
@@ -396,14 +305,8 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
                         firstNameController: _firstNameController,
                         lastNameController: _lastNameController,
                         qualificationController: _qualificationController,
-                        departmentId: _selectedDepartmentId,
-                        departments: _departments,
-                        isLoadingDepartments: _isLoadingDepartments,
-                        onDepartmentChanged: (value) {
-                          setState(() {
-                            _selectedDepartmentId = value;
-                          });
-                        },
+                        departmentController: _departmentController,
+
                         gender: _gender,
                         onGenderChanged: (value) {
                           setState(() {
@@ -452,12 +355,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
                         },
                         subjectSpecializationController: _subjectSpecializationController,
                         emergencyContactController: _emergencyContactController,
-                        emergencyContactRelationController: _emergencyContactRelationController,
-                        permanentAddressController: _permanentAddressController,
-                        maritalStatus: _maritalStatus,
-                        onMaritalStatusChanged: (value) => setState(() => _maritalStatus = value),
-                        salaryController: _salaryController,
-                        experienceController: _experienceController,
                         photoBytes: _photoBytes,
                         onPickPhoto: _pickPhoto,
                         isSubmitting: _isSubmitting,
@@ -549,10 +446,7 @@ class _FormCard extends StatelessWidget {
   final TextEditingController firstNameController;
   final TextEditingController lastNameController;
   final TextEditingController qualificationController;
-  final String? departmentId;
-  final List<Map<String, dynamic>> departments;
-  final bool isLoadingDepartments;
-  final ValueChanged<String?> onDepartmentChanged;
+  final TextEditingController departmentController;
   final String? gender;
   final ValueChanged<String?> onGenderChanged;
   final DateTime? dob;
@@ -573,12 +467,6 @@ class _FormCard extends StatelessWidget {
   final ValueChanged<String?> onClassTeacherGradeChanged;
   final TextEditingController subjectSpecializationController;
   final TextEditingController emergencyContactController;
-  final TextEditingController emergencyContactRelationController;
-  final TextEditingController permanentAddressController;
-  final String? maritalStatus;
-  final ValueChanged<String?> onMaritalStatusChanged;
-  final TextEditingController salaryController;
-  final TextEditingController experienceController;
   final Uint8List? photoBytes;
   final Future<void> Function() onPickPhoto;
   final bool isSubmitting;
@@ -595,10 +483,7 @@ class _FormCard extends StatelessWidget {
     required this.firstNameController,
     required this.lastNameController,
     required this.qualificationController,
-    required this.departmentId,
-    required this.departments,
-    required this.isLoadingDepartments,
-    required this.onDepartmentChanged,
+    required this.departmentController,
     required this.gender,
     required this.onGenderChanged,
     required this.dob,
@@ -619,12 +504,6 @@ class _FormCard extends StatelessWidget {
     required this.onClassTeacherGradeChanged,
     required this.subjectSpecializationController,
     required this.emergencyContactController,
-    required this.emergencyContactRelationController,
-    required this.permanentAddressController,
-    required this.maritalStatus,
-    required this.onMaritalStatusChanged,
-    required this.salaryController,
-    required this.experienceController,
     required this.photoBytes,
     required this.onPickPhoto,
     required this.isSubmitting,
@@ -874,48 +753,25 @@ class _FormCard extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             // Department
-            isLoadingDepartments
-                ? const Center(child: Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: CircularProgressIndicator(),
-                  ))
-                : DropdownButtonFormField<String>(
-                    decoration: InputDecoration(
-                      labelText: 'Department *',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      prefixIcon: const Icon(Icons.business),
-                    ),
-                    initialValue: departmentId,
-                    items: [
-                      const DropdownMenuItem<String>(
-                        value: null,
-                        child: Text('Select Department'),
-                      ),
-                      ...departments.map(
-                        (dept) {
-                          final id = dept['id'];
-                          final name = dept['name']?.toString() ?? dept['id']?.toString() ?? 'Unknown';
-                          // Use ID as string for value, but ensure it's not null
-                          final value = id?.toString() ?? name;
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(name),
-                          );
-                        },
-                      ),
-                    ],
-                    onChanged: onDepartmentChanged,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please select a department';
-                      }
-                      return null;
-                    },
-                  ),
+            // Department
+            TextFormField(
+              controller: departmentController,
+              decoration: InputDecoration(
+                labelText: 'Department *',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                prefixIcon: const Icon(Icons.business),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter a department';
+                }
+                return null;
+              },
+            ),
             const SizedBox(height: 20),
             // Mobile No and Email
             Row(
@@ -1116,98 +972,6 @@ class _FormCard extends StatelessWidget {
                 prefixIcon: const Icon(Icons.emergency),
               ),
               keyboardType: TextInputType.phone,
-            ),
-            const SizedBox(height: 20),
-            // Permanent Address
-            TextFormField(
-              controller: permanentAddressController,
-              decoration: InputDecoration(
-                labelText: 'Permanent Address',
-                hintText: 'Enter permanent address',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                filled: true,
-                fillColor: Colors.white,
-                prefixIcon: const Icon(Icons.home),
-              ),
-              maxLines: 2,
-            ),
-            const SizedBox(height: 20),
-            // Marital Status
-            DropdownButtonFormField<String>(
-              decoration: InputDecoration(
-                labelText: 'Marital Status',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                filled: true,
-                fillColor: Colors.white,
-                prefixIcon: const Icon(Icons.person),
-              ),
-              value: maritalStatus,
-              items: const [
-                DropdownMenuItem(value: null, child: Text('Select Status')),
-                DropdownMenuItem(value: 'Single', child: Text('Single')),
-                DropdownMenuItem(value: 'Married', child: Text('Married')),
-                DropdownMenuItem(value: 'Divorced', child: Text('Divorced')),
-                DropdownMenuItem(value: 'Widowed', child: Text('Widowed')),
-              ],
-              onChanged: onMaritalStatusChanged,
-            ),
-            const SizedBox(height: 20),
-            // Emergency Contact Relation
-            TextFormField(
-              controller: emergencyContactRelationController,
-              decoration: InputDecoration(
-                labelText: 'Emergency Contact Relationship',
-                hintText: 'e.g. Spouse, Father, Mother',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                filled: true,
-                fillColor: Colors.white,
-                prefixIcon: const Icon(Icons.family_restroom),
-              ),
-            ),
-            const SizedBox(height: 20),
-            // Experience and Salary
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: experienceController,
-                    decoration: InputDecoration(
-                      labelText: 'Experience (Years)',
-                      hintText: 'e.g. 5.5',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      prefixIcon: const Icon(Icons.history),
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  ),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: TextFormField(
-                    controller: salaryController,
-                    decoration: InputDecoration(
-                      labelText: 'Salary',
-                      hintText: 'e.g. 50000',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      prefixIcon: const Icon(Icons.monetization_on),
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  ),
-                ),
-              ],
             ),
             const SizedBox(height: 30),
             Row(

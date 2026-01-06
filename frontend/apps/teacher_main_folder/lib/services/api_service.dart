@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const _base = 'http://localhost:8000/api/management-admin';
+  static const _base = 'http://192.168.0.223:8000/api/management-admin';
   static const teachersEndpoint = '$_base/teachers/';
   static const studentsEndpoint = '$_base/students/';
 
@@ -97,7 +97,7 @@ class ApiService {
     try {
       final headers = await _getAuthHeaders();
       final resp = await http
-          .get(Uri.parse('http://localhost:8000/api/teacher/profile/'), headers: headers)
+          .get(Uri.parse('http://192.168.0.223:8000/api/teacher/profile/'), headers: headers)
           .timeout(const Duration(seconds: 10));
       if (resp.statusCode == 200) {
         return jsonDecode(resp.body) as Map<String, dynamic>;
@@ -115,7 +115,7 @@ class ApiService {
     try {
       final headers = await _getAuthHeaders();
       final resp = await http
-          .get(Uri.parse('http://localhost:8000/api/teacher/communications/'), headers: headers)
+          .get(Uri.parse('http://192.168.0.223:8000/api/teacher/communications/'), headers: headers)
           .timeout(const Duration(seconds: 10));
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
@@ -133,7 +133,7 @@ class ApiService {
   static Future<List<Map<String, dynamic>>> fetchChatMessages(String senderUsername, String recipientUsername) async {
     try {
       final headers = await _getAuthHeaders();
-      final uri = Uri.parse('http://localhost:8000/api/student-parent/chat-messages/').replace(
+      final uri = Uri.parse('http://192.168.0.223:8000/api/student-parent/chat-messages/').replace(
         queryParameters: {
           'sender': senderUsername,
           'recipient': recipientUsername,
@@ -163,7 +163,7 @@ class ApiService {
   static Future<List<dynamic>> fetchChatHistory(String userId) async {
     try {
       final headers = await _getAuthHeaders();
-      final uri = Uri.parse('http://localhost:8000/api/teacher/chat-history/').replace(
+      final uri = Uri.parse('http://192.168.0.223:8000/api/teacher/chat-history/').replace(
         queryParameters: {'user_id': userId},
       );
       final resp = await http.get(uri, headers: headers).timeout(const Duration(seconds: 10));
@@ -184,7 +184,7 @@ class ApiService {
     try {
       final headers = await _getAuthHeaders();
       final resp = await http
-          .get(Uri.parse('http://localhost:8000/api/teacher/class-students/'), headers: headers)
+          .get(Uri.parse('http://192.168.0.223:8000/api/teacher/class-students/'), headers: headers)
           .timeout(const Duration(seconds: 15));
       
       debugPrint('Fetch class-students status: ${resp.statusCode}');
