@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:main_login/main.dart' as main_login;
 import 'services/api_service.dart' as api;
+import 'package:url_launcher/url_launcher.dart';
 
 // --- UTILITY FUNCTION TO CREATE CUSTOM MATERIAL COLOR ---
 MaterialColor createMaterialColor(Color color) {
@@ -92,6 +93,13 @@ class StudentData {
   final String emergencyContactPhone;
   final List<Map<String, String>> achievementsList;
   final List<Map<String, String>> currentSubjects;
+  final List<Map<String, dynamic>> awards;
+  final String activities;
+  final String leadership;
+  final String participation;
+  final String otherAchievements;
+  final String? profilePhotoUrl;
+
 
   StudentData.mock()
     : name = 'John Michael Smith',
@@ -142,7 +150,14 @@ class StudentData {
           'date': '2023',
           'description': 'Best project award for renewable energy model',
         },
-      ];
+      ],
+      awards = [],
+      activities = '',
+      leadership = '',
+      participation = '',
+      otherAchievements = '',
+      profilePhotoUrl = null;
+
 
   // Constructor to create StudentData from API response
   StudentData.fromJson(Map<String, dynamic> studentJson, Map<String, dynamic> parentJson)
@@ -158,7 +173,6 @@ class StudentData {
         attendanceRate = '0%', // TODO: Calculate from attendance data
         gpa = '0.0', // TODO: Calculate from grades
         classRank = '0', // TODO: Calculate from class data
-        achievementsCount = '0', // TODO: Fetch from achievements
         fatherName = _safeString(studentJson['parent_name']),
         motherName = '', // Not available in current schema
         phoneNumber = _safeString(studentJson['parent_phone']),
@@ -173,7 +187,28 @@ class StudentData {
         emergencyContactName = _safeString(studentJson['emergency_contact']),
         emergencyContactPhone = '', // Not available in current schema
         currentSubjects = [], // TODO: Fetch from timetable/classes
-        achievementsList = []; // TODO: Fetch from achievements
+        awards = List<Map<String, dynamic>>.from(studentJson['awards'] ?? []),
+        achievementsList = _parseAwardsToAchievements(studentJson['awards']),
+        achievementsCount = (studentJson['awards'] as List?)?.length.toString() ?? '0',
+        activities = _safeString(studentJson['activities']),
+        leadership = _safeString(studentJson['leadership']),
+        participation = _safeString(studentJson['participation']),
+        otherAchievements = _safeString(studentJson['achievements']),
+        profilePhotoUrl = _safeString(studentJson['profile_photo_url']).isNotEmpty 
+            ? _safeString(studentJson['profile_photo_url']) 
+            : (_safeString(studentJson['profile_photo']).isNotEmpty ? _safeString(studentJson['profile_photo']) : null);
+
+  static List<Map<String, String>> _parseAwardsToAchievements(dynamic awardsJson) {
+    if (awardsJson == null || awardsJson is! List) return [];
+    return awardsJson.map((award) {
+      return {
+        'title': _safeString(award['title']),
+        'date': _safeString(award['date']),
+        'description': '${_safeString(award['category'])} - ${_safeString(award['level'])}\n${_safeString(award['description'])}',
+      };
+    }).toList().cast<Map<String, String>>();
+  }
+
 
   static String _safeString(dynamic value) {
     if (value == null) return '';
@@ -690,6 +725,124 @@ void _showAchievementDetailsModal(
   );
 }
 
+// In-app certificate viewer (similar to management portal for consistency)
+void _showCertificateDialog(BuildContext context, Map<String, dynamic> award) {
+  final docUrl = award['document_url'] ?? award['document'];
+  if (docUrl == null || docUrl.toString().isEmpty) {
+    _showSnackbar(context, "No certificate document available");
+    return;
+  }
+
+  // Ensure full URL
+  String fullUrl = docUrl.toString();
+  if (!fullUrl.startsWith('http')) {
+    // If it doesn't start with http, it's a relative path.
+    // Try to determine if it needs the /media/ prefix.
+    String path = fullUrl;
+    if (!path.startsWith('/media/') && !path.startsWith('media/')) {
+      path = '/media/${path.startsWith('/') ? path.substring(1) : path}';
+    }
+    fullUrl = 'http://localhost:8000${path.startsWith('/') ? '' : '/'}$path';
+  }
+
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(10),
+        child: Container(
+          width: double.infinity,
+          height: MediaQuery.of(context).size.height * 0.8,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Column(
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        "Certificate: ${award['title']}",
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              // Image Viewer
+              Expanded(
+                child: Container(
+                  color: Colors.grey[200],
+                  child: InteractiveViewer(
+                    panEnabled: true,
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    child: Center(
+                      child: Image.network(
+                        fullUrl,
+                        fit: BoxFit.contain,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return const Center(child: CircularProgressIndicator());
+                        },
+                        errorBuilder: (context, error, stackTrace) => Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.broken_image, size: 64, color: Colors.grey),
+                            const SizedBox(height: 10),
+                            const Text("Could not load certificate image"),
+                            TextButton(
+                              onPressed: () => launchUrl(Uri.parse(fullUrl)),
+                              child: const Text("Open in Browser"),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Footer Actions
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      icon: const Icon(Icons.open_in_new),
+                      label: const Text("Open in Browser"),
+                      onPressed: () => launchUrl(Uri.parse(fullUrl), mode: LaunchMode.externalApplication),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton(
+                      child: const Text("Close"),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
 // -------------------------------------------------------------------------
 // 4. STUDENT PROFILE PAGE
 // -------------------------------------------------------------------------
@@ -807,9 +960,22 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  const Text(
-                    '👨‍🎓',
-                    style: TextStyle(fontSize: 40, color: Colors.white),
+                  ClipOval(
+                    child: data.profilePhotoUrl != null && data.profilePhotoUrl!.isNotEmpty
+                        ? Image.network(
+                            data.profilePhotoUrl!,
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => const Text(
+                              '👨‍🎓',
+                              style: TextStyle(fontSize: 40, color: Colors.white),
+                            ),
+                          )
+                        : const Text(
+                            '👨‍🎓',
+                            style: TextStyle(fontSize: 40, color: Colors.white),
+                          ),
                   ),
                   // Edit icon overlay
                   Positioned(
@@ -955,18 +1121,101 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: data.achievementsList.length,
+            itemCount: data.awards.length,
             itemBuilder: (context, index) {
-              final achievement = data.achievementsList[index];
-              return GestureDetector(
-                onTap: () => _showAchievementDetailsModal(
-                  context,
-                  achievement,
-                ), // Modal trigger
-                child: _buildAchievementCard(achievement),
-              );
+              final award = data.awards[index];
+              return _buildDetailedAwardCard(context, award);
             },
           ),
+          if (data.awards.isEmpty && data.achievementsList.isNotEmpty)
+             ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: data.achievementsList.length,
+              itemBuilder: (context, index) {
+                final achievement = data.achievementsList[index];
+                return GestureDetector(
+                  onTap: () => _showAchievementDetailsModal(
+                    context,
+                    achievement,
+                  ), // Modal trigger
+                  child: _buildAchievementCard(achievement),
+                );
+              },
+            ),
+          if (data.awards.isEmpty && data.achievementsList.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(child: Text("No records found", style: TextStyle(color: Colors.grey))),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailedAwardCard(BuildContext context, Map<String, dynamic> award) {
+    bool hasDoc = award['document'] != null && award['document'].toString().isNotEmpty;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: const Color(0xfff8f9fa),
+        borderRadius: BorderRadius.circular(10),
+        border: const Border(
+          left: BorderSide(color: Color(0xff28a745), width: 4),
+        ), // Green border
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  award['title'] ?? 'Award',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  award['level'] ?? 'N/A',
+                  style: const TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          Text(
+            '${award['date'] ?? 'N/A'} • ${award['category'] ?? 'General'}',
+            style: const TextStyle(color: Color(0xff666666), fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            award['description'] ?? '',
+            style: const TextStyle(color: Color(0xff666666), fontSize: 14),
+          ),
+          if (hasDoc) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 32,
+              child: TextButton.icon(
+                icon: const Icon(Icons.visibility, size: 16),
+                label: const Text("View Certificate", style: TextStyle(fontSize: 12)),
+                onPressed: () => _showCertificateDialog(context, award),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  backgroundColor: Colors.blue.withValues(alpha: 0.1),
+                  foregroundColor: Colors.blue[700],
+                ),
+              ),
+            ),
+          ]
         ],
       ),
     );
@@ -1261,6 +1510,34 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
 
             // 5. Achievements
             _buildAchievementsSection(context, data),
+            const SizedBox(height: 20),
+
+            // 6. Extracurricular & Leadership
+            if (data.activities.isNotEmpty || data.leadership.isNotEmpty || data.participation.isNotEmpty || data.otherAchievements.isNotEmpty)
+              _buildInfoContainer(
+                context,
+                _buildSectionTitle('🌟', 'Extracurricular & Leadership'),
+                Column(
+                  children: [
+                    if (data.activities.isNotEmpty)
+                      _buildInfoCard('Activities', [
+                        {'label': 'Details', 'value': data.activities},
+                      ]),
+                    if (data.leadership.isNotEmpty)
+                      _buildInfoCard('Leadership', [
+                        {'label': 'Roles', 'value': data.leadership},
+                      ]),
+                    if (data.participation.isNotEmpty)
+                      _buildInfoCard('Participation', [
+                        {'label': 'Record', 'value': data.participation},
+                      ]),
+                    if (data.otherAchievements.isNotEmpty)
+                      _buildInfoCard('Other Achievements', [
+                        {'label': 'Records', 'value': data.otherAchievements},
+                      ]),
+                  ],
+                ),
+              ),
           ],
         ),
       ),

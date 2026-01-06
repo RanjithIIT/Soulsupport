@@ -2,7 +2,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'widgets/school_profile_header.dart';
+import 'widgets/management_sidebar.dart';
 import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
 import 'dart:ui';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -19,8 +21,8 @@ class PhotoEntry {
   final String photographer;
   final String location;
   final String emoji;
+  final List<String> imageUrls; // Changed from Uint8List images to imageUrls
   bool isFavorite;
-  List<Uint8List> images;
 
   PhotoEntry({
     required this.id,
@@ -32,8 +34,25 @@ class PhotoEntry {
     required this.location,
     required this.emoji,
     this.isFavorite = false,
-    List<Uint8List>? images,
-  }) : images = images ?? [];
+    this.imageUrls = const [],
+  });
+
+  factory PhotoEntry.fromJson(Map<String, dynamic> json) {
+    var list = json['images'] as List? ?? [];
+    List<String> images = list.map((i) => i['image'] as String).toList();
+    
+    return PhotoEntry(
+      id: json['id'],
+      title: json['title'] ?? '',
+      category: json['category'] ?? 'Other',
+      description: json['description'] ?? '',
+      date: DateTime.parse(json['date']),
+      photographer: json['photographer'] ?? '',
+      location: json['location'] ?? '',
+      emoji: json['emoji'] ?? '📷',
+      imageUrls: images,
+    );
+  }
 }
 
 class PhotoGalleryPage extends StatefulWidget {
@@ -44,111 +63,9 @@ class PhotoGalleryPage extends StatefulWidget {
 }
 
 class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
-  final List<PhotoEntry> _allPhotos = [
-    PhotoEntry(
-      id: 1,
-      title: 'Annual Sports Day',
-      category: 'Sports',
-      description:
-          'Students participating in various sports events during annual sports day',
-      date: DateTime(2024, 3, 15),
-      photographer: 'Mr. Sharma',
-      location: 'School Ground',
-      emoji: '🏃‍♂️',
-    ),
-    PhotoEntry(
-      id: 2,
-      title: 'Science Fair Exhibition',
-      category: 'Academic',
-      description: 'Students showcasing their innovative science projects',
-      date: DateTime(2024, 2, 20),
-      photographer: 'Mrs. Patel',
-      location: 'School Auditorium',
-      emoji: '🔬',
-    ),
-    PhotoEntry(
-      id: 3,
-      title: 'Cultural Dance Performance',
-      category: 'Cultural',
-      description:
-          'Traditional dance performance by students during cultural fest',
-      date: DateTime(2024, 1, 25),
-      photographer: 'Mr. Kumar',
-      location: 'School Stage',
-      emoji: '💃',
-    ),
-    PhotoEntry(
-      id: 4,
-      title: 'Award Ceremony',
-      category: 'Awards',
-      description: 'Annual award ceremony recognizing student achievements',
-      date: DateTime(2024, 3, 10),
-      photographer: 'Mrs. Reddy',
-      location: 'School Hall',
-      emoji: '🏆',
-    ),
-    PhotoEntry(
-      id: 5,
-      title: 'NCC Training Camp',
-      category: 'Activities',
-      description: 'NCC cadets during their training camp activities',
-      date: DateTime(2024, 2, 28),
-      photographer: 'Capt. Singh',
-      location: 'NCC Ground',
-      emoji: '🎖️',
-    ),
-    PhotoEntry(
-      id: 6,
-      title: 'Library Reading Session',
-      category: 'Academic',
-      description: 'Students engaged in reading and study activities',
-      date: DateTime(2024, 3, 5),
-      photographer: 'Ms. Iyer',
-      location: 'School Library',
-      emoji: '📚',
-    ),
-    PhotoEntry(
-      id: 7,
-      title: 'Art & Craft Exhibition',
-      category: 'Cultural',
-      description: 'Student artwork and craft projects on display',
-      date: DateTime(2024, 2, 15),
-      photographer: 'Mr. Verma',
-      location: 'Art Room',
-      emoji: '🎨',
-    ),
-    PhotoEntry(
-      id: 8,
-      title: 'Computer Lab Session',
-      category: 'Academic',
-      description: 'Students learning computer skills and programming',
-      date: DateTime(2024, 3, 12),
-      photographer: 'Mrs. Gupta',
-      location: 'Computer Lab',
-      emoji: '💻',
-    ),
-    PhotoEntry(
-      id: 9,
-      title: 'Basketball Tournament',
-      category: 'Sports',
-      description: 'Inter-school basketball tournament final match',
-      date: DateTime(2024, 3, 8),
-      photographer: 'Mr. Joshi',
-      location: 'Basketball Court',
-      emoji: '🏀',
-    ),
-    PhotoEntry(
-      id: 10,
-      title: 'Environmental Awareness Rally',
-      category: 'Activities',
-      description:
-          'Students participating in environmental conservation rally',
-      date: DateTime(2024, 2, 22),
-      photographer: 'Ms. Kapoor',
-      location: 'School Premises',
-      emoji: '🌱',
-    ),
-  ];
+  List<PhotoEntry> _allPhotos = []; // Initialized as empty
+  bool _isLoading = true;
+  String? _errorMessage;
 
   late List<PhotoEntry> _visiblePhotos;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -208,12 +125,42 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
     );
   }
 
-
-
   @override
   void initState() {
     super.initState();
-    _visiblePhotos = List<PhotoEntry>.from(_allPhotos);
+    _visiblePhotos = [];
+    _fetchGalleryItems();
+  }
+
+  Future<void> _fetchGalleryItems() async {
+    setState(() => _isLoading = true);
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.get(Endpoints.gallery);
+      
+      if (response.success && response.data != null) {
+        final List<dynamic> data = response.data['results'] ?? response.data;
+        final photos = data.map((json) => PhotoEntry.fromJson(json)).toList();
+        
+        if (mounted) {
+          setState(() {
+            _allPhotos = photos;
+            _visiblePhotos = photos;
+            _isLoading = false;
+          });
+        }
+      } else {
+        throw Exception(response.error ?? 'Failed to load gallery');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -311,7 +258,7 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
     });
   }
 
-  void _addPhoto() {
+  Future<void> _addPhoto() async {
     if (!_formKey.currentState!.validate()) return;
     if (_newCategory == null || _newDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -320,39 +267,72 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
       return;
     }
 
-    final images = _selectedImageBytes != null ? [_selectedImageBytes!] : <Uint8List>[];
-    
-    final photo = PhotoEntry(
-      id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      title: _titleController.text.trim(),
-      category: _newCategory!,
-      description: _descriptionController.text.trim(),
-      date: _newDate!,
-      photographer: _photographerController.text.trim(),
-      location: _locationController.text.trim(),
-      emoji: '📷',
-      images: images,
-    );
+    setState(() => _isLoading = true);
 
-    setState(() {
-      _allPhotos.insert(0, photo);
-      _filterPhotos();
-    });
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
 
-    _formKey.currentState!.reset();
-    _titleController.clear();
-    _descriptionController.clear();
-    _photographerController.clear();
-    _locationController.clear();
-    setState(() {
-      _newCategory = null;
-      _newDate = null;
-      _selectedImageBytes = null;
-    });
+      final Map<String, String> fields = {
+        'title': _titleController.text.trim(),
+        'category': _newCategory!,
+        'description': _descriptionController.text.trim(),
+        'date': DateFormat('yyyy-MM-dd').format(_newDate!),
+        'photographer': _photographerController.text.trim(),
+        'location': _locationController.text.trim(),
+      };
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Photo added successfully!')),
-    );
+      late final ApiResponse response;
+
+      if (_selectedImageBytes != null) {
+        response = await apiService.uploadFile(
+          Endpoints.gallery,
+          fileBytes: _selectedImageBytes!,
+          fileName: 'gallery_image.jpg',
+          fieldName: 'image',
+          additionalFields: fields,
+        );
+      } else {
+        response = await apiService.post(
+          Endpoints.gallery,
+          body: fields,
+        );
+      }
+
+      if (response.success && response.data != null) {
+        final newPhoto = PhotoEntry.fromJson(response.data);
+        if (mounted) {
+          setState(() {
+            _allPhotos.insert(0, newPhoto);
+            _filterPhotos();
+            _isLoading = false;
+            
+            // Reset form
+            _formKey.currentState!.reset();
+            _titleController.clear();
+            _descriptionController.clear();
+            _photographerController.clear();
+            _locationController.clear();
+            _newCategory = null;
+            _newDate = null;
+            _selectedImageBytes = null;
+          });
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Photo added successfully!')),
+          );
+        }
+      } else {
+        throw Exception(response.error ?? 'Failed to add photo');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
+    }
   }
 
   void _toggleFavorite(PhotoEntry photo) {
@@ -373,14 +353,37 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _allPhotos.remove(photo);
-                _filterPhotos();
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Photo deleted')),
-              );
+            onPressed: () async {
+              Navigator.of(context).pop(); // Close dialog
+              setState(() => _isLoading = true);
+              
+              try {
+                final apiService = ApiService();
+                await apiService.initialize();
+                final response = await apiService.delete('${Endpoints.gallery}${photo.id}/');
+                
+                if (response.success || response.statusCode == 204) {
+                   if (mounted) {
+                    setState(() {
+                      _allPhotos.remove(photo);
+                      _filterPhotos();
+                      _isLoading = false;
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Photo deleted')),
+                    );
+                   }
+                } else {
+                  throw Exception(response.error ?? 'Failed to delete photo');
+                }
+              } catch (e) {
+                 if (mounted) {
+                   setState(() => _isLoading = false);
+                   ScaffoldMessenger.of(context).showSnackBar(
+                     SnackBar(content: Text('Error: ${e.toString()}')),
+                   );
+                 }
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
@@ -393,7 +396,9 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
     );
   }
 
-  void _showFullImage(BuildContext context, List<Uint8List> images, int initialIndex) {
+  void _showFullImage(BuildContext context, List<String> imageUrls, int initialIndex) {
+    if (imageUrls.isEmpty) return;
+    
     final pageController = PageController(initialPage: initialIndex);
     showDialog<void>(
       context: context,
@@ -404,13 +409,15 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
           children: [
             PageView.builder(
               controller: pageController,
-              itemCount: images.length,
+              itemCount: imageUrls.length,
               itemBuilder: (context, index) {
                 return Center(
                   child: InteractiveViewer(
-                    child: Image.memory(
-                      images[index],
+                    child: Image.network(
+                      imageUrls[index],
                       fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Icon(Icons.broken_image, color: Colors.white, size: 64),
                     ),
                   ),
                 );
@@ -424,7 +431,7 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
                 icon: const Icon(Icons.arrow_back),
                 label: const Text('Back'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black.withValues(alpha: 0.7),
+                  backgroundColor: Colors.black.withOpacity(0.7),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -442,141 +449,114 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
   void _viewImages(PhotoEntry photo) {
     showDialog<void>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.all(20),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: Color(0xFFE0E0E0)),
-                    ),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(20),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: Color(0xFFE0E0E0)),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              photo.title,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            photo.title,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${photo.images.length} image${photo.images.length > 1 ? 's' : ''}',
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () async {
-                          final picker = ImagePicker();
-                          final picked = await picker.pickImage(source: ImageSource.gallery);
-                          if (picked == null) return;
-                          final bytes = await picked.readAsBytes();
-                          if (!mounted) return;
-                          setState(() {
-                            photo.images.add(bytes);
-                          });
-                          setDialogState(() {});
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Image added successfully!')),
-                          );
-                        },
-                        icon: const Icon(Icons.upload, size: 18),
-                        label: const Text('Upload Photo'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF667EEA),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
                           ),
-                        ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${photo.imageUrls.length} image${photo.imageUrls.length > 1 ? 's' : ''}',
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              if (photo.imageUrls.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(40),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.image_outlined,
+                        size: 64,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'No images uploaded yet',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey,
+                        ),
                       ),
                     ],
                   ),
-                ),
-                if (photo.images.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(40),
-                    child: Column(
-                      children: [
-                        const Icon(
-                          Icons.image_outlined,
-                          size: 64,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'No images uploaded yet',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  Container(
-                    constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(context).size.height * 0.7,
-                    ),
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
-                      child: GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 4,
-                          crossAxisSpacing: 15,
-                          mainAxisSpacing: 15,
-                          childAspectRatio: 1.0,
-                        ),
-                        itemCount: photo.images.length,
-                        itemBuilder: (context, index) {
-                          return GestureDetector(
-                            onDoubleTap: () {
-                              _showFullImage(context, photo.images, index);
-                            },
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.memory(
-                                photo.images[index],
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          );
-                        },
+                )
+              else
+                Container(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.7,
+                  ),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        crossAxisSpacing: 15,
+                        mainAxisSpacing: 15,
+                        childAspectRatio: 1.0,
                       ),
+                      itemCount: photo.imageUrls.length,
+                      itemBuilder: (context, index) {
+                        return GestureDetector(
+                          onDoubleTap: () {
+                            _showFullImage(context, photo.imageUrls, index);
+                          },
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              photo.imageUrls[index],
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Center(child: Icon(Icons.broken_image)),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         ),
       ),
@@ -602,12 +582,12 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
               : Drawer(
                   child: SizedBox(
                     width: 280,
-                    child: _Sidebar(gradient: gradient),
+                    child: ManagementSidebar(gradient: gradient, activeRoute: '/gallery'),
                   ),
                 ),
           body: Row(
             children: [
-              if (showSidebar) _Sidebar(gradient: gradient),
+              if (showSidebar) ManagementSidebar(gradient: gradient, activeRoute: '/gallery'),
               Expanded(
                 child: Container(
                   color: const Color(0xFFF5F6FA),
@@ -738,183 +718,7 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
   }
 }
 
-class _Sidebar extends StatelessWidget {
-  final LinearGradient gradient;
 
-  const _Sidebar({required this.gradient});
-
-  // Safe navigation helper for sidebar
-  void _navigateToRoute(BuildContext context, String route) {
-    final navigator = app.SchoolManagementApp.navigatorKey.currentState;
-    if (navigator != null) {
-      if (navigator.canPop() || route != '/dashboard') {
-        navigator.pushReplacementNamed(route);
-      } else {
-        navigator.pushNamed(route);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 280,
-      decoration: BoxDecoration(
-        gradient: gradient,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(2, 0),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  'packages/management_org/assets/Vidyarambh.png',
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      height: 120,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.school,
-                        size: 56,
-                        color: Color(0xFF667EEA),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _NavItem(
-                    icon: '📊',
-                    title: 'Overview',
-                    isActive: false,
-                    onTap: () => _navigateToRoute(context, '/dashboard'),
-                  ),
-                  _NavItem(
-                    icon: '👨‍🏫',
-                    title: 'Teachers',
-                    onTap: () => _navigateToRoute(context, '/teachers'),
-                  ),
-                  _NavItem(
-                    icon: '👥',
-                    title: 'Students',
-                    onTap: () => _navigateToRoute(context, '/students'),
-                  ),
-                  _NavItem(
-                    icon: '🚌',
-                    title: 'Buses',
-                    onTap: () => _navigateToRoute(context, '/buses'),
-                  ),
-                  _NavItem(
-                    icon: '🎯',
-                    title: 'Activities',
-                    onTap: () => _navigateToRoute(context, '/activities'),
-                  ),
-                  _NavItem(
-                    icon: '📅',
-                    title: 'Events',
-                    onTap: () => _navigateToRoute(context, '/events'),
-                  ),
-                  _NavItem(
-                    icon: '📆',
-                    title: 'Calendar',
-                    onTap: () => _navigateToRoute(context, '/calendar'),
-                  ),
-                  _NavItem(
-                    icon: '🔔',
-                    title: 'Notifications',
-                    onTap: () => _navigateToRoute(context, '/notifications'),
-                  ),
-                  _NavItem(
-                    icon: '🛣️',
-                    title: 'Bus Routes',
-                    onTap: () => _navigateToRoute(context, '/bus-routes'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  final String icon;
-  final String title;
-  final VoidCallback? onTap;
-  final bool isActive;
-
-  const _NavItem({
-    required this.icon,
-    required this.title,
-    this.onTap,
-    this.isActive = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: isActive
-            ? Colors.white.withValues(alpha: 0.3)
-            : Colors.white.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListTile(
-        leading: Text(
-          icon,
-          style: const TextStyle(fontSize: 18),
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            fontSize: 14,
-          ),
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        onTap: onTap,
-      ),
-    );
-  }
-}
 
 class _StatsOverview extends StatelessWidget {
   final Map<String, int> stats;
@@ -982,8 +786,10 @@ class _StatCard extends StatelessWidget {
       elevation: 5,
       shadowColor: Colors.black.withValues(alpha: 0.1),
       child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
+        padding: const EdgeInsets.all(12.0),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(icon, style: TextStyle(fontSize: 40, color: color)),
@@ -1009,6 +815,7 @@ class _StatCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -1492,24 +1299,26 @@ class _PhotoCard extends StatelessWidget {
             Container(
               height: 200,
               decoration: BoxDecoration(
-                gradient: photo.images.isEmpty
+                gradient: photo.imageUrls.isEmpty
                     ? const LinearGradient(
                         colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
                       )
                     : null,
-                color: photo.images.isEmpty ? null : Colors.black,
+                color: photo.imageUrls.isEmpty ? null : Colors.black,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
               ),
               child: Stack(
                 children: [
-                  if (photo.images.isNotEmpty)
+                  if (photo.imageUrls.isNotEmpty)
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                      child: Image.memory(
-                        photo.images.first,
+                      child: Image.network(
+                        photo.imageUrls.first,
                         width: double.infinity,
                         height: 200,
                         fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                             const Center(child: Icon(Icons.broken_image, color: Colors.white)),
                       ),
                     )
                   else

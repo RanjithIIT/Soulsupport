@@ -22,6 +22,11 @@ pip install -r requirements.txt
 ```
 
 ## Usage
+> [!IMPORTANT]
+> If you encounter a "File cannot be loaded because running scripts is disabled on this system" error, run the script with the execution policy bypass flag:
+> ```powershell
+> powershell -ExecutionPolicy Bypass -File .\run_all.ps1
+> ```
 
 ### Basic Usage (Run main_login app)
 

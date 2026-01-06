@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
 import 'widgets/school_profile_header.dart';
+import 'widgets/management_sidebar.dart';
 
 // Blood group options
 const List<String> bloodGroupOptions = [
@@ -41,6 +42,9 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
   final _nationalityController = TextEditingController();
   final _subjectSpecializationController = TextEditingController();
   final _emergencyContactController = TextEditingController();
+  final _emergencyContactRelationController = TextEditingController();
+  final _salaryController = TextEditingController();
+  final _experienceController = TextEditingController();
 
   String? _selectedDepartmentId;
   List<Map<String, dynamic>> _departments = [];
@@ -164,6 +168,9 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
       _nationalityController.text = data['nationality'] as String? ?? '';
       _subjectSpecializationController.text = data['subject_specialization'] as String? ?? '';
       _emergencyContactController.text = data['emergency_contact'] as String? ?? '';
+      _emergencyContactRelationController.text = data['emergency_contact_relation'] as String? ?? '';
+      _salaryController.text = data['salary'] as String? ?? '';
+      _experienceController.text = data['experience'] as String? ?? '';
       _isClassTeacher = data['is_class_teacher'] as bool? ?? false;
       _classTeacherClass = data['class_teacher_class'] as String?;
       _classTeacherGrade = data['class_teacher_grade'] as String?;
@@ -196,6 +203,9 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
       _nationalityController.dispose();
     _subjectSpecializationController.dispose();
     _emergencyContactController.dispose();
+    _emergencyContactRelationController.dispose();
+    _salaryController.dispose();
+    _experienceController.dispose();
     super.dispose();
   }
 
@@ -248,6 +258,9 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
           'class_teacher_grade': _classTeacherGrade,
         'subject_specialization': _subjectSpecializationController.text.trim(),
         'emergency_contact': _emergencyContactController.text.trim(),
+        'emergency_contact_relation': _emergencyContactRelationController.text.trim(),
+        'salary': _salaryController.text.trim(),
+        'experience': _experienceController.text.trim(),
       };
 
       if (widget.employeeNo != null && widget.employeeNo!.isNotEmpty) {
@@ -272,6 +285,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
                 '${Endpoints.teachers}${widget.employeeNo}/',
                 fileBytes: _photoBytes!,
                 fileName: 'teacher_photo_${DateTime.now().millisecondsSinceEpoch}.jpg',
+                method: 'PUT',
                 fieldName: 'profile_photo',
                 additionalFields: additionalFieldsString,
               )
@@ -323,6 +337,9 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
               _PreviewItem('Qualification', _qualificationController.text),
               _PreviewItem('Subject Specialization', _subjectSpecializationController.text),
               _PreviewItem('Emergency Contact', _emergencyContactController.text),
+              _PreviewItem('Emergency Contact Relation', _emergencyContactRelationController.text),
+              _PreviewItem('Salary', _salaryController.text),
+              _PreviewItem('Experience', _experienceController.text),
             ],
           ),
         ),
@@ -351,7 +368,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
     return Scaffold(
       body: Row(
         children: [
-          _Sidebar(gradient: gradient),
+          ManagementSidebar(gradient: gradient, activeRoute: '/teachers'),
           Expanded(
             child: Container(
               color: const Color(0xFFF5F6FA),
@@ -423,6 +440,9 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
                         },
                         subjectSpecializationController: _subjectSpecializationController,
                         emergencyContactController: _emergencyContactController,
+                        emergencyContactRelationController: _emergencyContactRelationController,
+                        salaryController: _salaryController,
+                        experienceController: _experienceController,
                         photoBytes: _photoBytes,
                         onPickPhoto: _pickPhoto,
                         isSubmitting: _isSubmitting,
@@ -444,133 +464,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
   }
 }
 
-class _Sidebar extends StatelessWidget {
-  final LinearGradient gradient;
 
-  const _Sidebar({required this.gradient});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 280,
-      decoration: BoxDecoration(
-        gradient: gradient,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(2, 0),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-                  Container(
-                    margin: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        width: 1.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.asset(
-                        'packages/management_org/assets/Vidyarambh.png',
-                        fit: BoxFit.contain,
-                        filterQuality: FilterQuality.high,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            height: 120,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.school,
-                              size: 56,
-                              color: Color(0xFF667EEA),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _NavItem(
-                    icon: '📊',
-                    title: 'Overview',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/dashboard'),
-                  ),
-                  _NavItem(
-                    icon: '👨‍🏫',
-                    title: 'Teachers',
-                    isActive: true,
-                  ),
-                  _NavItem(
-                    icon: '👥',
-                    title: 'Students',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/students'),
-                  ),
-                  _NavItem(
-                    icon: '🚌',
-                    title: 'Buses',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/buses'),
-                  ),
-                  _NavItem(
-                    icon: '🎯',
-                    title: 'Activities',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/activities'),
-                  ),
-                  _NavItem(
-                    icon: '📅',
-                    title: 'Events',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/events'),
-                  ),
-                  _NavItem(
-                    icon: '📆',
-                    title: 'Calendar',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/calendar'),
-                  ),
-                  _NavItem(
-                    icon: '🔔',
-                    title: 'Notifications',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/notifications'),
-                  ),
-                  _NavItem(
-                    icon: '🛣️',
-                    title: 'Bus Routes',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/bus-routes'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _Header extends StatelessWidget {
   final LinearGradient gradient;
@@ -664,6 +558,9 @@ class _FormCard extends StatelessWidget {
   final ValueChanged<String?> onClassTeacherGradeChanged;
   final TextEditingController subjectSpecializationController;
   final TextEditingController emergencyContactController;
+  final TextEditingController emergencyContactRelationController;
+  final TextEditingController salaryController;
+  final TextEditingController experienceController;
   final Uint8List? photoBytes;
   final Future<void> Function() onPickPhoto;
   final bool isSubmitting;
@@ -704,6 +601,9 @@ class _FormCard extends StatelessWidget {
     required this.onClassTeacherGradeChanged,
     required this.subjectSpecializationController,
     required this.emergencyContactController,
+    required this.emergencyContactRelationController,
+    required this.salaryController,
+    required this.experienceController,
     required this.photoBytes,
     required this.onPickPhoto,
     required this.isSubmitting,
@@ -946,6 +846,41 @@ class _FormCard extends StatelessWidget {
                           color: joiningDate != null ? Colors.black : Colors.grey,
                         ),
                       ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            // Experience and Salary
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: experienceController,
+                    decoration: InputDecoration(
+                      labelText: 'Experience (Years)',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      prefixIcon: const Icon(Icons.history_edu),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: TextFormField(
+                    controller: salaryController,
+                    decoration: InputDecoration(
+                      labelText: 'Salary',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      prefixIcon: const Icon(Icons.attach_money),
                     ),
                   ),
                 ),
@@ -1195,6 +1130,21 @@ class _FormCard extends StatelessWidget {
                 prefixIcon: const Icon(Icons.emergency),
               ),
               keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 20),
+            // Emergency Contact Relation
+            TextFormField(
+              controller: emergencyContactRelationController,
+              decoration: InputDecoration(
+                labelText: 'Emergency Contact Relation',
+                hintText: 'e.g. Spouse, Parent',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                prefixIcon: const Icon(Icons.family_restroom),
+              ),
             ),
             const SizedBox(height: 30),
             Row(

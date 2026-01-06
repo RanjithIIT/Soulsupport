@@ -382,6 +382,7 @@ class ApiService {
     String endpoint, {
     required Uint8List fileBytes,
     required String fileName,
+    String method = 'POST',
     String fieldName = 'file',
     Map<String, String>? additionalFields,
     bool retryOn401 = true,
@@ -390,7 +391,7 @@ class ApiService {
       final uri = Uri.parse(Endpoints.buildUrl(endpoint));
       
       // Create multipart request
-      final request = http.MultipartRequest('POST', uri);
+      final request = http.MultipartRequest(method, uri);
       
       // Add headers (without Content-Type, let multipart set it)
       final headers = _getHeaders(isMultipart: true);
@@ -423,6 +424,7 @@ class ApiService {
             endpoint,
             fileBytes: fileBytes,
             fileName: fileName,
+            method: method,
             fieldName: fieldName,
             additionalFields: additionalFields,
             retryOn401: false,

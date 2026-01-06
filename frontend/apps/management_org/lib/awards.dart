@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:intl/intl.dart';
 import 'dart:async';
+import 'dart:typed_data';
+import 'package:image_picker/image_picker.dart';
 import 'main.dart' as app;
 import 'dashboard.dart';
 import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
 import 'widgets/school_profile_header.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 
 // --- Data Model ---
 
@@ -32,7 +36,10 @@ class Award {
     required this.description,
     required this.level,
     required this.presentedBy,
+    this.documentUrl,
   });
+
+  final String? documentUrl;
 
   factory Award.fromJson(Map<String, dynamic> json) {
     return Award(
@@ -45,6 +52,7 @@ class Award {
       description: json['description'] ?? '',
       level: json['level'] ?? '',
       presentedBy: json['presented_by'] ?? '',
+      documentUrl: json['document_url'] as String?,
     );
   }
 }
@@ -75,6 +83,14 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
   String? _selectedCategory;
   String? _selectedLevel;
   bool _studentIdHasError = false; // Track student ID validation state
+
+  // Document Upload
+  Uint8List? _documentBytes;
+  String? _documentName;
+  List<String> _verifiedStudentNames = []; // List of verified names
+  
+  // Award Type Mode
+  String _awardType = 'single'; // 'single' or 'team'
 
   // -- Filter Controllers --
   final TextEditingController _searchController = TextEditingController();
@@ -190,25 +206,47 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
       
       List<String> names = [];
       for (final id in ids) {
-        // Look up each student by ID
-        final response = await apiService.get('${Endpoints.students}$id/');
+        // Look up each student by ID using query parameter filtering
+        final response = await apiService.get('${Endpoints.students}?student_id=$id');
         if (response.success && response.data != null) {
-          final data = response.data as Map<String, dynamic>;
-          final name = data['name'] ?? data['full_name'] ?? '';
-          if (name.isNotEmpty) {
-            names.add(name);
+          var data = response.data;
+          List<dynamic> results = [];
+          
+          if (data is Map && data.containsKey('results')) {
+            results = data['results'];
+          } else if (data is List) {
+            results = data;
+          }
+          
+          if (results.isNotEmpty) {
+            final studentData = results[0] as Map<String, dynamic>;
+            final name = studentData['student_name'] ?? studentData['name'] ?? '';
+            if (name.isNotEmpty) {
+              names.add(name);
+            }
           }
         }
       }
 
-      if (names.isNotEmpty && mounted) {
-        setState(() {
-          _recipientController.text = names.join(', ');
-          _isSearchingStudent = false;
-        });
-      } else {
-        setState(() => _isSearchingStudent = false);
-      }
+        if (names.isNotEmpty && mounted) {
+          setState(() {
+            _verifiedStudentNames = names;
+            
+            // Auto-fill recipient name if in single mode and only 1 student
+            if (_awardType == 'single' && names.length == 1) {
+              _recipientController.text = names.first;
+            }
+            // For team mode, we don't overwrite the team name (recipient) automatically unless empty? 
+            // Better to keep Recipient Name as "Team Name" and just show members list.
+            
+            _isSearchingStudent = false;
+          });
+        } else {
+           setState(() {
+             _verifiedStudentNames = [];
+             _isSearchingStudent = false;
+           });
+        }
     } catch (e) {
       if (mounted) setState(() => _isSearchingStudent = false);
     }
@@ -250,7 +288,21 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
           'presented_by': _presentedByController.text,
         };
 
-        final response = await apiService.post(Endpoints.awards, body: awardData);
+        dynamic response;
+        if (_documentBytes != null) {
+             // Convert map to Map<String, String>
+             final Map<String, String> stringData = awardData.map((key, value) => MapEntry(key, value.toString()));
+             
+             response = await apiService.uploadFile(
+               Endpoints.awards,
+               fileBytes: _documentBytes!,
+               fileName: _documentName ?? 'award_doc.jpg',
+               fieldName: 'document',
+               additionalFields: stringData,
+             );
+        } else {
+             response = await apiService.post(Endpoints.awards, body: awardData);
+        }
 
         if (response.success) {
           // Reset Form
@@ -262,6 +314,13 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
           _selectedDate = null;
           _selectedCategory = null;
           _selectedLevel = null;
+          if (mounted) {
+            setState(() {
+                _documentBytes = null;
+                _documentName = null;
+                _verifiedStudentNames = [];
+            });
+          }
           
           await _loadAwards(); // Reload from server
           
@@ -374,6 +433,154 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
     }
   }
 
+  void _showCertificateDialog(String url, String title) {
+    // Ensure full URL
+    String fullUrl = url;
+    if (!fullUrl.startsWith('http')) {
+      // If it doesn't start with http, it's a relative path.
+      // Try to determine if it needs the /media/ prefix.
+      String path = fullUrl;
+      if (!path.startsWith('/media/') && !path.startsWith('media/')) {
+        path = '/media/${path.startsWith('/') ? path.substring(1) : path}';
+      }
+      fullUrl = 'http://localhost:8000${path.startsWith('/') ? '' : '/'}$path';
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        child: Container(
+          width: 800,
+          height: 600,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              )
+            ],
+          ),
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        "Certificate: $title",
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF333333),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                      color: Colors.grey,
+                    ),
+                  ],
+                ),
+              ),
+              // Content
+              Expanded(
+                child: Container(
+                  color: const Color(0xFFF8F9FA),
+                  child: InteractiveViewer(
+                    panEnabled: true,
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    child: Center(
+                      child: Image.network(
+                        fullUrl,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                      loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.broken_image, size: 64, color: Colors.grey),
+                              const SizedBox(height: 10),
+                              const Text("Could not load certificate image",
+                                  style: TextStyle(color: Colors.red)),
+                              TextButton(
+                                onPressed: () async {
+                                  final uri = Uri.parse(fullUrl);
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                  }
+                                },
+                                child: const Text("Open in Browser"),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Footer
+              Container(
+                padding: const EdgeInsets.all(15),
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: Color(0xFFEEEEEE))),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text("Close"),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        final uri = Uri.parse(fullUrl);
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        }
+                      },
+                      icon: const Icon(Icons.open_in_new, size: 16),
+                      label: const Text("Open in Browser"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF667EEA),
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _pickDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -384,6 +591,18 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
     if (picked != null) {
       setState(() {
         _selectedDate = picked;
+      });
+    }
+  }
+
+  Future<void> _pickDocument() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      final bytes = await picked.readAsBytes();
+      setState(() {
+        _documentBytes = bytes;
+        _documentName = picked.name;
       });
     }
   }
@@ -770,15 +989,62 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
               key: _formKey,
               child: Column(
                 children: [
+                  // Award Type Selection
+                  Row(
+                    children: [
+                      const Text("Award Type: ", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                      Radio<String>(
+                        value: 'single',
+                        groupValue: _awardType,
+                        onChanged: (val) {
+                          setState(() {
+                            _awardType = val!;
+                            _verifiedStudentNames = [];
+                            _studentIdController.clear();
+                            _recipientController.clear();
+                          });
+                        },
+                      ),
+                      const Text("Single Student"),
+                      const SizedBox(width: 20),
+                      Radio<String>(
+                        value: 'team',
+                        groupValue: _awardType,
+                        onChanged: (val) {
+                          setState(() {
+                            _awardType = val!;
+                            _verifiedStudentNames = [];
+                            _studentIdController.clear();
+                            _recipientController.clear();
+                          });
+                        },
+                      ),
+                      const Text("Team"),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+
                   _buildFormRow([
                     _buildTextField("Award Title", _titleController),
-                    _buildDropdownField("Category", ["Academic", "Sports", "Arts", "Leadership", "Innovation", "Community", "Other"], _selectedCategory, (val) => setState(() => _selectedCategory = val)),
+                    _buildDropdownField("Category", ["Academic", "Sports", "Arts", "Leadership", "Innovation", "Community", "Science Fair", "NSS", "NCC", "Other"], _selectedCategory, (val) => setState(() => _selectedCategory = val)),
                   ]),
                   const SizedBox(height: 15),
-                  _buildFormRow([
-                    _buildTextField("Recipient Name", _recipientController),
-                    _buildStudentIdField(), // Use specialized student ID field
-                  ]),
+                  
+                  if (_awardType == 'single')
+                    _buildFormRow([
+                       _buildStudentIdField(label: "Student ID", hint: "Enter Student ID (e.g. STUD-001)"),
+                       _buildTextField("Student Name", _recipientController, hint: "Auto-fetched from ID", isReadOnly: true),
+                    ])
+                  else 
+                    Column(
+                      children: [
+                        _buildFormRow([
+                          _buildTextField("Team Name", _recipientController, hint: "Enter Team Name"),
+                        ]),
+                        const SizedBox(height: 15),
+                        _buildStudentIdField(label: "Team Members (Student IDs)", hint: "Enter IDs comma separated (e.g. STUD-001, STUD-002)"),
+                      ],
+                    ),
                   const SizedBox(height: 15),
                   _buildFormRow([
                     _buildDateField("Award Date"),
@@ -790,6 +1056,42 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
                   _buildFormRow([
                     _buildTextField("Presented By", _presentedByController, isRequired: false, hint: "Organization/Person"),
                   ]),
+                  const SizedBox(height: 15),
+                  // Document Upload Section
+                  Row(
+                    children: [
+                       Expanded(
+                         child: Column(
+                           crossAxisAlignment: CrossAxisAlignment.start,
+                           children: [
+                             const Text("Award Document", style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF333333))),
+                             const SizedBox(height: 8),
+                             InkWell(
+                               onTap: _pickDocument,
+                               child: Container(
+                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                 decoration: BoxDecoration(
+                                   border: Border.all(color: const Color(0xFFE0E0E0)),
+                                   borderRadius: BorderRadius.circular(8),
+                                   color: Colors.white,
+                                 ),
+                                 child: Row(
+                                   children: [
+                                     Icon(_documentBytes != null ? Icons.check_circle : Icons.cloud_upload_outlined, 
+                                          color: _documentBytes != null ? Colors.green : Colors.grey),
+                                     const SizedBox(width: 10),
+                                     Text(_documentName ?? "Upload Certificate/Image", 
+                                          style: TextStyle(color: _documentBytes != null ? Colors.black87 : Colors.grey)),
+                                   ],
+                                 ),
+                               ),
+                             ),
+                           ],
+                         ),
+                       ),
+                    ],
+                  ),
+
                   const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
@@ -865,7 +1167,7 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 2)),
                   ),
-                  items: ["All Categories", "Academic", "Sports", "Arts", "Leadership", "Innovation", "Community", "Other"]
+                  items: ["All Categories", "Academic", "Sports", "Arts", "Leadership", "Innovation", "Community", "Science Fair", "NSS", "NCC", "Other"]
                       .map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                   onChanged: (val) {
                     setState(() => _filterCategory = val!);
@@ -953,7 +1255,7 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: 20,
             mainAxisSpacing: 20,
-            childAspectRatio: 2.2, // Decreased height - higher ratio = shorter cards
+            childAspectRatio: 1.8, // Increased height to fit button - higher ratio = shorter cards
           ),
           itemCount: _filteredAwards.length,
           itemBuilder: (context, index) {
@@ -1058,6 +1360,23 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
               ),
             ],
           ),
+          if (award.documentUrl != null && award.documentUrl!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _showCertificateDialog(award.documentUrl!, award.title),
+                icon: const Icon(Icons.card_membership, size: 16),
+                label: const Text("View Certificate", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF667EEA),
+                  side: const BorderSide(color: Color(0xFF667EEA)),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1081,7 +1400,7 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, {int maxLines = 1, bool isRequired = true, String? hint}) {
+  Widget _buildTextField(String label, TextEditingController controller, {int maxLines = 1, bool isRequired = true, String? hint, bool isReadOnly = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1090,13 +1409,14 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
         TextFormField(
           controller: controller,
           maxLines: maxLines,
+          readOnly: isReadOnly,
           validator: isRequired ? (val) => val!.isEmpty ? "Required" : null : null,
           decoration: InputDecoration(
             hintText: hint,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE0E0E0))),
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 2)),
             contentPadding: const EdgeInsets.all(12),
-            fillColor: Colors.white,
+            fillColor: isReadOnly ? Colors.grey[100] : Colors.white,
             filled: true,
           ),
         ),
@@ -1160,18 +1480,18 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
   }
 
   // Specialized Student ID field with validation
-  Widget _buildStudentIdField() {
+  Widget _buildStudentIdField({String label = "Student ID(s)", String hint = "e.g., STUD-001, STUD-002"}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Student ID(s)", style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF333333))),
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF333333))),
         const SizedBox(height: 5),
         TextFormField(
           controller: _studentIdController,
           onChanged: _onStudentIdChanged,
           decoration: InputDecoration(
-            hintText: "e.g., STUD-001, STUD-002",
-            helperText: "Add one or more Student IDs (comma-separated)",
+            hintText: hint,
+            helperText: _awardType == 'team' ? "Add multiple IDs (comma-separated)" : "Enter unique Student ID",
             helperStyle: const TextStyle(color: Color(0xFF666666), fontSize: 12),
             suffixIcon: _isSearchingStudent 
                 ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(10), child: CircularProgressIndicator(strokeWidth: 2)))
@@ -1225,6 +1545,25 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
               ],
             ),
           ),
+        if (_verifiedStudentNames.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            if (_awardType == 'team') ...[
+               const Text("Team Members:", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+               const SizedBox(height: 4),
+            ],
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: _verifiedStudentNames.map((name) => Chip(
+                avatar: CircleAvatar(
+                  backgroundColor: const Color(0xFF667eea),
+                  child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontSize: 10)),
+                ),
+                label: Text(name, style: const TextStyle(fontSize: 12)),
+                backgroundColor: const Color(0xFFF0F2F5),
+              )).toList(),
+            ),
+        ],
       ],
     );
   }
