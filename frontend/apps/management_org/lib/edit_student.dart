@@ -29,6 +29,10 @@ class _EditStudentPageState extends State<EditStudentPage> {
   final _addressController = TextEditingController();
   final _medicalConditionsController = TextEditingController();
   final _notesController = TextEditingController();
+  final _activitiesController = TextEditingController();
+  final _leadershipController = TextEditingController();
+  final _achievementsController = TextEditingController();
+  final _participationController = TextEditingController();
 
   String? _studentClass;
   String? _section;
@@ -83,6 +87,10 @@ class _EditStudentPageState extends State<EditStudentPage> {
       _medicalConditionsController.text =
           data['medical_info'] as String? ?? '';
       _notesController.text = data['notes'] as String? ?? '';
+      _activitiesController.text = data['activities'] as String? ?? '';
+      _leadershipController.text = data['leadership'] as String? ?? '';
+      _achievementsController.text = data['achievements'] as String? ?? '';
+      _participationController.text = data['participation'] as String? ?? '';
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -103,6 +111,10 @@ class _EditStudentPageState extends State<EditStudentPage> {
     _addressController.dispose();
     _medicalConditionsController.dispose();
     _notesController.dispose();
+    _activitiesController.dispose();
+    _leadershipController.dispose();
+    _achievementsController.dispose();
+    _participationController.dispose();
     super.dispose();
   }
 
@@ -168,6 +180,10 @@ class _EditStudentPageState extends State<EditStudentPage> {
         'parent_name': _parentNameController.text.trim(),
         'parent_phone': _parentPhoneController.text.trim(),
         'bus_route': _busRoute,
+        'activities': _activitiesController.text.trim(),
+        'leadership': _leadershipController.text.trim(),
+        'achievements': _achievementsController.text.trim(),
+        'participation': _participationController.text.trim(),
       };
 
       if (widget.studentId != null) {
@@ -232,6 +248,10 @@ class _EditStudentPageState extends State<EditStudentPage> {
                   _medicalConditionsController.text.isEmpty
                       ? 'None'
                       : _medicalConditionsController.text),
+              _PreviewItem('Activities', _activitiesController.text.isEmpty ? 'Not provided' : _activitiesController.text),
+              _PreviewItem('Leadership', _leadershipController.text.isEmpty ? 'Not provided' : _leadershipController.text),
+              _PreviewItem('Achievements', _achievementsController.text.isEmpty ? 'Not provided' : _achievementsController.text),
+              _PreviewItem('Participation', _participationController.text.isEmpty ? 'Not provided' : _participationController.text),
               _PreviewItem('Notes',
                   _notesController.text.isEmpty
                       ? 'No additional notes'
@@ -1073,6 +1093,63 @@ class _EditStudentPageState extends State<EditStudentPage> {
                                 maxLines: 3,
                               ),
                               const SizedBox(height: 20),
+                               FormFieldSection(
+                                title: '🌟 Extracurricular & Achievements',
+                                children: [
+                                  TextFormField(
+                                    controller: _activitiesController,
+                                    decoration: InputDecoration(
+                                      labelText: 'Extracurricular Activities',
+                                      hintText: 'Enter student\'s activities (sports, arts, etc.)',
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      prefixIcon: const Icon(Icons.star),
+                                    ),
+                                    maxLines: 2,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  TextFormField(
+                                    controller: _leadershipController,
+                                    decoration: InputDecoration(
+                                      labelText: 'Leadership Roles',
+                                      hintText: 'Enter leadership positions (prefect, captain, etc.)',
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      prefixIcon: const Icon(Icons.leaderboard),
+                                    ),
+                                    maxLines: 2,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  TextFormField(
+                                    controller: _achievementsController,
+                                    decoration: InputDecoration(
+                                      labelText: 'Other Achievements',
+                                      hintText: 'Enter special mentions or other achievements',
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      prefixIcon: const Icon(Icons.emoji_events),
+                                    ),
+                                    maxLines: 2,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  TextFormField(
+                                    controller: _participationController,
+                                    decoration: InputDecoration(
+                                      labelText: 'Participation Record',
+                                      hintText: 'Enter notable events or competition participation',
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      prefixIcon: const Icon(Icons.group),
+                                    ),
+                                    maxLines: 2,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 20),
                               TextFormField(
                                 controller: _notesController,
                                 decoration: InputDecoration(
@@ -1142,6 +1219,29 @@ class _EditStudentPageState extends State<EditStudentPage> {
           ),
         ],
       ),
+    );
+  }
+}class FormFieldSection extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+
+  const FormFieldSection({super.key, required this.title, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 15),
+        ...children,
+      ],
     );
   }
 }

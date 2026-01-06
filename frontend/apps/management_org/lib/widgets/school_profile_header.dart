@@ -56,26 +56,32 @@ class _SchoolProfileHeaderState extends State<SchoolProfileHeader> {
           // The response might be wrapped in 'data' field or directly be the school data
           final schoolData = data['data'] ?? data;
           if (schoolData is Map) {
-            setState(() {
-              _schoolName = _getSchoolName(schoolData);
-              _schoolId = schoolData['school_id']?.toString() ?? 
-                         schoolData['id']?.toString();
-              _isLoading = false;
-            });
+            if (mounted) {
+              setState(() {
+                _schoolName = _getSchoolName(schoolData);
+                _schoolId = schoolData['school_id']?.toString() ?? 
+                           schoolData['id']?.toString();
+                _isLoading = false;
+              });
+            }
             return;
           }
         }
       }
       
-      setState(() {
-        _schoolName = _schoolName ?? 'School';
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _schoolName = _schoolName ?? 'School';
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _schoolName = _schoolName ?? 'School';
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _schoolName = _schoolName ?? 'School';
+          _isLoading = false;
+        });
+      }
     }
   }
 

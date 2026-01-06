@@ -39,12 +39,18 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
   final _nationalityController = TextEditingController();
   final _subjectSpecializationController = TextEditingController();
   final _emergencyContactController = TextEditingController();
+  final _emergencyContactRelationController = TextEditingController();
+  final _salaryController = TextEditingController();
+  final _experienceController = TextEditingController();
 
   String? _selectedDepartmentId;
   List<Map<String, dynamic>> _departments = [];
   bool _isLoadingDepartments = false;
   String? _gender;
   String? _bloodGroup;
+  bool _isClassTeacher = false;
+  String? _classTeacherClass;
+  String? _classTeacherGrade;
   
   // Default department names (from old designation dropdown)
   static const List<String> _defaultDepartmentNames = [
@@ -150,6 +156,9 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
       _nationalityController.dispose();
     _subjectSpecializationController.dispose();
     _emergencyContactController.dispose();
+    _emergencyContactRelationController.dispose();
+    _salaryController.dispose();
+    _experienceController.dispose();
     super.dispose();
   }
 
@@ -198,6 +207,9 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
             : null,
         'gender': _gender,
         'is_active': true,
+        'is_class_teacher': _isClassTeacher,
+        'salary': nullIfEmpty(_salaryController.text),
+        'experience': nullIfEmpty(_experienceController.text),
       };
       
       // Add department - try to parse as integer first, otherwise use as string
@@ -251,6 +263,18 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
       
       final emergencyContact = nullIfEmpty(_emergencyContactController.text);
       if (emergencyContact != null) teacherData['emergency_contact'] = emergencyContact;
+
+      final emergencyContactRelation = nullIfEmpty(_emergencyContactRelationController.text);
+      if (emergencyContactRelation != null) teacherData['emergency_contact_relation'] = emergencyContactRelation;
+
+      if (_isClassTeacher) {
+        if (_classTeacherClass != null && _classTeacherClass!.isNotEmpty) {
+          teacherData['class_teacher_class'] = _classTeacherClass;
+        }
+        if (_classTeacherGrade != null && _classTeacherGrade!.isNotEmpty) {
+          teacherData['class_teacher_grade'] = _classTeacherGrade;
+        }
+      }
 
       // Note: Profile photo will be sent as multipart/form-data with the request
       // The backend handles file upload directly
@@ -707,6 +731,28 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                         ),
                                       ),
                                     ),
+                                    // Experience
+                                    SizedBox(
+                                      width: isTwoColumns ? (constraints.maxWidth - 30) / 2 : constraints.maxWidth,
+                                      child: _LabeledField(
+                                        label: 'Experience (Years)',
+                                        child: TextFormField(
+                                          controller: _experienceController,
+                                          decoration: _inputDecoration(hint: 'e.g. 5'),
+                                        ),
+                                      ),
+                                    ),
+                                    // Salary
+                                    SizedBox(
+                                      width: isTwoColumns ? (constraints.maxWidth - 30) / 2 : constraints.maxWidth,
+                                      child: _LabeledField(
+                                        label: 'Salary',
+                                        child: TextFormField(
+                                          controller: _salaryController,
+                                          decoration: _inputDecoration(hint: 'Enter salary'),
+                                        ),
+                                      ),
+                                    ),
                                     // Joining Date
                                     SizedBox(
                                       width:
@@ -784,6 +830,53 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                                   return null;
                                                 },
                                               ),
+                                      ),
+                                    ),
+                                    // Class Teacher Assignment
+                                    SizedBox(
+                                      width: constraints.maxWidth,
+                                      child: _LabeledField(
+                                        label: 'Class Teacher Assignment',
+                                        child: Column(
+                                          children: [
+                                            CheckboxListTile(
+                                              title: const Text('Assign as Class Teacher'),
+                                              value: _isClassTeacher,
+                                              onChanged: (value) => setState(() => _isClassTeacher = value ?? false),
+                                              contentPadding: EdgeInsets.zero,
+                                              controlAffinity: ListTileControlAffinity.leading,
+                                            ),
+                                            if (_isClassTeacher)
+                                              Padding(
+                                                padding: const EdgeInsets.only(top: 10),
+                                                child: Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: DropdownButtonFormField<String>(
+                                                        value: _classTeacherClass,
+                                                        decoration: _inputDecoration(hint: 'Select Class'),
+                                                        items: ['Grade 9', 'Grade 10', 'Grade 11', 'Grade 12']
+                                                            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                                                            .toList(),
+                                                        onChanged: (v) => setState(() => _classTeacherClass = v),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 20),
+                                                    Expanded(
+                                                      child: DropdownButtonFormField<String>(
+                                                        value: _classTeacherGrade,
+                                                        decoration: _inputDecoration(hint: 'Select Section'),
+                                                        items: ['A', 'B', 'C', 'D']
+                                                            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                                                            .toList(),
+                                                        onChanged: (v) => setState(() => _classTeacherGrade = v),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                     // Mobile No
@@ -896,6 +989,20 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                           keyboardType: TextInputType.phone,
                                           decoration: _inputDecoration(
                                             hint: 'Enter emergency contact number',
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    // Emergency Contact Relation
+                                    SizedBox(
+                                      width:
+                                          isTwoColumns ? (constraints.maxWidth - 30) / 2 : constraints.maxWidth,
+                                      child: _LabeledField(
+                                        label: 'Emergency Contact Relation',
+                                        child: TextFormField(
+                                          controller: _emergencyContactRelationController,
+                                          decoration: _inputDecoration(
+                                            hint: 'e.g. Spouse, Parent',
                                           ),
                                         ),
                                       ),

@@ -37,6 +37,7 @@ dependencies:
   image_picker: ^1.0.7
   intl: ^0.20.2
   google_fonts: ^6.1.0
+  url_launcher: ^6.2.1
   
   # Main login package for navigation
   main_login:
