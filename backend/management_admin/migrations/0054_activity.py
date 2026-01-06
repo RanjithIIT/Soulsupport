@@ -8,8 +8,8 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('super_admin', '0013_fix_null_school_ids'),
-        ('management_admin', '0053_delete_activity'),
+        ('super_admin', '0001_initial'),
+        ('management_admin', '0012_galleryimage_caption_galleryimage_uploaded_at'),
     ]
 
     operations = [

@@ -358,6 +358,16 @@ class StudentData {
 // -------------------------------------------------------------------------
 // ... unchanged ...
 
+// Helper to show snackbar
+void _showSnackbar(BuildContext context, String message) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(message),
+      duration: const Duration(seconds: 2),
+    ),
+  );
+}
+
 // In-app certificate viewer (similar to management portal for consistency)
 void _showCertificateDialog(BuildContext context, Map<String, dynamic> award) {
   final docUrl = award['document_url'] ?? award['document'];
@@ -1403,14 +1413,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
     );
   }
 
-  void _showSnackbar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
+
 
   void _showAchievementDetailsModal(BuildContext context, Map<String, String> achievement) {
     showDialog(
