@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 
 class ApiService {
+  static const baseUrl = 'http://localhost:8000/api';
     /// Fetch bus details for a student by student ID
     static Future<Map<String, dynamic>?> fetchStudentBusDetails(String studentId) async {
       final headers = await _getAuthHeaders();
@@ -194,6 +195,24 @@ class ApiService {
     } catch (e) {
       print('Exception fetching student profile: $e');
       return null; // Return null instead of throwing to allow fallback handling
+    }
+  }
+
+  static Future<Map<String, dynamic>?> fetchAttendanceHistory({String? studentId}) async {
+    try {
+      final headers = await _getAuthHeaders();
+      String url = '$parentBase/student-dashboard/attendance_history/';
+      if (studentId != null) {
+        url += '?student_id=$studentId';
+      }
+      final resp = await http.get(Uri.parse(url), headers: headers);
+      if (resp.statusCode == 200) {
+        return jsonDecode(resp.body) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching attendance history: $e');
+      return null;
     }
   }
 }

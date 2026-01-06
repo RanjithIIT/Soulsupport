@@ -17,6 +17,8 @@ router.register(r'dashboard', views.StudentDashboardViewSet, basename='dashboard
 
 urlpatterns = [
     path('student-profile/', views.student_profile, name='student-profile'),
+    path('school-details/', views.school_details, name='school-details'),
+
     path('', include(router.urls)),
 ]
 

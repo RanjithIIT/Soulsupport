@@ -2,7 +2,7 @@
 Serializers for management_admin app
 """
 from rest_framework import serializers
-from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, Activity
 from main_login.serializers import UserSerializer
 from main_login.serializer_mixins import SchoolIdMixin
 from main_login.utils import get_user_school_id
@@ -59,6 +59,7 @@ class TeacherSerializer(SchoolIdMixin, serializers.ModelSerializer):
         help_text='Department ID (optional)'
     )
     profile_photo_url = serializers.SerializerMethodField()
+    logo_url = serializers.SerializerMethodField()
     
     # Make employee_no required but allow auto-generation if not provided
     employee_no = serializers.CharField(max_length=50, required=False, help_text='Employee number (auto-generated if not provided)')
@@ -75,7 +76,8 @@ class TeacherSerializer(SchoolIdMixin, serializers.ModelSerializer):
             'joining_date', 'dob', 'gender',
             'blood_group', 'nationality', 'mobile_no', 'email', 'address',
             'class_teacher_class', 'class_teacher_grade', 'subject_specialization',
-            'emergency_contact', 'profile_photo', 'profile_photo_url', 
+            'emergency_contact', 'emergency_contact_relation', 'salary', 'experience',
+            'profile_photo', 'profile_photo_url', 'logo_url',
             'is_class_teacher', 'is_active',
             'created_at', 'updated_at'
         ]
@@ -100,7 +102,24 @@ class TeacherSerializer(SchoolIdMixin, serializers.ModelSerializer):
             # If no request context, return as-is (may be used in management commands)
             return obj.profile_photo
         return None
-    
+
+    def get_logo_url(self, obj):
+        """Get school logo URL directly in profile"""
+        # Try to get school
+        school = None
+        if obj.department and obj.department.school:
+            school = obj.department.school
+        elif obj.school_id:
+            from super_admin.models import School
+            school = School.objects.filter(school_id=obj.school_id).first()
+        
+        if school and school.logo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(school.logo.url)
+            return school.logo.url
+        return None
+
     def create(self, validated_data):
         import random
         import string
@@ -214,13 +233,14 @@ class StudentSerializer(serializers.ModelSerializer):
     due_fee_amount = serializers.SerializerMethodField()
     fees_count = serializers.SerializerMethodField()
     profile_photo_url = serializers.SerializerMethodField()
+    logo_url = serializers.SerializerMethodField()
     
     bus_route = serializers.SerializerMethodField()
 
     class Meta:
         model = Student
         fields = [
-            'email', 'user', 'school', 'school_id', 'school_name', 'student_id',
+            'email', 'user', 'school', 'school_id', 'school_name', 'logo_url', 'student_id',
             'student_name', 'parent_name', 'date_of_birth', 'gender',
             'applying_class', 'grade', 'address', 'category', 'admission_number',
             'parent_phone', 'emergency_contact', 'medical_information',
@@ -265,7 +285,6 @@ class StudentSerializer(serializers.ModelSerializer):
             return float(paid)
         except:
             return 0.0
-    
     def get_due_fee_amount(self, obj):
         from django.db.models import Sum
         try:
@@ -273,6 +292,15 @@ class StudentSerializer(serializers.ModelSerializer):
             return float(due)
         except:
             return 0.0
+
+    def get_logo_url(self, obj):
+        """Get school logo URL directly in profile"""
+        if obj.school and obj.school.logo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.school.logo.url)
+            return obj.school.logo.url
+        return None
     
     def get_fees_count(self, obj):
         try:
@@ -542,3 +570,25 @@ class AwardSerializer(SchoolIdMixin, serializers.ModelSerializer):
         instance.save()
         return instance
 
+
+class ActivitySerializer(serializers.ModelSerializer):
+    """
+    Serializer for Activity model
+    """
+    school_name = serializers.CharField(source='school.school_name', read_only=True)
+
+    class Meta:
+        model = Activity
+        fields = [
+            'id', 'school', 'school_name', 'name', 'category', 'instructor',
+            'max_participants', 'schedule', 'location', 'status',
+            'start_date', 'end_date', 'description', 'requirements', 'notes',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'school', 'school_name', 'created_at', 'updated_at']
+
+    def update(self, instance, validated_data):
+        # Prevent school modification
+        if 'school' in validated_data:
+            validated_data.pop('school')
+        return super().update(instance, validated_data)

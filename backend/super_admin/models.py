@@ -30,6 +30,7 @@ class School(models.Model):
         default='active'
     )
     license_expiry = models.DateField(null=True, blank=True)
+    logo = models.FileField(upload_to='school_logos/', null=True, blank=True, help_text='School logo image')
     # Link to user account created for this school
     user = models.ForeignKey(
         User,

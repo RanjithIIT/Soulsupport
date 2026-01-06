@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'teacher_chat_screen.dart';
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:math' as math; // Used for random data generation
 import 'package:intl/intl.dart' as intl;
@@ -141,14 +143,73 @@ class _HomeScreenState extends State<HomeScreen> {
   String _overallScore = '84%';
   String _attendanceRate = '97%';
   String _classRank = '7th';
-  String _selectedPeriod = 'Monthly'; // For performance period selection
+  String _selectedGradePeriod = 'Monthly'; // For grades period selection
+  String _selectedAttendancePeriod = 'Monthly'; // For attendance period selection
   String? _schoolName;
   String? _schoolId;
+  String? _logoUrl; // Added logo URL back
+  
+  // Real Attendance Data
+  List<int> _presentDays = [];
+  List<int> _absentDays = [];
+  bool _isLoadingAttendance = false;
+  
+  // Chart Data
+  Map<String, Map<String, dynamic>> _attendancePeriodData = {
+      'Monthly': {
+        'labels': ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        'percentages': [0, 0, 0, 0, 0, 0], // Default 0
+      },
+      'Quarterly': {
+        'labels': ['Q1', 'Q2', 'Q3', 'Q4'],
+        'percentages': [89, 91, 92, 90], // Mock
+      },
+      'Half-Yearly': {
+        'labels': ['H1 2024', 'H2 2024'],
+        'percentages': [90, 91], // Mock
+      },
+      'Annually': {
+        'labels': ['2023', '2024', '2025'],
+        'percentages': [87, 85, 90], // Mock
+      },
+    };
 
   @override
   void initState() {
     super.initState();
+    _loadCachedSchoolDetails(); // Load immediately from cache
     _loadParentProfile();
+    _loadAttendanceData();
+  }
+
+  Future<void> _loadCachedSchoolDetails() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedName = prefs.getString('school_name');
+      final cachedLogo = prefs.getString('logo_url');
+      
+      if (cachedName != null || cachedLogo != null) {
+        if (mounted) {
+          setState(() {
+            if (cachedName != null) _schoolName = cachedName;
+            if (cachedLogo != null) _logoUrl = cachedLogo;
+          });
+          debugPrint('Loaded Cached Details - Name: $_schoolName, Logo: $_logoUrl');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading cached details: $e');
+    }
+  }
+
+  Future<void> _saveSchoolDetailsToCache(String? name, String? logo) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (name != null) await prefs.setString('school_name', name);
+      if (logo != null) await prefs.setString('logo_url', logo);
+    } catch (e) {
+      debugPrint('Error saving to cache: $e');
+    }
   }
 
   Future<void> _loadParentProfile() async {
@@ -158,62 +219,104 @@ class _HomeScreenState extends State<HomeScreen> {
         // Extract school_id and school_name from parent profile
         _schoolId = parentData['school_id']?.toString();
         _schoolName = parentData['school_name']?.toString();
+        _logoUrl = parentData['logo_url']?.toString();
         
-        debugPrint('Parent profile - school_id: $_schoolId, school_name: $_schoolName');
+        debugPrint('Parent profile - school_id: $_schoolId, school_name: $_schoolName, logo_url: $_logoUrl');
         
-        // Check for null, empty, or 'null' string values
-        final isSchoolIdEmpty = _schoolId == null || _schoolId!.isEmpty || _schoolId == 'null';
-        final isSchoolNameEmpty = _schoolName == null || _schoolName!.isEmpty || _schoolName == 'null';
-        
-        if (isSchoolIdEmpty || isSchoolNameEmpty) {
-          // Try to get from students
-          final students = parentData['students'];
-          if (students is List && students.isNotEmpty) {
-            // Try all students to find one with school data
-            for (var student in students) {
-              if (student is Map) {
-                // Try to get school_id
-                if (isSchoolIdEmpty) {
-                  final extractedSchoolId = student['school_id']?.toString() ?? 
-                                          student['school']?['school_id']?.toString();
-                  if (extractedSchoolId != null && extractedSchoolId.isNotEmpty && extractedSchoolId != 'null') {
-                    _schoolId = extractedSchoolId;
-                  }
-                }
-                // Try to get school_name
-                if (isSchoolNameEmpty) {
-                  final extractedSchoolName = student['school_name']?.toString() ?? 
-                                             student['school']?['school_name']?.toString() ??
-                                             student['school']?['name']?.toString();
-                  if (extractedSchoolName != null && extractedSchoolName.isNotEmpty && extractedSchoolName != 'null') {
-                    _schoolName = extractedSchoolName;
-                  }
-                }
-                
-                // If we found both, break
-                if ((_schoolId != null && _schoolId!.isNotEmpty && _schoolId != 'null') &&
-                    (_schoolName != null && _schoolName!.isNotEmpty && _schoolName != 'null')) {
-                  debugPrint('Extracted from student - school_id: $_schoolId, school_name: $_schoolName');
-                  break;
-                }
-              }
-            }
-          }
-        }
-        
-        // Update UI
+        // Update UI and Cache immediately if we have the data
         if (mounted) {
           setState(() {});
+          _saveSchoolDetailsToCache(_schoolName, _logoUrl);
         }
+
+        // Fetch School Details (including Logo) in background for sync
+        _loadSchoolDetails();
         
         // If school name is still not available, try to load it
         if ((_schoolName == null || _schoolName!.isEmpty) && _schoolId != null && _schoolId!.isNotEmpty) {
           // Fallback: try to load school name if not in profile
-          await _loadSchoolName();
+          _loadSchoolName();
         }
       }
     } catch (e) {
       debugPrint('Failed to load parent profile: $e');
+    }
+  }
+
+  // New method to fetch school details including logo
+  Future<void> _loadSchoolDetails() async {
+    try {
+      final headers = await api.ApiService.getAuthHeaders();
+      final response = await http.get(
+        Uri.parse('${api.ApiService.baseUrl}/student-parent/school-details/'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map) {
+          setState(() {
+            _schoolName = data['school_name']?.toString() ?? _schoolName;
+            _logoUrl = data['logo_url']?.toString();
+          });
+          _saveSchoolDetailsToCache(_schoolName, _logoUrl);
+          debugPrint('Loaded School Details - Name: $_schoolName, Logo: $_logoUrl');
+        }
+      } else {
+        debugPrint('Failed to load school details: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error loading school details: $e');
+    }
+  }
+
+  Future<void> _loadAttendanceData() async {
+    setState(() => _isLoadingAttendance = true);
+    try {
+      final data = await api.ApiService.fetchAttendanceHistory();
+      if (data != null) {
+        // Update stats
+        if (data['stats'] != null) {
+           setState(() {
+             _attendanceRate = '${data['stats']['percentage']}%';
+           });
+        }
+        
+        // Update calendar days
+        if (data['history'] != null) {
+          final history = data['history'] as List;
+          final List<int> present = [];
+          final List<int> absent = [];
+          
+          final now = DateTime.now();
+          final currentMonthNum = currentMonth + 1; // 1-indexed
+          
+          for (var item in history) {
+            final dateStr = item['date'] as String;
+            final status = item['status'] as String;
+            final date = DateTime.parse(dateStr);
+            
+            // Only consider current month/year for the calendar view
+            if (date.month == currentMonthNum && date.year == currentYear) {
+               if (status == 'present') present.add(date.day);
+               else if (status == 'absent') absent.add(date.day);
+               // Late can be handled if needed
+            }
+          }
+          
+          setState(() {
+            _presentDays = present;
+            _absentDays = absent;
+          });
+          
+          // Calculate Monthly percentages for Chart
+          _calculateMonthlyStats(history);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading attendance: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingAttendance = false);
     }
   }
 
@@ -234,6 +337,9 @@ class _HomeScreenState extends State<HomeScreen> {
         if (data is Map) {
           setState(() {
             _schoolName = data['school_name']?.toString() ?? 'School';
+            if (_logoUrl == null) {
+               _logoUrl = data['logo_url']?.toString();
+            }
           });
           return;
         }
@@ -278,6 +384,54 @@ class _HomeScreenState extends State<HomeScreen> {
         SnackBar(content: Text(message), duration: const Duration(seconds: 1)),
       );
     }
+  }
+
+  void _calculateMonthlyStats(List<dynamic> history) {
+     // Group by Month (last 6 months dynamically)
+     // For simplicity, just group by month index 1-12 from the data
+     
+     final Map<int, Map<String, int>> monthStats = {}; // Month -> {present, total}
+     
+     for (var item in history) {
+        final dateStr = item['date'] as String;
+        final status = item['status'] as String;
+        final date = DateTime.parse(dateStr);
+        final m = date.month;
+        
+        if (!monthStats.containsKey(m)) monthStats[m] = {'present': 0, 'total': 0};
+        
+        monthStats[m]!['total'] = (monthStats[m]!['total'] ?? 0) + 1;
+        if (status == 'present') {
+           monthStats[m]!['present'] = (monthStats[m]!['present'] ?? 0) + 1;
+        }
+     }
+     
+     // Generate labels and percentages for last 6 months or current year months
+     List<String> labels = [];
+     List<int> percentages = [];
+     
+     final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+     
+     // Sort months
+     final sortedMonths = monthStats.keys.toList()..sort();
+     
+     // If no data, keep defaults or show empty? 
+     // Let's iterate sorted months
+     for (var m in sortedMonths) {
+         labels.add(monthNames[m-1]);
+         final total = monthStats[m]!['total']!;
+         final present = monthStats[m]!['present']!;
+         percentages.add(((present / total) * 100).round());
+     }
+     
+     if (labels.isNotEmpty) {
+        setState(() {
+           _attendancePeriodData['Monthly'] = {
+              'labels': labels,
+              'percentages': percentages
+           };
+        });
+     }
   }
 
   void _refreshPerformanceStats() {
@@ -448,7 +602,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'number': 'Contact',
         'label': 'Teacher',
         'color': const Color(0xFFe83e8c),
-        'action': () => _showChatDialog(context),
+        'action': () => Navigator.push(context, MaterialPageRoute(builder: (context) => _WhatsAppChatScreen())),
       },
       {
         'icon': Icons.calendar_month,
@@ -578,7 +732,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Expanded(
                 child: Text(
-                  '📊 Student Performance Overview',
+                  'ðŸ“Š Student Performance Overview',
                   // Increased font size and contrast for the title
                   style: TextStyle(
                     fontSize: 20,
@@ -647,7 +801,7 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     };
 
-    final currentData = periodData[_selectedPeriod]!;
+    final currentData = periodData[_selectedGradePeriod]!;
     final labels = currentData['labels'] as List<String>;
     final percentages = currentData['percentages'] as List<int>;
     final maxPercentage = 100;
@@ -676,7 +830,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        '$_selectedPeriod Grades Performance',
+                        '$_selectedGradePeriod Grades Performance',
                         style: const TextStyle(
                           fontSize: 17, // Increased font size
                           fontWeight: FontWeight.w700,
@@ -698,13 +852,13 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Row(
               children: ['Monthly', 'Quarterly', 'Half-Yearly', 'Annually'].map(
                 (period) {
-                  final isSelected = _selectedPeriod == period;
+                  final isSelected = _selectedGradePeriod == period;
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: InkWell(
                       onTap: () {
                         setState(() {
-                          _selectedPeriod = period;
+                          _selectedGradePeriod = period;
                         });
                       },
                       child: Container(
@@ -819,29 +973,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildAttendanceChart() {
-    // Data for different periods
-    Map<String, Map<String, dynamic>> periodData = {
-      'Monthly': {
-        'labels': ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-        'percentages': [85, 89, 93, 90, 93, 90],
-      },
-      'Quarterly': {
-        'labels': ['Q1', 'Q2', 'Q3', 'Q4'],
-        'percentages': [89, 91, 92, 90],
-      },
-      'Half-Yearly': {
-        'labels': ['H1 2024', 'H2 2024'],
-        'percentages': [90, 91],
-      },
-      'Annually': {
-        'labels': ['2022', '2023', '2024'],
-        'percentages': [87, 90, 91],
-      },
-    };
-
-    final currentData = periodData[_selectedPeriod]!;
-    final months = currentData['labels'] as List<String>;
-    final percentages = currentData['percentages'] as List<int>;
+    final currentData = _attendancePeriodData[_selectedAttendancePeriod]!;
+    // Cast strict types
+    final labels = currentData['labels'] as List;
+    final percents = currentData['percentages'] as List;
+    
+    final months = labels.map((e) => e.toString()).toList();
+    final percentages = percents.map((e) => e is int ? e : (e as num).round()).toList();
 
     return Container(
       padding: const EdgeInsets.all(15),
@@ -867,7 +1005,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        '$_selectedPeriod Attendance Performance',
+                        '$_selectedAttendancePeriod Attendance Performance',
                         style: const TextStyle(
                           fontSize: 17, // Increased font size
                           fontWeight: FontWeight.w700,
@@ -889,13 +1027,13 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Row(
               children: ['Monthly', 'Quarterly', 'Half-Yearly', 'Annually'].map(
                 (period) {
-                  final isSelected = _selectedPeriod == period;
+                  final isSelected = _selectedAttendancePeriod == period;
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: InkWell(
                       onTap: () {
                         setState(() {
-                          _selectedPeriod = period;
+                          _selectedAttendancePeriod = period;
                         });
                       },
                       child: Container(
@@ -987,29 +1125,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final firstDayOfMonth = DateTime(currentYear, currentMonth + 1, 1);
     final firstWeekday = firstDayOfMonth.weekday % 7; // 0 = Sunday
 
-    // Mock attendance data (Present days) - will vary by month
-    final presentDays = [
-      3,
-      4,
-      5,
-      7,
-      10,
-      11,
-      12,
-      13,
-      14,
-      17,
-      18,
-      19,
-      20,
-      21,
-      24,
-      25,
-      26,
-      27,
-      28,
-    ];
-    final absentDays = [6, 15]; // Red color
+    // Use real attendance data loaded from API
+    final presentDays = _presentDays;
+    final absentDays = _absentDays;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1417,7 +1535,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         // Events Section
                         if (dayEvents.isNotEmpty) ...[
                           _buildDetailSection(
-                            '📅 Events',
+                            'ðŸ“… Events',
                             dayEvents
                                 .map(
                                   (event) => ListTile(
@@ -1449,7 +1567,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         // Exams Section
                         if (dayExams.isNotEmpty) ...[
                           _buildDetailSection(
-                            '📝 Exams',
+                            'ðŸ“ Exams',
                             dayExams
                                 .map(
                                   (exam) => Container(
@@ -1476,7 +1594,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               ),
                                               const SizedBox(height: 4),
                                               Text(
-                                                '${exam['type']} • ${exam['time']} • ${exam['duration']}',
+                                                '${exam['type']} â€¢ ${exam['time']} â€¢ ${exam['duration']}',
                                                 style: TextStyle(
                                                   fontSize: 13,
                                                   color: Colors.grey.shade700,
@@ -1497,7 +1615,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         // Homework Section
                         if (dayHomework.isNotEmpty) ...[
                           _buildDetailSection(
-                            '📚 Homework',
+                            'ðŸ“š Homework',
                             dayHomework
                                 .map(
                                   (hw) => Container(
@@ -1594,7 +1712,10 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       padding: const EdgeInsets.only(top: 20, bottom: 12, left: 24, right: 24),
-      child: Row(
+      child: Builder( // Wrap in Builder to execute code
+        builder: (context) {
+          debugPrint('LOGO DEBUG: _logoUrl = $_logoUrl, _schoolName = $_schoolName');
+          return Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // Logo and School Name
@@ -1621,24 +1742,31 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(10),
-                        child: Transform.scale(
-                          scale: 1.2, // Zoom in to crop out the baked-in border
-                          child: Image.asset(
-                            'assets/images/vidhyarambh_logo.png',
-                            package: 'parent_app',
-                            fit: BoxFit.cover,
-                            width: side,
-                            height: side,
-                            errorBuilder: (context, error, stackTrace) {
-                              debugPrint('LOGO LOAD ERROR: $error');
-                              return const Icon(
-                                Icons.school, // Fallback icon
-                                size: 40,
-                                color: Color(0xFFFFD700),
-                              );
-                            },
-                          ),
-                        ),
+                        child: _logoUrl != null && _logoUrl!.isNotEmpty
+                            ? Image.network(
+                                _logoUrl!,
+                                fit: BoxFit.cover,
+                                width: side,
+                                height: side,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    color: Colors.grey[200],
+                                    child: Icon(
+                                      Icons.school,
+                                      size: side * 0.5,
+                                      color: Colors.grey[600],
+                                    ),
+                                  );
+                                },
+                              )
+                            : Container(
+                                color: Colors.grey[200],
+                                child: Icon(
+                                  Icons.school,
+                                  size: side * 0.5,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
                       ),
                     );
                   },
@@ -1694,7 +1822,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: const CircleAvatar(
                       radius: 20,
                       backgroundColor: Color(0xFFE1BEE7),
-                      child: Text('👨‍👩‍👧', style: TextStyle(fontSize: 22)),
+                      child: Text('ðŸ‘¨â€ðŸ‘©â€ðŸ‘§', style: TextStyle(fontSize: 22)),
                     ),
                   ),
                 ),
@@ -1720,16 +1848,30 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: const Text('Cancel'),
                             ),
                             TextButton(
-                              onPressed: () {
-                                Navigator.of(dialogContext).pop();
-                                Navigator.pushAndRemoveUntil(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const main_login.LoginScreen(),
-                                  ),
-                                  (route) => false,
-                                );
+                              onPressed: () async {
+                                // Clear cache
+                                try {
+                                  final prefs = await SharedPreferences.getInstance();
+                                  await prefs.remove('school_name');
+                                  await prefs.remove('logo_url');
+                                } catch (e) {
+                                  debugPrint('Error clearing cache: $e');
+                                }
+
+                                if (dialogContext.mounted) {
+                                  Navigator.of(dialogContext).pop();
+                                }
+                                
+                                if (context.mounted) {
+                                  Navigator.pushAndRemoveUntil(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const main_login.LoginScreen(),
+                                    ),
+                                    (route) => false,
+                                  );
+                                }
                               },
                               child: const Text(
                                 'Logout',
@@ -1766,6 +1908,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ],
+      );
+    },
       ),
     );
   }
@@ -1822,28 +1966,28 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // Recent Homework Section
             _SectionCard(
-              title: '📚 Recent Homework',
+              title: 'ðŸ“š Recent Homework',
               child: _HomeworkList(homework: mockData.homework),
             ),
             const SizedBox(height: 30),
 
             // Upcoming Tests Section
             _SectionCard(
-              title: '📋 Upcoming Tests',
+              title: 'ðŸ“‹ Upcoming Tests',
               child: _TestsList(tests: mockData.tests),
             ),
             const SizedBox(height: 30),
 
             // Recent Results Section
             _SectionCard(
-              title: '📊 Recent Results',
+              title: 'ðŸ“Š Recent Results',
               child: _ResultsList(results: mockData.results),
             ),
             const SizedBox(height: 30),
 
             // Bus Details Section
             _SectionCard(
-              title: '🚌 Bus Details',
+              title: 'ðŸšŒ Bus Details',
               child: _BusDetailsCard(details: mockData.busDetails),
             ),
             const SizedBox(height: 100), // Space for floating button
@@ -2227,7 +2371,7 @@ class _TestsList extends StatelessWidget {
               ), // Bolder
             ),
             subtitle: Text(
-              'Date: ${item['date']!} • Duration: ${item['duration']!}',
+              'Date: ${item['date']!} â€¢ Duration: ${item['duration']!}',
               style: const TextStyle(fontSize: 13), // Adjusted size
             ),
             trailing: Chip(
@@ -2278,7 +2422,7 @@ class _ResultsList extends StatelessWidget {
               ), // Bolder
             ),
             subtitle: Text(
-              'Score: ${item['score']}% • Grade: ${item['grade']} • Date: ${item['date']}',
+              'Score: ${item['score']}% â€¢ Grade: ${item['grade']} â€¢ Date: ${item['date']}',
               style: const TextStyle(fontSize: 13), // Adjusted size
             ),
             trailing: const Chip(
@@ -2443,187 +2587,13 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
   bool _loadingTeachers = false;
   String? _schoolId; // Parent's school_id for filtering
   final Map<String, int> _unreadCounts = {}; // Track unread messages per teacher
-  
-  // Added missing state variables
-  StreamSubscription? _globalChatSubscription;
-  RealtimeChatService? _globalChatService;
-  final Map<String, List<Map<String, dynamic>>> _teacherMessages = {};
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _searchController.addListener(() {
-      setState(() => _searchQuery = _searchController.text.toLowerCase());
-    });
     _loadParentSchoolId();
     _loadTeachers();
-    _initializeGlobalChatListener();
-  }
-  
-  @override
-  void dispose() {
-    _globalChatSubscription?.cancel();
-    _globalChatService?.disconnect();
-    _tabController.dispose();
-    _searchController.dispose();
-    super.dispose();
-  }
-  
-  // Initialize global chat listener to track unread counts
-  Future<void> _initializeGlobalChatListener() async {
-    try {
-      // Get student info for room ID
-      final parentData = await api.ApiService.fetchParentProfile();
-      if (parentData == null) return;
-      
-      final students = parentData['students'];
-      if (students is! List || students.isEmpty) return;
-      
-      final student = students[0] as Map<String, dynamic>?;
-      if (student == null) return;
-      
-      final studentName = student['student_name']?.toString() ?? 
-                         student['name']?.toString() ?? '';
-      if (studentName.isEmpty) return;
-      
-      // Connect to a general room to listen for all messages
-      // We'll filter messages by recipient in the listener
-      _globalChatService = RealtimeChatService(baseWsUrl: 'ws://localhost:8000');
-      // Use a general room ID - we'll filter by recipient in the listener
-      await _globalChatService!.connect(roomId: 'student_${studentName.toLowerCase().replaceAll(' ', '_')}', chatType: 'teacher-student');
-      
-      _globalChatSubscription = _globalChatService!.stream?.listen((event) {
-        try {
-          final data = event is String ? jsonDecode(event) : event;
-          if (data is Map) {
-            final messageType = data['type']?.toString() ?? 'message';
-            if (messageType == 'message') {
-              final recipient = data['recipient']?.toString() ?? '';
-              final recipientUsername = data['recipient_username']?.toString() ?? recipient;
-              final sender = data['sender']?.toString() ?? '';
-              final senderUsername = data['sender_username']?.toString() ?? sender;
-              
-              // Check if message is for this student (from any teacher)
-              final isForThisStudent = (
-                recipient == studentName ||
-                recipientUsername == studentName ||
-                recipient.toLowerCase().replaceAll(' ', '_') == studentName.toLowerCase().replaceAll(' ', '_')
-              );
-              
-              // Check if sender is a teacher (not the student)
-              final isFromTeacher = sender != studentName && 
-                                   senderUsername != studentName &&
-                                   sender.toLowerCase().replaceAll(' ', '_') != studentName.toLowerCase().replaceAll(' ', '_');
-              
-              if (isForThisStudent && isFromTeacher) {
-                // Find the teacher in our list and increment unread count
-                // Try to match by name first, then by username
-                String? matchedTeacherName;
-                int? matchedTeacherIndex;
-                
-                // First try to find exact match by name
-                for (int i = 0; i < _teachers.length; i++) {
-                  final teacher = _teachers[i];
-                  final tName = teacher['name']?.toString() ?? '';
-                  final tUser = teacher['user'] as Map<String, dynamic>?;
-                  final tUsername = tUser?['username']?.toString() ?? '';
-                  final tEmail = tUser?['email']?.toString() ?? '';
-                  
-                  if (sender == tName || 
-                      senderUsername == tName ||
-                      sender == tUsername ||
-                      senderUsername == tUsername ||
-                      sender == tEmail ||
-                      senderUsername == tEmail ||
-                      sender.toLowerCase().contains(tName.toLowerCase()) ||
-                      tName.toLowerCase().contains(sender.toLowerCase())) {
-                    matchedTeacherName = tName;
-                    matchedTeacherIndex = i;
-                    break;
-                  }
-                }
-                
-                // If no match found, use sender as teacher name
-                final finalTeacherName = (matchedTeacherName != null && matchedTeacherName.isNotEmpty)
-                    ? matchedTeacherName
-                    : (sender.isNotEmpty ? sender : (senderUsername.isNotEmpty ? senderUsername : 'Unknown'));
-                
-                if (finalTeacherName.isNotEmpty && finalTeacherName != 'Unknown') {
-                  final messageText = data['message']?.toString() ?? '';
-                  final timestamp = data['timestamp']?.toString() ?? DateTime.now().toIso8601String();
-                  final messageId = data['message_id']?.toString() ?? '';
-                  
-                  setState(() {
-                    // Update unread count
-                    _unreadCounts[finalTeacherName] = (_unreadCounts[finalTeacherName] ?? 0) + 1;
-                    
-                    // Store message for this teacher
-                    _teacherMessages[finalTeacherName] ??= [];
-                    
-                    // Check for duplicates
-                    final isDuplicate = _teacherMessages[finalTeacherName]!.any((msg) => 
-                      msg['message_id'] == messageId || 
-                      (msg['text'] == messageText && msg['timestamp'] == timestamp)
-                    );
-                    
-                    if (!isDuplicate && messageText.isNotEmpty) {
-                      _teacherMessages[finalTeacherName]!.add({
-                        'text': messageText,
-                        'timestamp': timestamp,
-                        'message_id': messageId,
-                        'isTeacher': true,
-                      });
-                      
-                      // Keep only last 50 messages per teacher for performance
-                      if (_teacherMessages[finalTeacherName]!.length > 50) {
-                        _teacherMessages[finalTeacherName]!.removeAt(0);
-                      }
-                    }
-                    
-                    // Update the teacher in the list
-                    final teacherIndex = matchedTeacherIndex ?? _teachers.indexWhere((t) => t['name'] == finalTeacherName);
-                    if (teacherIndex != -1) {
-                      _teachers[teacherIndex]['unread'] = _unreadCounts[finalTeacherName] ?? 0;
-                      
-                      // Update last message and time
-                      if (_teacherMessages[finalTeacherName]!.isNotEmpty) {
-                        final lastMsg = _teacherMessages[finalTeacherName]!.last;
-                        _teachers[teacherIndex]['lastMessage'] = lastMsg['text'] ?? '';
-                        try {
-                          final msgTime = DateTime.parse(lastMsg['timestamp'] ?? timestamp);
-                          final now = DateTime.now();
-                          final difference = now.difference(msgTime);
-                          
-                          if (difference.inDays == 0) {
-                            _teachers[teacherIndex]['time'] = intl.DateFormat('hh:mm a').format(msgTime);
-                          } else if (difference.inDays == 1) {
-                            _teachers[teacherIndex]['time'] = 'Yesterday';
-                          } else if (difference.inDays < 7) {
-                            _teachers[teacherIndex]['time'] = intl.DateFormat('EEE').format(msgTime);
-                          } else {
-                            _teachers[teacherIndex]['time'] = intl.DateFormat('MMM d').format(msgTime);
-                          }
-                        } catch (e) {
-                          _teachers[teacherIndex]['time'] = '';
-                        }
-                      }
-                    }
-                  });
-                  debugPrint('✓ Unread count updated for $finalTeacherName: ${_unreadCounts[finalTeacherName]}');
-                } else {
-                  debugPrint('⚠️ Could not match teacher for unread count: sender=$sender, senderUsername=$senderUsername');
-                }
-              }
-            }
-          }
-        } catch (e) {
-          debugPrint('Error in global chat listener: $e');
-        }
-      });
-    } catch (e) {
-      debugPrint('Failed to initialize global chat listener: $e');
-    }
   }
 
   Future<void> _loadParentSchoolId() async {
@@ -2647,6 +2617,13 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
     } catch (e) {
       debugPrint('Failed to load parent school_id: $e');
     }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _searchController.dispose();
+    super.dispose();
   }
 
   List<Map<String, dynamic>> get _filteredTeachers {
@@ -2716,7 +2693,7 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
             'unread': 0,
             'lastMessage': '',
             'time': '',
-            'avatar': '👥',
+            'avatar': 'ðŸ‘¥',
           },
         ];
       });
@@ -2729,7 +2706,7 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
 
   String _buildInitials(String name) {
     final parts = name.split(' ').where((p) => p.isNotEmpty).toList();
-    if (parts.isEmpty) return '👤';
+    if (parts.isEmpty) return 'ðŸ‘¤';
     final initials = parts.take(2).map((p) => p[0]).join();
     return initials;
   }
@@ -2859,7 +2836,7 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
               ),
               child: FloatingActionButton.extended(
                 onPressed: () => _showNewChatDialog(context),
-                backgroundColor: const Color(0xFF667eea),
+                backgroundColor: SchoolManagementSystemApp.primaryPurple,
                 icon: const Icon(Icons.add, color: Colors.white),
                 label: const Text(
                   'Start New Chat',
@@ -2874,44 +2851,60 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
   }
 
   Widget _buildChatsTab() {
-    return _filteredTeachers.isEmpty
-        ? const Center(child: Text('No teachers found'))
-        : ListView.builder(
-            itemCount: _filteredTeachers.length,
-            itemBuilder: (context, index) {
-              final teacher = _filteredTeachers[index];
-              return _buildChatTile(
-                avatar: teacher['avatar'],
-                name: teacher['name'],
-                subtitle: teacher['subject'] ?? teacher['lastMessage'] ?? '',
-                time: teacher['time'],
-                unread: teacher['unread'],
-                online: teacher['online'],
-                onTap: () => _openChatWithTeacher(context, teacher),
-              );
-            },
-          );
+    return Container(
+      color: Colors.grey.shade50,
+      child: _filteredTeachers.isEmpty
+          ? const Center(
+              child: Text(
+                'No teachers found',
+                style: TextStyle(color: Colors.grey, fontSize: 16),
+              ),
+            )
+          : ListView.builder(
+              itemCount: _filteredTeachers.length,
+              itemBuilder: (context, index) {
+                final teacher = _filteredTeachers[index];
+                return _buildChatTile(
+                  avatar: teacher['avatar'],
+                  name: teacher['name'],
+                  subtitle: teacher['subject'] ?? teacher['lastMessage'] ?? '',
+                  time: teacher['time'],
+                  unread: teacher['unread'],
+                  online: teacher['online'],
+                  onTap: () => _openChatWithTeacher(context, teacher),
+                );
+              },
+            ),
+    );
   }
 
   Widget _buildGroupsTab() {
-    return _filteredGroups.isEmpty
-        ? const Center(child: Text('No groups found'))
-        : ListView.builder(
-            itemCount: _filteredGroups.length,
-            itemBuilder: (context, index) {
-              final group = _filteredGroups[index];
-              return _buildChatTile(
-                avatar: group['avatar'],
-                name: group['name'],
-                subtitle: group['lastMessage'],
-                time: group['time'],
-                unread: group['unread'],
-                isGroup: true,
-                members: group['members'],
-                onTap: () => _openGroup(context, group),
-              );
-            },
-          );
+    return Container(
+      color: Colors.grey.shade50,
+      child: _filteredGroups.isEmpty
+          ? const Center(
+              child: Text(
+                'No groups found',
+                style: TextStyle(color: Colors.grey, fontSize: 16),
+              ),
+            )
+          : ListView.builder(
+              itemCount: _filteredGroups.length,
+              itemBuilder: (context, index) {
+                final group = _filteredGroups[index];
+                return _buildChatTile(
+                  avatar: group['avatar'],
+                  name: group['name'],
+                  subtitle: group['lastMessage'],
+                  time: group['time'],
+                  unread: group['unread'],
+                  isGroup: true,
+                  members: group['members'],
+                  onTap: () => _openGroup(context, group),
+                );
+              },
+            ),
+    );
   }
 
   Widget _buildChatTile({
@@ -2928,78 +2921,119 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
     return InkWell(
       onTap: onTap,
       child: Container(
-        color: Colors.transparent,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+        ),
         child: Row(
           children: [
-            // Profile picture
-            CircleAvatar(
-              radius: 28,
-              backgroundColor: Colors.grey[300],
-              child: Text(
-                avatar,
-                style: const TextStyle(
-                  color: Colors.black87,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
+            // Avatar
+            Stack(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: SchoolManagementSystemApp.primaryPurple.withOpacity(
+                      0.1,
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(avatar, style: const TextStyle(fontSize: 24)),
+                  ),
                 ),
-              ),
+                if (online && !isGroup)
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(width: 12),
+            // Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Colors.black87,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          style: const TextStyle(
+                            // Darkened Name Text
+                            fontWeight: FontWeight.w700,
+                            fontSize: 17,
+                            color: Colors
+                                .black, // Changed to pure black for max visibility
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        time,
+                        style: TextStyle(
+                          color: unread > 0
+                              ? SchoolManagementSystemApp.primaryPurple
+                              : Colors.black54, // Darker time stamp
+                          fontSize: 13,
+                          fontWeight: unread > 0
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    isGroup ? '$members members · $subtitle' : subtitle,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[600],
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          isGroup ? '$members members Â· $subtitle' : subtitle,
+                          style: const TextStyle(
+                            // Darkened Subtitle Text
+                            color: Colors
+                                .black, // Changed to pure black for max visibility
+                            fontSize: 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (unread > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: const BoxDecoration(
+                            color: SchoolManagementSystemApp.primaryPurple,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            unread.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
-            ),
-            // Time and unread count
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (time.isNotEmpty)
-                  Text(
-                    time,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                  ),
-                if (unread > 0) ...[
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF667eea),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '$unread',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
             ),
           ],
         ),
@@ -3026,25 +3060,9 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
     Navigator.of(context).pop();
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => _TeacherChatScreen(
-          teacher: teacher,
-          onUnreadCountUpdate: (name, count) {
-            setState(() {
-              _unreadCounts[name] = count;
-              final teacherIndex = _teachers.indexWhere((t) => t['name'] == name);
-              if (teacherIndex != -1) {
-                _teachers[teacherIndex]['unread'] = count;
-              }
-            });
-          },
-        ),
+        builder: (context) => TeacherChatScreen(teacher: teacher),
       ),
-    ).then((_) {
-      // When returning from chat, refresh the list to show updated unread counts and sorting
-      setState(() {
-        // Force UI update to reflect new message order
-      });
-    });
+    );
   }
   
   // Method to update unread count (can be called from chat screen)
@@ -3116,7 +3134,7 @@ class _WhatsAppChatDialogState extends State<_WhatsAppChatDialog>
   // analyzer warnings about unused private declarations.
 }
 
-// Full-screen chat screen (uses a Scaffold) — opened from the FAB
+// Full-screen chat screen (uses a Scaffold) â€” opened from the FAB
 class _WhatsAppChatScreen extends StatefulWidget {
   @override
   State<_WhatsAppChatScreen> createState() => _WhatsAppChatScreenState();
@@ -3174,7 +3192,7 @@ class _WhatsAppChatScreenState extends State<_WhatsAppChatScreen>
 
   String _buildInitials(String name) {
     final parts = name.split(' ').where((p) => p.isNotEmpty).toList();
-    if (parts.isEmpty) return '👤';
+    if (parts.isEmpty) return 'ðŸ‘¤';
     final initials = parts.take(2).map((p) => p[0]).join();
     return initials;
   }
@@ -3228,7 +3246,7 @@ class _WhatsAppChatScreenState extends State<_WhatsAppChatScreen>
             'unread': 0,
             'lastMessage': '',
             'time': '',
-            'avatar': '👥',
+            'avatar': 'ðŸ‘¥',
           },
         ];
       });
@@ -3280,81 +3298,89 @@ class _WhatsAppChatScreenState extends State<_WhatsAppChatScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        elevation: 0,
-        backgroundColor: const Color(0xFF667eea),
-        title: const Text(
-          'School Chat',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+        backgroundColor: SchoolManagementSystemApp.primaryPurple,
+        title: const Text('School Chat'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
-              _loadTeachers();
-            },
-            tooltip: 'Refresh',
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.white),
+            icon: const Icon(Icons.close),
             onPressed: () => Navigator.of(context).pop(),
-            tooltip: 'Close',
           ),
         ],
-      ),
-      body: _loadingTeachers
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                // Search and filters
-                Container(
-                  color: Colors.white,
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    children: [
-                      TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Search by name...',
-                          prefixIcon: const Icon(Icons.search),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey[50],
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        ),
-                        onChanged: (value) => setState(() => _searchQuery = value),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        color: Colors.grey.shade100,
-                        child: TabBar(
-                          controller: _tabController,
-                          labelColor: const Color(0xFF667eea),
-                          unselectedLabelColor: Colors.grey,
-                          indicatorColor: const Color(0xFF667eea),
-                          indicatorWeight: 3,
-                          tabs: const [
-                            Tab(icon: Icon(Icons.chat), text: 'Chats'),
-                            Tab(icon: Icon(Icons.group), text: 'Groups'),
-                          ],
-                        ),
-                      ),
-                    ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(72),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(25),
+              ),
+              child: TextField(
+                controller: _searchController,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  hintText: 'Search teachers, groups...',
+                  hintStyle: TextStyle(color: Colors.white70),
+                  prefixIcon: Icon(Icons.search, color: Colors.white),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
                   ),
                 ),
-                const Divider(height: 1),
-                // Contacts list
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [_buildChatsTab(), _buildGroupsTab()],
-                  ),
+                onChanged: (value) => setState(() => _searchQuery = value),
+              ),
+            ),
+          ),
+        ),
+      ),
+      body: Column(
+        children: [
+          Container(
+            color: Colors.grey.shade100,
+            child: TabBar(
+              controller: _tabController,
+              labelColor: SchoolManagementSystemApp.primaryPurple,
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: SchoolManagementSystemApp.primaryPurple,
+              indicatorWeight: 3,
+              tabs: const [
+                Tab(icon: Icon(Icons.chat), text: 'Chats'),
+                Tab(icon: Icon(Icons.group), text: 'Groups'),
+              ],
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [_buildChatsTab(), _buildGroupsTab()],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, -2),
                 ),
               ],
             ),
+            child: FloatingActionButton.extended(
+              onPressed: () => _showNewChatDialog(context),
+              backgroundColor: SchoolManagementSystemApp.primaryPurple,
+              icon: const Icon(Icons.add, color: Colors.white),
+              label: const Text(
+                'Start New Chat',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -3430,78 +3456,115 @@ class _WhatsAppChatScreenState extends State<_WhatsAppChatScreen>
     return InkWell(
       onTap: onTap,
       child: Container(
-        color: Colors.transparent,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+        ),
         child: Row(
           children: [
-            // Profile picture
-            CircleAvatar(
-              radius: 28,
-              backgroundColor: Colors.grey[300],
-              child: Text(
-                avatar,
-                style: const TextStyle(
-                  color: Colors.black87,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
+            // Avatar
+            Stack(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: SchoolManagementSystemApp.primaryPurple.withOpacity(
+                      0.1,
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(avatar, style: const TextStyle(fontSize: 24)),
+                  ),
                 ),
-              ),
+                if (online && !isGroup)
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(width: 12),
+            // Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Colors.black87,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 17,
+                            color: Colors.black,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        time,
+                        style: TextStyle(
+                          color: unread > 0
+                              ? SchoolManagementSystemApp.primaryPurple
+                              : Colors.black54,
+                          fontSize: 13,
+                          fontWeight: unread > 0
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    isGroup ? '$members members · $subtitle' : subtitle,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[600],
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          isGroup ? '$members members Â· $subtitle' : subtitle,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (unread > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: const BoxDecoration(
+                            color: SchoolManagementSystemApp.primaryPurple,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            unread.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
-            ),
-            // Time and unread count
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (time.isNotEmpty)
-                  Text(
-                    time,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                  ),
-                if (unread > 0) ...[
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF667eea),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '$unread',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
             ),
           ],
         ),
@@ -3513,38 +3576,11 @@ class _WhatsAppChatScreenState extends State<_WhatsAppChatScreen>
     BuildContext context,
     Map<String, dynamic> teacher,
   ) {
-    // Reset unread count when opening chat
-    final teacherName = teacher['name'] as String;
-    setState(() {
-      _unreadCounts[teacherName] = 0;
-      // Update the teacher in the list
-      final teacherIndex = _teachers.indexWhere((t) => t['name'] == teacherName);
-      if (teacherIndex != -1) {
-        _teachers[teacherIndex]['unread'] = 0;
-      }
-    });
-    
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => _TeacherChatScreen(
-          teacher: teacher,
-          onUnreadCountUpdate: (name, count) {
-            setState(() {
-              _unreadCounts[name] = count;
-              final teacherIndex = _teachers.indexWhere((t) => t['name'] == name);
-              if (teacherIndex != -1) {
-                _teachers[teacherIndex]['unread'] = count;
-              }
-            });
-          },
-        ),
+        builder: (context) => TeacherChatScreen(teacher: teacher),
       ),
-    ).then((_) {
-      // When returning from chat, refresh the list to show updated unread counts and sorting
-      setState(() {
-        // Force UI update to reflect new message order
-      });
-    });
+    );
   }
 
   void _openGroup(BuildContext context, Map<String, dynamic> group) {
@@ -3599,1319 +3635,6 @@ class _WhatsAppChatScreenState extends State<_WhatsAppChatScreen>
 // Teacher Chat Screen
 // -------------------------------------------------------------------------
 
-class _TeacherChatScreen extends StatefulWidget {
-  final Map<String, dynamic> teacher;
-  final Function(String teacherName, int count)? onUnreadCountUpdate;
-  const _TeacherChatScreen({
-    required this.teacher,
-    this.onUnreadCountUpdate,
-  });
-
-  @override
-  State<_TeacherChatScreen> createState() => _TeacherChatScreenState();
-}
-
-class _TeacherChatScreenState extends State<_TeacherChatScreen> {
-  final TextEditingController _messageController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-  List<Map<String, dynamic>> _messages = [];
-  bool _isLoadingMessages = true;
-
-  // State variable to track if text field is empty
-  bool _isTextFieldEmpty = true;
-  RealtimeChatService? _chatService;
-  StreamSubscription? _chatSubscription;
-  String? _chatRoomId;
-  String? _studentUsername; // Display name (used for room ID)
-  String? _teacherUsername; // Display name (used for room ID)
-  String? _studentEmail; // Student email/username for API calls and message saving
-  String? _teacherEmail; // Teacher email/username for API calls and message saving
-  final Set<String> _messageIds = {}; // Track message IDs to prevent duplicates
-  
-  // Helper function to normalize names for room IDs
-  String normalizeNameForRoomId(String name) {
-    if (name.isEmpty) return '';
-    // Convert to lowercase, replace spaces with underscores, remove special characters
-    return name
-        .toLowerCase()
-        .trim()
-        .replaceAll(' ', '_')
-        .replaceAll(RegExp(r'[^a-z0-9_]'), ''); // Keep only alphanumeric and underscore
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _messageController.addListener(_updateTextFieldState);
-    // Reset unread count when opening chat - defer to after build
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final teacherName = widget.teacher['name'] as String? ?? '';
-      if (teacherName.isNotEmpty && widget.onUnreadCountUpdate != null) {
-        widget.onUnreadCountUpdate!(teacherName, 0);
-      }
-    });
-    _initializeChat();
-  }
-
-  @override
-  void dispose() {
-    _messageController.removeListener(_updateTextFieldState);
-    _messageController.dispose();
-    _scrollController.dispose();
-    _chatSubscription?.cancel();
-    _chatService?.disconnect();
-    super.dispose();
-  }
-  
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-  }
-
-  void _updateTextFieldState() {
-    final isEmpty = _messageController.text.isEmpty;
-    if (_isTextFieldEmpty != isEmpty) {
-      setState(() {
-        _isTextFieldEmpty = isEmpty;
-      });
-    }
-  }
-
-  void _sendMessage() {
-    final trimmed = _messageController.text.trim();
-    if (trimmed.isEmpty) return;
-    
-    if (_studentUsername == null || _studentUsername!.isEmpty) {
-      debugPrint('Cannot send message: student name not initialized');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please wait, initializing chat...')),
-      );
-      _initializeChat(); // Retry initialization
-      return;
-    }
-    
-    if (_teacherUsername == null || _teacherUsername!.isEmpty) {
-      debugPrint('Cannot send message: teacher username not initialized');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Teacher information not available.')),
-      );
-      return;
-    }
-    
-    // Store the text before clearing
-    final messageText = trimmed;
-    _messageController.clear();
-    
-    // Optimistically add message to UI with unique temp ID
-    final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}_${messageText.hashCode}';
-    final tempTimestamp = DateTime.now().toIso8601String();
-    
-    setState(() {
-      _messageIds.add(tempId);
-      _messages.add(Map<String, dynamic>.from({
-        'text': messageText,
-        'isTeacher': false,
-        'time': intl.DateFormat('hh:mm a').format(DateTime.now()),
-        'message_id': tempId,
-        'timestamp': tempTimestamp,
-      }));
-    });
-    
-    _scrollToBottom();
-    
-    if (_chatService == null) {
-      debugPrint('Cannot send message: chat service not initialized');
-      _initializeRealtimeChat().catchError((error) {
-        debugPrint('Failed to reconnect: $error');
-      });
-      return;
-    }
-    
-    try {
-      if (_chatService!.isConnected) {
-        // Use emails/usernames for message saving (backend expects usernames)
-        // But room ID uses names (already set)
-        final senderForWs = _studentEmail ?? _studentUsername!;
-        final recipientForWs = _teacherEmail ?? _teacherUsername ?? '';
-        
-        // Make sure recipient is not empty
-        if (recipientForWs.isEmpty) {
-          debugPrint('ERROR: Recipient is empty, cannot send message');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Teacher information not available.')),
-            );
-          }
-          return;
-        }
-        
-        _chatService!.sendMessage(
-          sender: senderForWs,
-          recipient: recipientForWs,
-          message: messageText,
-        );
-        debugPrint('Message sent: student name=$_studentUsername, teacher=$_teacherUsername');
-        debugPrint('WebSocket sender=$senderForWs, recipient=$recipientForWs');
-      } else {
-        debugPrint('Chat service not connected, reconnecting...');
-        _initializeRealtimeChat();
-      }
-    } catch (error) {
-      debugPrint('Realtime chat send error: $error');
-      // Remove optimistic message on error
-      setState(() {
-        _messages.removeWhere((msg) => msg['message_id'] == tempId);
-        _messageIds.remove(tempId);
-      });
-      _messageController.text = messageText; // Restore text
-    }
-  }
-
-  void _sendVoiceMessage() {
-    _showSnackBar("Recording voice message...");
-    // Implement actual recording logic here (start/stop)
-  }
-
-  Future<void> _initializeChat() async {
-    try {
-      setState(() {
-        _isLoadingMessages = true;
-      });
-      
-      // Fetch parent profile to get student data
-      Map<String, dynamic>? parentData = await api.ApiService.fetchParentProfile();
-      debugPrint('Parent data received: ${parentData?.keys}');
-      
-      // If parent profile is null, try to fetch student profile as fallback
-      // (since parent and student are in same portal)
-      if (parentData == null) {
-        debugPrint('Parent profile is null, trying student profile as fallback...');
-        try {
-          final studentData = await api.ApiService.fetchStudentProfile();
-          if (studentData != null) {
-            debugPrint('Found student profile, converting to parent-like structure');
-            debugPrint('Student data keys: ${studentData.keys}');
-            debugPrint('Student name from profile: ${studentData['student_name']}');
-            
-            // Convert student data to parent-like structure
-            parentData = {
-              'user': studentData['user'],
-              'students': [studentData], // Wrap student in students array
-              'school_id': studentData['school_id'],
-              'school_name': studentData['school_name'],
-              // Add student_name at top level for easier access
-              'student_name': studentData['student_name'],
-            };
-            debugPrint('Converted student profile to parent-like structure');
-            debugPrint('Student name in converted data: ${parentData['student_name']}');
-          } else {
-            debugPrint('Student profile is also null');
-          }
-        } catch (e) {
-          debugPrint('Failed to fetch student profile as fallback: $e');
-        }
-      }
-      
-      if (parentData != null) {
-        // First, try to get student_name directly from parentData (for student profile fallback)
-        if (parentData.containsKey('student_name')) {
-          final studentNameValue = parentData['student_name'];
-          final directStudentName = studentNameValue?.toString().trim();
-          if (directStudentName != null && directStudentName.isNotEmpty && directStudentName != 'null') {
-            debugPrint('✓ Found student_name directly in parentData: $directStudentName');
-            _studentUsername = directStudentName;
-            
-            // Also extract username/email for room ID
-        final students = parentData['students'];
-        if (students is List && students.isNotEmpty) {
-              final firstStudent = students[0] as Map<String, dynamic>?;
-              if (firstStudent != null) {
-                // Room ID will use student name (no email needed)
-                debugPrint('  Student name for room ID: $_studentUsername');
-              }
-            }
-          }
-        }
-        
-        final students = parentData['students'];
-        debugPrint('Students in parent data: ${students is List ? students.length : 'not a list'}');
-        
-        if (students is List && students.isNotEmpty) {
-          // Iterate through all students to find one with valid name
-          Map<String, dynamic>? validStudentData;
-          String? extractedStudentName;
-          
-          debugPrint('Processing ${students.length} students from parent profile...');
-          
-          for (var studentItem in students) {
-            if (studentItem is Map<String, dynamic>) {
-              debugPrint('Student item keys: ${studentItem.keys}');
-              final studentUser = studentItem['user'] as Map<String, dynamic>?;
-              
-              // Try to get student name - check multiple fields
-              String studentName = '';
-              
-              // Priority 1: student_name field (MOST IMPORTANT - this is the actual student name like "rakesh")
-              if (studentItem['student_name'] != null) {
-                final studentNameValue = studentItem['student_name'].toString().trim();
-                if (studentNameValue.isNotEmpty && studentNameValue != 'null' && studentNameValue.toLowerCase() != 'null') {
-                  studentName = studentNameValue;
-                  debugPrint('✓ Found student_name: $studentName');
-                }
-              }
-              
-              // Priority 2: name field
-              if (studentName.isEmpty && studentItem['name'] != null) {
-                final nameValue = studentItem['name'].toString().trim();
-                if (nameValue.isNotEmpty && nameValue != 'null') {
-                  studentName = nameValue;
-                  debugPrint('Found name field: $studentName');
-                }
-              }
-              
-              // Priority 3: user's first_name + last_name
-              if (studentName.isEmpty && studentUser != null) {
-                final firstName = (studentUser['first_name'] as String? ?? '').trim();
-                final lastName = (studentUser['last_name'] as String? ?? '').trim();
-                if (firstName.isNotEmpty || lastName.isNotEmpty) {
-                  studentName = '$firstName $lastName'.trim();
-                  debugPrint('Found name from user: $studentName');
-                }
-              }
-              
-              // Use the first student with a valid name
-              if (studentName.isNotEmpty) {
-                validStudentData = studentItem;
-                extractedStudentName = studentName;
-                debugPrint('✓ Selected student: $studentName');
-                break;
-              } else {
-                debugPrint('✗ Skipped student - no valid name found');
-              }
-            } else {
-              debugPrint('✗ Student item is not a Map: ${studentItem.runtimeType}');
-            }
-          }
-          
-          if (validStudentData != null && extractedStudentName != null) {
-            _studentUsername = extractedStudentName;
-            
-            // Get teacher username/name/email
-            final teacherUser = widget.teacher['user'] as Map<String, dynamic>?;
-            String teacherFirstName = '';
-            String teacherLastName = '';
-            String teacherEmail = '';
-            String teacherUsername = '';
-            if (teacherUser != null) {
-              teacherFirstName = (teacherUser['first_name'] as String? ?? '').trim();
-              teacherLastName = (teacherUser['last_name'] as String? ?? '').trim();
-              teacherEmail = teacherUser['email'] as String? ?? '';
-              teacherUsername = teacherUser['username'] as String? ?? '';
-            }
-            final teacherFullName = '$teacherFirstName $teacherLastName'.trim();
-            final teacherName = (widget.teacher['name'] as String? ?? '').trim();
-            final finalTeacherName = teacherName.isNotEmpty ? teacherName : teacherFullName;
-            
-            _teacherUsername = finalTeacherName.isNotEmpty 
-                ? finalTeacherName 
-                : 'Teacher';
-            
-            // Store emails/usernames for API calls and message saving
-            final studentUser = validStudentData['user'] as Map<String, dynamic>?;
-            final studentEmailValue = validStudentData['email']?.toString() ?? 
-                                     studentUser?['email']?.toString() ?? '';
-            final studentUsernameValue = studentUser?['username']?.toString();
-            _studentEmail = studentUsernameValue ?? 
-                          (studentEmailValue.isNotEmpty ? studentEmailValue : '');
-            
-            _teacherEmail = teacherUsername.isNotEmpty ? teacherUsername : 
-                          (teacherEmail.isNotEmpty ? teacherEmail : '');
-            
-            // If still empty, use the teacher's name as fallback (backend can look it up)
-            if (_teacherEmail == null || _teacherEmail!.isEmpty) {
-              _teacherEmail = _teacherUsername; // Fallback to name, backend will try to resolve it
-            }
-            
-            debugPrint('Student name set: $_studentUsername, Teacher: $_teacherUsername');
-            debugPrint('Student email/username for API: $_studentEmail, Teacher email/username: $_teacherEmail');
-            
-            // Create room ID using names only (no email fallback)
-            if ((_studentUsername != null && _studentUsername!.isNotEmpty) &&
-                (_teacherUsername != null && _teacherUsername!.isNotEmpty)) {
-              final normalizedStudentName = normalizeNameForRoomId(_studentUsername!);
-              final normalizedTeacherName = normalizeNameForRoomId(_teacherUsername!);
-              
-              if (normalizedStudentName.isNotEmpty && normalizedTeacherName.isNotEmpty) {
-                final identifiers = [normalizedStudentName, normalizedTeacherName]..sort();
-                _chatRoomId = identifiers.join('_');
-                debugPrint('Room ID using names - Student: $_studentUsername -> $normalizedStudentName');
-                debugPrint('  Teacher: $_teacherUsername -> $normalizedTeacherName');
-                debugPrint('  Final room ID: $_chatRoomId');
-            } else {
-                debugPrint('ERROR: Normalized names are empty (student: $normalizedStudentName, teacher: $normalizedTeacherName)');
-                _chatRoomId = null;
-              }
-            } else {
-              debugPrint('ERROR: Student or teacher name is missing (student: $_studentUsername, teacher: $_teacherUsername)');
-              _chatRoomId = null;
-            }
-            
-            debugPrint('Chat initialized - student: $_studentUsername, teacher: $_teacherUsername, room: $_chatRoomId');
-            
-            // Load existing messages from API
-            await _loadExistingMessages();
-            
-            // Initialize real-time chat
-            _initializeRealtimeChat();
-            
-            setState(() {
-              _isLoadingMessages = false;
-            });
-            return;
-          } else {
-            debugPrint('No valid student found with name in students list');
-        }
-        } else {
-          debugPrint('No students found in parent profile. Students: $students');
-          
-          // Try to find student data in a different structure or retry with better extraction
-          // Check if students might be in a different format
-          if (students == null || (students is List && students.isEmpty)) {
-            debugPrint('Students list is empty or null, checking alternative data structures...');
-            
-            // Try to get student from any available source
-            Map<String, dynamic>? alternativeStudentData;
-            
-            // Check if there's student data elsewhere in parentData
-            if (parentData.containsKey('student')) {
-              alternativeStudentData = parentData['student'] as Map<String, dynamic>?;
-              debugPrint('Found student data in parentData[\'student\']');
-            }
-            
-            // If still no student found, use parent as last resort but try to get student name from elsewhere
-            if (alternativeStudentData == null) {
-              debugPrint('No alternative student data found, will use parent info but prefer student name if available');
-            } else {
-              // Process alternative student data
-              final studentUser = alternativeStudentData['user'] as Map<String, dynamic>?;
-              String studentName = '';
-              if (alternativeStudentData['student_name'] != null && 
-                  alternativeStudentData['student_name'].toString().trim().isNotEmpty) {
-                studentName = alternativeStudentData['student_name'].toString().trim();
-              } else if (studentUser != null) {
-                final firstName = (studentUser['first_name'] as String? ?? '').trim();
-                final lastName = (studentUser['last_name'] as String? ?? '').trim();
-                studentName = '$firstName $lastName'.trim();
-              }
-              
-              if (studentName.isNotEmpty) {
-                _studentUsername = studentName;
-                
-                // Get student email/username for API calls
-                final studentEmailValue = alternativeStudentData['email']?.toString() ?? 
-                                         studentUser?['email']?.toString() ?? '';
-                final studentUsernameValue = studentUser?['username']?.toString();
-                _studentEmail = studentUsernameValue ?? 
-                              (studentEmailValue.isNotEmpty ? studentEmailValue : '');
-                
-                // Get teacher info
-                final teacherUser = widget.teacher['user'] as Map<String, dynamic>?;
-                String teacherFirstName = '';
-                String teacherLastName = '';
-                String teacherEmail = '';
-                String teacherUsername = '';
-                if (teacherUser != null) {
-                  teacherFirstName = (teacherUser['first_name'] as String? ?? '').trim();
-                  teacherLastName = (teacherUser['last_name'] as String? ?? '').trim();
-                  teacherEmail = teacherUser['email'] as String? ?? '';
-                  teacherUsername = teacherUser['username'] as String? ?? '';
-                }
-                final teacherFullName = '$teacherFirstName $teacherLastName'.trim();
-                final teacherName = (widget.teacher['name'] as String? ?? '').trim();
-                final finalTeacherName = teacherName.isNotEmpty ? teacherName : teacherFullName;
-                
-                _teacherUsername = finalTeacherName.isNotEmpty 
-                    ? finalTeacherName 
-                    : 'Teacher';
-                
-                _teacherEmail = teacherUsername.isNotEmpty ? teacherUsername : 
-                              (teacherEmail.isNotEmpty ? teacherEmail : '');
-                
-                // If still empty, use the teacher's name as fallback
-                if (_teacherEmail == null || _teacherEmail!.isEmpty) {
-                  _teacherEmail = _teacherUsername;
-                }
-                
-                // Create room ID using names only (no email fallback)
-                if ((_studentUsername != null && _studentUsername!.isNotEmpty) &&
-                    (_teacherUsername != null && _teacherUsername!.isNotEmpty)) {
-                  final normalizedStudentName = normalizeNameForRoomId(_studentUsername!);
-                  final normalizedTeacherName = normalizeNameForRoomId(_teacherUsername!);
-                  
-                  if (normalizedStudentName.isNotEmpty && normalizedTeacherName.isNotEmpty) {
-                    final identifiers = [normalizedStudentName, normalizedTeacherName]..sort();
-                    _chatRoomId = identifiers.join('_');
-                  } else {
-                    _chatRoomId = null;
-                  }
-                  
-                  debugPrint('Using alternative student data - student: $_studentUsername, teacher: $_teacherUsername');
-                  debugPrint('Room ID: $_chatRoomId');
-                  await _loadExistingMessages();
-      _initializeRealtimeChat();
-      setState(() {
-        _isLoadingMessages = false;
-      });
-                  return;
-                }
-              }
-            }
-          }
-          
-          // Since parent and student are in same portal, try to use parent user as fallback
-          // But first, try to extract student name from any available source
-          final parentUser = parentData['user'] as Map<String, dynamic>?;
-          final parentEmail = parentUser?['email']?.toString() ?? '';
-          final parentFirstName = parentUser?['first_name']?.toString() ?? '';
-          final parentLastName = parentUser?['last_name']?.toString() ?? '';
-          final parentName = '$parentFirstName $parentLastName'.trim();
-          
-          // Try to get student name from parent profile if available
-          String? studentNameFromParent;
-          if (parentData.containsKey('student_name')) {
-            studentNameFromParent = (parentData['student_name'] as String?)?.trim();
-            if (studentNameFromParent != null && studentNameFromParent.isNotEmpty) {
-              debugPrint('Found student_name in parent profile: $studentNameFromParent');
-            }
-          }
-          
-          if (parentEmail.isNotEmpty || parentName.isNotEmpty) {
-            // Use student name if found, otherwise use parent name, but never use "Parent" as default
-            _studentUsername = studentNameFromParent ?? (parentName.isNotEmpty ? parentName : 'Student');
-            
-            final teacherUser = widget.teacher['user'] as Map<String, dynamic>?;
-            String teacherFirstName = '';
-            String teacherLastName = '';
-            if (teacherUser != null) {
-              teacherFirstName = (teacherUser['first_name'] as String? ?? '').trim();
-              teacherLastName = (teacherUser['last_name'] as String? ?? '').trim();
-            }
-            final teacherFullName = '$teacherFirstName $teacherLastName'.trim();
-            final teacherName = (widget.teacher['name'] as String? ?? '').trim();
-            final finalTeacherName = teacherName.isNotEmpty ? teacherName : teacherFullName;
-            
-            _teacherUsername = finalTeacherName.isNotEmpty 
-                ? finalTeacherName 
-                : 'Teacher';
-            
-            // Create room ID using names only (no email fallback)
-            if ((_studentUsername != null && _studentUsername!.isNotEmpty) &&
-                (_teacherUsername != null && _teacherUsername!.isNotEmpty)) {
-              final normalizedStudentName = normalizeNameForRoomId(_studentUsername!);
-              final normalizedTeacherName = normalizeNameForRoomId(_teacherUsername!);
-              
-              if (normalizedStudentName.isNotEmpty && normalizedTeacherName.isNotEmpty) {
-                final identifiers = [normalizedStudentName, normalizedTeacherName]..sort();
-                _chatRoomId = identifiers.join('_');
-              } else {
-                _chatRoomId = null;
-              }
-              
-              debugPrint('Using parent as fallback - student: $_studentUsername, teacher: $_teacherUsername');
-              await _loadExistingMessages();
-              _initializeRealtimeChat();
-              setState(() {
-                _isLoadingMessages = false;
-              });
-              return;
-            }
-          }
-        }
-      } else {
-        debugPrint('Parent data is null');
-      }
-      
-      // Final fallback: retry student extraction with more thorough checking
-      debugPrint('Using final fallback for chat initialization - retrying student extraction');
-      try {
-        Map<String, dynamic>? parentData = await api.ApiService.fetchParentProfile();
-        
-        // If parent profile is null, try student profile as fallback
-        if (parentData == null) {
-          debugPrint('Parent profile is null in final fallback, trying student profile...');
-          try {
-            final studentData = await api.ApiService.fetchStudentProfile();
-            if (studentData != null) {
-              debugPrint('Found student profile in final fallback');
-              debugPrint('Student name from profile: ${studentData['student_name']}');
-              debugPrint('Student email: ${studentData['email']}');
-              
-              parentData = {
-                'user': studentData['user'],
-                'students': [studentData],
-                'school_id': studentData['school_id'],
-                'school_name': studentData['school_name'],
-                'student_name': studentData['student_name'], // Add for direct access
-              };
-              
-              // Immediately try to extract student name from the converted data
-              if (studentData['student_name'] != null) {
-                final name = studentData['student_name'].toString().trim();
-                if (name.isNotEmpty && name != 'null') {
-                  _studentUsername = name;
-                  debugPrint('✓ Set student name from student profile: $_studentUsername');
-                  
-                  debugPrint('  Student name for room ID: $_studentUsername');
-                }
-              }
-            }
-    } catch (e) {
-            debugPrint('Failed to fetch student profile in final fallback: $e');
-          }
-        }
-        
-        if (parentData != null) {
-          // Retry students extraction with more thorough checking
-          final students = parentData['students'];
-          debugPrint('Final fallback - Students type: ${students.runtimeType}, is List: ${students is List}');
-          
-          if (students is List && students.isNotEmpty) {
-            debugPrint('Final fallback - Found ${students.length} students, retrying extraction...');
-            
-            for (var studentItem in students) {
-              if (studentItem is Map<String, dynamic>) {
-                debugPrint('Final fallback - Student keys: ${studentItem.keys}');
-                final studentUser = studentItem['user'] as Map<String, dynamic>?;
-                
-                // Try multiple ways to get student name
-                String studentName = '';
-                
-                // Check student_name (MOST IMPORTANT - actual student name like "rakesh")
-                if (studentItem['student_name'] != null) {
-                  final val = studentItem['student_name'].toString().trim();
-                  if (val.isNotEmpty && val != 'null' && val.toLowerCase() != 'null') {
-                    studentName = val;
-                    debugPrint('✓ Final fallback - Found student_name: $studentName');
-                  }
-                }
-                
-                // Check name field
-                if (studentName.isEmpty && studentItem['name'] != null) {
-                  final val = studentItem['name'].toString().trim();
-                  if (val.isNotEmpty && val != 'null') studentName = val;
-                }
-                
-                // Check user first_name + last_name
-                if (studentName.isEmpty && studentUser != null) {
-                  final firstName = (studentUser['first_name'] as String? ?? '').trim();
-                  final lastName = (studentUser['last_name'] as String? ?? '').trim();
-                  if (firstName.isNotEmpty || lastName.isNotEmpty) {
-                    studentName = '$firstName $lastName'.trim();
-                  }
-                }
-                
-                if (studentName.isNotEmpty) {
-                  _studentUsername = studentName;
-                  debugPrint('✓ Final fallback - Found student: $_studentUsername');
-                  break;
-                }
-              }
-            }
-          }
-          
-          // If still no student name found, check if parent profile has student_name directly
-          if ((_studentUsername == null || _studentUsername!.isEmpty) && parentData.containsKey('student_name')) {
-            final studentNameFromProfile = (parentData['student_name'] as String?)?.trim();
-            if (studentNameFromProfile != null && studentNameFromProfile.isNotEmpty && studentNameFromProfile != 'null') {
-              _studentUsername = studentNameFromProfile;
-              debugPrint('✓ Found student_name in parent profile: $_studentUsername');
-            }
-          }
-          
-          // Last resort: use parent name but log warning
-          if (_studentUsername == null || _studentUsername!.isEmpty) {
-            final parentUser = parentData['user'] as Map<String, dynamic>?;
-            if (parentUser != null) {
-              final parentFirstName = (parentUser['first_name'] as String? ?? '').trim();
-              final parentLastName = (parentUser['last_name'] as String? ?? '').trim();
-              final parentName = '$parentFirstName $parentLastName'.trim();
-              _studentUsername = parentName.isNotEmpty ? parentName : 'Student';
-              debugPrint('⚠ WARNING: Using parent name as student name: $_studentUsername');
-            } else {
-              _studentUsername = 'Student';
-            }
-          }
-        } else {
-          _studentUsername = 'Student';
-        }
-      } catch (e) {
-        debugPrint('Error in final fallback: $e');
-        _studentUsername = 'Student';
-      }
-      
-      // Get teacher info for final fallback
-      final teacherUser = widget.teacher['user'] as Map<String, dynamic>?;
-      String teacherFirstName = '';
-      String teacherLastName = '';
-      if (teacherUser != null) {
-        teacherFirstName = (teacherUser['first_name'] as String? ?? '').trim();
-        teacherLastName = (teacherUser['last_name'] as String? ?? '').trim();
-      }
-      final teacherFullName = '$teacherFirstName $teacherLastName'.trim();
-      final teacherName = (widget.teacher['name'] as String? ?? '').trim();
-      final finalTeacherName = teacherName.isNotEmpty ? teacherName : (teacherFullName.isNotEmpty ? teacherFullName : 'Teacher');
-      _teacherUsername = finalTeacherName;
-      
-      // Create room ID using names only (no email fallback)
-      if ((_studentUsername != null && _studentUsername!.isNotEmpty) &&
-          (_teacherUsername != null && _teacherUsername!.isNotEmpty)) {
-        final normalizedStudentName = normalizeNameForRoomId(_studentUsername!);
-        final normalizedTeacherName = normalizeNameForRoomId(_teacherUsername!);
-        
-        if (normalizedStudentName.isNotEmpty && normalizedTeacherName.isNotEmpty) {
-          final identifiers = [normalizedStudentName, normalizedTeacherName]..sort();
-          _chatRoomId = identifiers.join('_');
-          debugPrint('Final fallback room ID: $_chatRoomId');
-          debugPrint('  Student: $_studentUsername -> $normalizedStudentName');
-          debugPrint('  Teacher: $_teacherUsername -> $normalizedTeacherName');
-        } else {
-          _chatRoomId = null;
-          debugPrint('ERROR: Normalized names are empty (student: $normalizedStudentName, teacher: $normalizedTeacherName)');
-        }
-      } else {
-        _chatRoomId = null;
-        debugPrint('ERROR: Student or teacher name is missing (student: $_studentUsername, teacher: $_teacherUsername)');
-      }
-      
-      _initializeRealtimeChat();
-      setState(() {
-        _isLoadingMessages = false;
-      });
-    } catch (e, stackTrace) {
-      debugPrint('Error initializing chat: $e');
-      debugPrint('Stack trace: $stackTrace');
-      setState(() {
-        _isLoadingMessages = false;
-      });
-    }
-  }
-
-  Future<void> _loadExistingMessages() async {
-    if (_studentEmail == null || _teacherEmail == null) {
-      debugPrint('Cannot load messages: missing email/username (student: $_studentEmail, teacher: $_teacherEmail)');
-      return;
-    }
-    
-    try {
-      // Fetch messages using the new ChatMessage API endpoint (WhatsApp/Telegram-like)
-      final messages = await api.ApiService.fetchChatMessages(_studentEmail!, _teacherEmail!);
-      
-      debugPrint('Loaded ${messages.length} existing chat messages');
-      
-      setState(() {
-        // Clear existing messages and message IDs to prevent duplicates
-        _messages.clear();
-        _messageIds.clear();
-        
-        _messages = messages.map((msg) {
-          final sender = msg['sender'] is Map ? Map<String, dynamic>.from(msg['sender'] as Map) : null;
-          final senderUsername = sender?['username']?.toString() ?? '';
-          final senderEmail = sender?['email']?.toString() ?? '';
-          final senderFirstName = sender?['first_name']?.toString() ?? '';
-          final senderLastName = sender?['last_name']?.toString() ?? '';
-          final senderName = '$senderFirstName $senderLastName'.trim();
-          
-          // Check if sender is teacher by comparing username, email, or name
-          final isTeacher = senderUsername == _teacherUsername || 
-                           senderEmail == _teacherUsername ||
-                           senderName == _teacherUsername ||
-                           (widget.teacher['user'] != null && 
-                            (widget.teacher['user'] is Map && 
-                             (Map<String, dynamic>.from(widget.teacher['user'] as Map))['username']?.toString() == senderUsername));
-          
-          // Use message_text from ChatMessage model (fallback to message for backward compatibility)
-          final messageText = msg['message_text']?.toString() ?? 
-                             msg['message']?.toString() ?? 
-                             msg['subject']?.toString() ?? '';
-          
-          final messageId = msg['message_id']?.toString() ?? 
-                           msg['id']?.toString() ?? 
-                           DateTime.now().millisecondsSinceEpoch.toString();
-          
-          _messageIds.add(messageId);
-          
-          return Map<String, dynamic>.from({
-            'text': messageText,
-            'isTeacher': isTeacher,
-            'time': _formatMessageTime(msg['created_at']?.toString()),
-            'message_id': messageId, // Include message_id for tracking
-            'is_read': msg['is_read'] ?? false, // Include read status
-            'timestamp': msg['created_at']?.toString() ?? DateTime.now().toIso8601String(),
-          });
-        }).toList();
-      });
-      
-      _scrollToBottom();
-      debugPrint('Processed ${_messages.length} messages for display');
-    } catch (e) {
-      debugPrint('Failed to load existing messages: $e');
-      // Fallback to old Communication API if ChatMessage API fails
-      try {
-        debugPrint('Falling back to Communication API...');
-        final messages = await api.ApiService.fetchCommunications(_studentEmail!, _teacherEmail!);
-        debugPrint('Loaded ${messages.length} messages from Communication API (fallback)');
-        
-        setState(() {
-          // Clear existing messages and message IDs to prevent duplicates
-          _messages.clear();
-          _messageIds.clear();
-          
-          _messages = messages.map((msg) {
-            final sender = msg['sender'] is Map ? Map<String, dynamic>.from(msg['sender'] as Map) : null;
-            final senderUsername = sender?['username']?.toString() ?? '';
-            final senderEmail = sender?['email']?.toString() ?? '';
-            final senderFirstName = sender?['first_name']?.toString() ?? '';
-            final senderLastName = sender?['last_name']?.toString() ?? '';
-            final senderName = '$senderFirstName $senderLastName'.trim();
-            
-            final isTeacher = senderUsername == _teacherUsername || 
-                             senderEmail == _teacherUsername ||
-                             senderName == _teacherUsername ||
-                             (widget.teacher['user'] != null && 
-                              (widget.teacher['user'] is Map && 
-                               (Map<String, dynamic>.from(widget.teacher['user'] as Map))['username']?.toString() == senderUsername));
-            
-            final messageId = msg['message_id']?.toString() ?? 
-                             msg['id']?.toString() ?? 
-                             DateTime.now().millisecondsSinceEpoch.toString();
-            
-            _messageIds.add(messageId);
-            
-            return Map<String, dynamic>.from({
-              'text': msg['message']?.toString() ?? msg['subject']?.toString() ?? '',
-              'isTeacher': isTeacher,
-              'time': _formatMessageTime(msg['created_at']?.toString()),
-              'message_id': messageId,
-              'timestamp': msg['created_at']?.toString() ?? DateTime.now().toIso8601String(),
-            });
-          }).toList();
-        });
-      } catch (fallbackError) {
-        debugPrint('Fallback also failed: $fallbackError');
-      }
-    }
-  }
-
-  String _formatMessageTime(String? timeStr) {
-    if (timeStr == null || timeStr.isEmpty) {
-      return intl.DateFormat('hh:mm a').format(DateTime.now());
-    }
-    try {
-      final dateTime = DateTime.parse(timeStr);
-      return intl.DateFormat('hh:mm a').format(dateTime);
-    } catch (e) {
-      return intl.DateFormat('hh:mm a').format(DateTime.now());
-    }
-  }
-
-  Future<void> _initializeRealtimeChat() async {
-    if (_chatRoomId == null || _studentUsername == null || _teacherUsername == null) return;
-    
-    try {
-      debugPrint('=== Student Chat Connection ===');
-      debugPrint('Room ID: $_chatRoomId');
-      debugPrint('Student name: $_studentUsername');
-      debugPrint('Teacher username: $_teacherUsername');
-      debugPrint('Chat type: teacher-student');
-      
-      _chatService = RealtimeChatService(baseWsUrl: 'ws://localhost:8000'); // Use localhost for web
-      await _chatService!.connect(roomId: _chatRoomId!, chatType: 'teacher-student');
-      _chatSubscription = _chatService!.stream?.listen((event) {
-        try {
-          final payload = event is String ? event : event.toString();
-          final decoded = jsonDecode(payload) as Map<String, dynamic>;
-          
-          final messageType = decoded['type']?.toString() ?? 'message';
-          
-          // Handle connection messages
-          if (messageType == 'connection') {
-            debugPrint('Connected to chat: ${decoded['user']}');
-            return;
-          }
-          
-          // Only process actual messages
-          if (messageType == 'message') {
-            final messageText = decoded['message']?.toString() ?? '';
-            if (messageText.isEmpty) return;
-            
-            final sender = decoded['sender']?.toString() ?? '';
-            
-            // Determine if sender is teacher by comparing with teacher's username/email
-            final teacherUser = widget.teacher['user'] as Map<String, dynamic>?;
-            final teacherUsername = teacherUser?['username']?.toString() ?? '';
-            final teacherEmail = teacherUser?['email']?.toString() ?? '';
-            final teacherName = widget.teacher['name']?.toString() ?? '';
-            
-            // Get sender and recipient IDs for proper filtering
-            final senderUsername = decoded['sender_username']?.toString() ?? sender;
-            final senderId = decoded['sender_id']?.toString() ?? '';
-            final recipient = decoded['recipient']?.toString() ?? '';
-            final recipientId = decoded['recipient_id']?.toString() ?? '';
-            final timestamp = decoded['timestamp']?.toString() ?? DateTime.now().toIso8601String();
-            
-            // Normalize names for better matching
-            final normalizedTeacherName = normalizeNameForRoomId(teacherName);
-            final normalizedStudentName = normalizeNameForRoomId(_studentUsername ?? '');
-            final normalizedSender = normalizeNameForRoomId(sender);
-            final normalizedRecipient = normalizeNameForRoomId(recipient);
-            
-            // IMPORTANT: Only process messages for the current conversation
-            // Check if this message is between the current student and the teacher
-            // More lenient matching to catch all variations
-            
-            // Check if sender is teacher (multiple ways to match)
-            final isFromCurrentTeacher = (
-              senderUsername == teacherUsername ||
-              senderUsername == teacherEmail ||
-              sender == teacherUsername ||
-              sender == teacherEmail ||
-              sender == teacherName ||
-              normalizedSender == normalizedTeacherName ||
-              sender == _teacherUsername ||
-              senderId == teacherUser?['user_id']?.toString() ||
-              (teacherName.isNotEmpty && sender.toLowerCase().contains(teacherName.toLowerCase())) ||
-              (teacherName.isNotEmpty && normalizedSender.contains(normalizedTeacherName))
-            );
-            
-            // Check if recipient is teacher
-            final isToCurrentTeacher = (
-              recipient == teacherUsername ||
-              recipient == teacherEmail ||
-              recipient == teacherName ||
-              normalizedRecipient == normalizedTeacherName ||
-              recipient == _teacherUsername ||
-              recipientId == teacherUser?['user_id']?.toString() ||
-              (teacherName.isNotEmpty && recipient.toLowerCase().contains(teacherName.toLowerCase()))
-            );
-            
-            // Check if sender is student (multiple ways to match)
-            final isFromCurrentStudent = (
-              senderUsername == _studentEmail ||
-              senderUsername == _studentUsername ||
-              sender == _studentEmail ||
-              sender == _studentUsername ||
-              normalizedSender == normalizedStudentName ||
-              (normalizedStudentName.isNotEmpty && normalizedSender.contains(normalizedStudentName))
-            );
-            
-            // Check if recipient is student (multiple ways to match)
-            final isToCurrentStudent = (
-              recipient == _studentEmail ||
-              recipient == _studentUsername ||
-              normalizedRecipient == normalizedStudentName ||
-              (normalizedStudentName.isNotEmpty && normalizedRecipient.contains(normalizedStudentName))
-            );
-            
-            // Message is for this conversation if:
-            // 1. From teacher to student, OR
-            // 2. From student to teacher
-            final isForThisConversation = (
-              (isFromCurrentTeacher && isToCurrentStudent) ||
-              (isFromCurrentStudent && isToCurrentTeacher)
-            );
-            
-            debugPrint('=== Message Routing Check ===');
-            debugPrint('Sender: $sender (username: $senderUsername, normalized: $normalizedSender)');
-            debugPrint('Recipient: $recipient (normalized: $normalizedRecipient)');
-            debugPrint('Teacher: $teacherName (username: $teacherUsername, email: $teacherEmail, normalized: $normalizedTeacherName)');
-            debugPrint('Student: $_studentUsername (email: $_studentEmail, normalized: $normalizedStudentName)');
-            debugPrint('isFromCurrentTeacher: $isFromCurrentTeacher');
-            debugPrint('isToCurrentStudent: $isToCurrentStudent');
-            debugPrint('isFromCurrentStudent: $isFromCurrentStudent');
-            debugPrint('isToCurrentTeacher: $isToCurrentTeacher');
-            debugPrint('isForThisConversation: $isForThisConversation');
-            
-            if (!isForThisConversation) {
-              debugPrint('⚠️ Ignoring message not for this conversation');
-              return;
-            }
-            
-            debugPrint('✓ Message is for this conversation - processing...');
-            
-            // Determine if sender is teacher
-            final isTeacher = isFromCurrentTeacher;
-            
-            debugPrint('Received message from: $sender (isTeacher: $isTeacher, message: $messageText)');
-            
-            // Check for duplicate messages using message_id (most reliable)
-            final messageId = decoded['message_id']?.toString() ?? '';
-            
-            // Prevent duplicate messages - check both messageId and content
-            if (_messageIds.contains(messageId)) {
-              debugPrint('Duplicate message ignored (ID): $messageId');
-              return;
-            }
-            
-            // Also check for duplicate by content and timestamp (within 2 seconds)
-            final isDuplicateContent = _messages.any((msg) {
-              if (msg['text'] == messageText && msg['isTeacher'] == isTeacher) {
-                try {
-                  final msgTimestamp = msg['timestamp']?.toString() ?? msg['time']?.toString() ?? '';
-                  if (msgTimestamp.isNotEmpty) {
-                    final msgTime = DateTime.tryParse(msgTimestamp) ?? 
-                                   (msg['time'] != null ? DateTime.tryParse(msg['time']) : null);
-                    final newTime = DateTime.tryParse(timestamp);
-                    if (msgTime != null && newTime != null) {
-                      final diff = newTime.difference(msgTime).abs();
-                      if (diff.inSeconds < 2) {
-                        return true;
-                      }
-                    } else if (msgTimestamp == timestamp) {
-                      return true;
-                    }
-                  }
-                } catch (e) {
-                  // If timestamp parsing fails, just check text
-                  return true;
-                }
-              }
-              return false;
-            });
-            
-            if (isDuplicateContent) {
-              debugPrint('Duplicate message ignored (content): $messageText');
-              return;
-            }
-            
-            // If message is from teacher and we have a temp message with same text, update it
-            if (isTeacher && messageId.isNotEmpty) {
-              final now = DateTime.now();
-              final existingIndex = _messages.lastIndexWhere((msg) {
-                if (msg['isTeacher'] != false || msg['text'] != messageText) return false;
-                if (msg['message_id']?.toString().startsWith('temp_') == true) {
-                  try {
-                    final msgTimestamp = msg['timestamp']?.toString() ?? '';
-                    if (msgTimestamp.isNotEmpty) {
-                      final msgTime = DateTime.tryParse(msgTimestamp);
-                      if (msgTime != null) {
-                        final diff = now.difference(msgTime).abs();
-                        return diff.inSeconds < 5;
-                      }
-                    }
-                  } catch (e) {
-                    return false;
-                  }
-                }
-                return false;
-              });
-              
-              if (existingIndex != -1) {
-                // Update existing temp message with real ID
-                setState(() {
-                  _messages[existingIndex] = Map<String, dynamic>.from({
-                    'text': messageText,
-                    'isTeacher': isTeacher,
-                    'time': _formatMessageTime(timestamp),
-                    'isSent': !isTeacher,
-                    'message_id': messageId,
-                    'timestamp': timestamp,
-                  });
-                  _messageIds.add(messageId);
-                });
-                debugPrint('Updated temp message with real ID: $messageId');
-                return;
-              }
-            }
-            
-            // Check if message with this ID already exists
-            final alreadyExists = _messages.any((msg) => msg['message_id'] == messageId);
-            if (!alreadyExists) {
-              setState(() {
-                _messageIds.add(messageId.isNotEmpty ? messageId : DateTime.now().millisecondsSinceEpoch.toString());
-                _messages.add(Map<String, dynamic>.from({
-                  'text': messageText,
-                  'isTeacher': isTeacher,
-                  'time': _formatMessageTime(timestamp),
-                  'isSent': !isTeacher, // Received messages from teacher are not sent by student
-                  'message_id': messageId.isNotEmpty ? messageId : DateTime.now().millisecondsSinceEpoch.toString(),
-                  'timestamp': timestamp,
-                }));
-              });
-              _scrollToBottom();
-              debugPrint('Added new message to list (total: ${_messages.length})');
-              
-              // Update unread count if message is from teacher (when chat is open, it's already read)
-              // Note: Unread count is managed by parent widget, so we don't need to track it here
-              // The parent widget will handle unread counts when chat is not open
-            } else {
-              debugPrint('Duplicate message ignored (ID: $messageId, text: $messageText)');
-            }
-          } else if (messageType == 'error') {
-            debugPrint('Chat error: ${decoded['message']}');
-          }
-        } catch (error) {
-          debugPrint('Realtime chat parse error: $error');
-        }
-      });
-    } catch (e) {
-      debugPrint('Failed to initialize realtime chat: $e');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: const Color(0xFF667eea),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Row(
-          children: [
-            // Profile picture
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: Colors.white,
-              child: Text(
-                widget.teacher['avatar'] ?? 'T',
-                style: const TextStyle(
-                  color: Color(0xFF667eea),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.teacher['name'] ?? 'Teacher',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    widget.teacher['subject'] ?? 'Teacher',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Three dots menu
-            IconButton(
-              icon: const Icon(Icons.more_vert, color: Colors.white),
-              onPressed: () {
-                // Add menu functionality here
-              },
-            ),
-          ],
-        ),
-      ),
-      body: Column(
-        children: [
-          // Messages
-          Expanded(
-            child: _isLoadingMessages
-                ? const Center(child: CircularProgressIndicator())
-                : _messages.isEmpty
-                    ? Container(
-                        color: Colors.grey[100],
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.chat_bubble_outline, size: 48, color: Colors.grey[400]),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No messages yet',
-                                style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Start the conversation!',
-                                style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    : Container(
-                        color: Colors.grey[100],
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _messages.length,
-                          itemBuilder: (context, index) {
-                            final message = _messages[index];
-                            return _buildMessage(
-                              message['text'],
-                              message['isTeacher'],
-                              message['time'],
-                            );
-                          },
-                        ),
-                      ),
-          ),
-          // Input area
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                    child: TextField(
-                      controller: _messageController,
-                      decoration: InputDecoration(
-                        hintText: 'Type a message...',
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        hintStyle: TextStyle(color: Colors.grey[500]),
-                      ),
-                      maxLines: null,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _sendMessage(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Send button
-                Container(
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF667eea),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white),
-                    onPressed: _sendMessage,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMessage(String text, bool isTeacher, String time) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: isTeacher ? MainAxisAlignment.start : MainAxisAlignment.end,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          // Profile picture for received messages (left side)
-          if (isTeacher) ...[
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.grey[300],
-              child: Text(
-                widget.teacher['avatar'] ?? 'T',
-                style: const TextStyle(
-                  color: Colors.black87,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-          // Message bubble
-          Flexible(
-            child: Container(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.65,
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: isTeacher 
-                    ? Colors.white
-                    : const Color(0xFF667eea),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(18),
-                  topRight: const Radius.circular(18),
-                  bottomLeft: Radius.circular(isTeacher ? 4 : 18),
-                  bottomRight: Radius.circular(isTeacher ? 18 : 4),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    text,
-                    style: TextStyle(
-                      color: isTeacher ? Colors.black87 : Colors.white,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        time,
-                        style: TextStyle(
-                          color: isTeacher ? Colors.grey[600] : Colors.white70,
-                          fontSize: 11,
-                        ),
-                      ),
-                      if (!isTeacher) ...[
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.done_all,
-                          size: 12,
-                          color: Colors.white70,
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
-}
 
 // -------------------------------------------------------------------------
 // Group Chat Screen

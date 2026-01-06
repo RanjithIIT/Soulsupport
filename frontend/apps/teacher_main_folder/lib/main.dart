@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:intl/intl.dart';
 import 'dart:ui' as ui;
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:main_login/main.dart' as main_login;
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -149,45 +150,70 @@ class GroupChat {
   });
 }
 
-// --- MOCK DATA IMPLEMENTATION ---
+// --- API DATA IMPLEMENTATION ---
 Future<DashboardData> fetchDashboardData() async {
-  await Future.delayed(const Duration(milliseconds: 500)); // Simulate API delay
+  try {
+    debugPrint('DASHBOARD: Fetching stats from teacher/dashboard-stats/');
+    final response = await api.ApiService.authenticatedRequest('teacher/dashboard-stats/', method: 'GET');
+    
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      
+      // Parse classes
+      List<ClassData> classesList = [];
+      if (data['classes'] is List) {
+        classesList = (data['classes'] as List).map((cls) {
+          return ClassData(
+            name: cls['name']?.toString() ?? 'Unknown Class',
+            students: cls['students'] is int ? cls['students'] : int.tryParse(cls['students'].toString()) ?? 0,
+            subjects: (cls['subjects'] is List) 
+                ? (cls['subjects'] as List).map((s) => s.toString()).toList() 
+                : [],
+          );
+        }).toList();
+      }
+
+      return DashboardData(
+        totalStudents: data['totalStudents'] ?? 0,
+        totalClasses: data['totalClasses'] ?? 0,
+        upcomingExams: data['upcomingExams'] ?? 0,
+        pendingAssignments: data['pendingAssignments'] ?? 0,
+        totalResults: data['totalResults'] ?? 0,
+        attendanceRate: data['attendanceRate']?.toString() ?? '0%',
+        avgGrade: data['avgGrade']?.toString() ?? 'N/A',
+        classes: classesList,
+        totalAttendanceRecords: data['totalAttendanceRecords'] ?? 0,
+        totalStudyMaterials: data['totalStudyMaterials'] ?? 0,
+        totalGradesPending: data['totalGradesPending'] ?? 0,
+        totalCommunication: data['totalCommunication'] ?? 0,
+        totalTimetableSlots: data['totalTimetableSlots'] ?? 0,
+      );
+    } else {
+      debugPrint('DASHBOARD: Failed to fetch stats: ${response.statusCode}');
+      // Fallback or rethrow? Let's return zeros to avoid crash
+      return _emptyDashboardData();
+    }
+  } catch (e, stack) {
+    debugPrint('DASHBOARD ERROR: $e\n$stack');
+    return _emptyDashboardData();
+  }
+}
+
+DashboardData _emptyDashboardData() {
   return DashboardData(
-    totalStudents: 150,
-    totalClasses: 4,
-    upcomingExams: 3,
-    pendingAssignments: 7,
-    totalResults: 12,
-    attendanceRate: '92.5%',
-    avgGrade: 'B+',
-    classes: [
-      ClassData(
-        name: 'Class 10A',
-        students: 35,
-        subjects: ['Mathematics', 'Physics'],
-      ),
-      ClassData(
-        name: 'Class 11B',
-        students: 30,
-        subjects: ['Chemistry', 'Biology'],
-      ),
-      ClassData(
-        name: 'Class 9C',
-        students: 32,
-        subjects: ['English Core', 'History'],
-      ),
-      ClassData(
-        name: 'Class 12A',
-        students: 28,
-        subjects: ['Economics', 'Psychology'],
-      ),
-    ],
-    // New mock data initializations
-    totalAttendanceRecords: 450,
-    totalStudyMaterials: 35,
-    totalGradesPending: 15,
-    totalCommunication: 8,
-    totalTimetableSlots: 40,
+    totalStudents: 0,
+    totalClasses: 0,
+    upcomingExams: 0,
+    pendingAssignments: 0,
+    totalResults: 0,
+    attendanceRate: '0%',
+    avgGrade: 'N/A',
+    classes: [],
+    totalAttendanceRecords: 0,
+    totalStudyMaterials: 0,
+    totalGradesPending: 0,
+    totalCommunication: 0,
+    totalTimetableSlots: 0,
   );
 }
 
@@ -235,10 +261,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _currentTeacherUserId;
   String? _schoolName;
   String? _schoolId;
+  String? _logoUrl; // Added logo URL
 
   @override
   void initState() {
     super.initState();
+    _loadCachedSchoolDetails();
     _dashboardData = fetchDashboardData();
     _loadTeacherProfile();
   }
@@ -256,24 +284,89 @@ class _DashboardScreenState extends State<DashboardScreen> {
             teacherProfile['school_id']?.toString() ??
             teacherProfile['department']?['school']?['school_id']?.toString();
         _schoolName = teacherProfile['school_name']?.toString();
+        _logoUrl = teacherProfile['logo_url']?.toString();
 
         debugPrint('Teacher username loaded: $_currentTeacherUsername');
         debugPrint('Teacher user_id loaded: $_currentTeacherUserId');
         debugPrint('School ID loaded: $_schoolId');
         debugPrint('School Name loaded: $_schoolName');
+        debugPrint('School Logo loaded: $_logoUrl');
 
-        // Update UI if school name is available
-        if (_schoolName != null && _schoolName!.isNotEmpty) {
+        if (mounted) {
           setState(() {});
-        } else if (_schoolId != null && _schoolId!.isNotEmpty) {
-          // Fallback: try to load school name if not in profile
-          await _loadSchoolName();
+          _saveSchoolDetailsToCache(_schoolName, _logoUrl);
+        }
+
+        // Fetch School Details (including Logo) in background for sync
+        _loadSchoolDetails(); 
+
+        if ((_schoolName == null || _schoolName!.isEmpty) && 
+            (_schoolId != null && _schoolId!.isNotEmpty)) {
+          // Fallback: try to load school name if still not available
+          _loadSchoolName();
         }
       } else {
         debugPrint('Teacher profile is null');
       }
     } catch (e) {
       debugPrint('Failed to load teacher profile: $e');
+    }
+  }
+
+  // New method to fetch school details including logo
+  Future<void> _loadSchoolDetails() async {
+    try {
+      final headers = await api.ApiService.getAuthHeaders();
+      final response = await http.get(
+        Uri.parse('${api.ApiService.baseUrl}/teacher/school-details/'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map) {
+          setState(() {
+            _schoolName = data['school_name']?.toString() ?? _schoolName;
+            _logoUrl = data['logo_url']?.toString();
+          });
+          _saveSchoolDetailsToCache(_schoolName, _logoUrl);
+          debugPrint('Loaded School Details - Name: $_schoolName, Logo: $_logoUrl');
+        }
+      } else {
+        debugPrint('Failed to load school details: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error loading school details: $e');
+    }
+  }
+
+  Future<void> _loadCachedSchoolDetails() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedName = prefs.getString('school_name');
+      final cachedLogo = prefs.getString('logo_url');
+      
+      if (cachedName != null || cachedLogo != null) {
+        if (mounted) {
+          setState(() {
+            if (cachedName != null) _schoolName = cachedName;
+            if (cachedLogo != null) _logoUrl = cachedLogo;
+          });
+          debugPrint('Loaded Cached Details - Name: $_schoolName, Logo: $_logoUrl');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading cached details: $e');
+    }
+  }
+
+  Future<void> _saveSchoolDetailsToCache(String? name, String? logo) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (name != null) await prefs.setString('school_name', name);
+      if (logo != null) await prefs.setString('logo_url', logo);
+    } catch (e) {
+      debugPrint('Error saving to cache: $e');
     }
   }
 
@@ -298,6 +391,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (data is Map) {
           setState(() {
             _schoolName = data['school_name']?.toString() ?? 'School';
+            if (_logoUrl == null) {
+               _logoUrl = data['logo_url']?.toString();
+            }
           });
           return;
         }
@@ -1295,32 +1391,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(10),
-                        child: Transform.scale(
-                          scale: 1.2, // Zoom in to crop out the baked-in border
-                          child: Image.asset(
-                            'assets/images/vidhyarambh_logo.png',
-                            package: 'teacher_app',
-                            fit: BoxFit.cover,
-                            width: side,
-                            height: side,
-                            errorBuilder: (context, error, stackTrace) {
-                              debugPrint('LOGO LOAD ERROR: $error');
-                              return const Icon(
-                                Icons.school, // Fallback icon
-                                size: 40,
-                                color: Color(0xFFFFD700),
-                              );
-                            },
-                          ),
-                        ),
+                        child: _logoUrl != null && _logoUrl!.isNotEmpty
+                            ? Image.network(
+                                _logoUrl!,
+                                fit: BoxFit.cover,
+                                width: side,
+                                height: side,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    color: Colors.grey[200],
+                                    child: Icon(
+                                      Icons.school,
+                                      size: side * 0.5,
+                                      color: Colors.grey[600],
+                                    ),
+                                  );
+                                },
+                              )
+                            : Container(
+                                color: Colors.grey[200],
+                                child: Icon(
+                                  Icons.school,
+                                  size: side * 0.5,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
                       ),
                     );
                   },
                 ),
                 const SizedBox(width: 16),
-                const Flexible(
+                Flexible(
                   child: Text(
-                    'Vignan School',
+                    _schoolName ?? 'School Name',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -1394,16 +1497,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               child: const Text('Cancel'),
                             ),
                             TextButton(
-                              onPressed: () {
-                                Navigator.of(dialogContext).pop();
-                                Navigator.pushAndRemoveUntil(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const main_login.LoginScreen(),
-                                  ),
-                                  (route) => false,
-                                );
+                              onPressed: () async {
+                                // Clear cache
+                                try {
+                                  final prefs = await SharedPreferences.getInstance();
+                                  await prefs.remove('school_name');
+                                  await prefs.remove('logo_url');
+                                } catch (e) {
+                                  debugPrint('Error clearing cache: $e');
+                                }
+
+                                if (dialogContext.mounted) {
+                                  Navigator.of(dialogContext).pop();
+                                }
+                                
+                                if (context.mounted) {
+                                  Navigator.pushAndRemoveUntil(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const main_login.LoginScreen(),
+                                    ),
+                                    (route) => false,
+                                  );
+                                }
                               },
                               child: const Text(
                                 'Logout',

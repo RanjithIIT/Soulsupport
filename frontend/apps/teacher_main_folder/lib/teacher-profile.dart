@@ -446,22 +446,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
           'Teacher Profile',
           style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
-              setState(() {
-                // Refresh profile data
-              });
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.person, color: Colors.white),
-            onPressed: () {
-              // Already on profile page
-            },
-          ),
-        ],
+
         elevation: 0,
       ),
       body: Column(

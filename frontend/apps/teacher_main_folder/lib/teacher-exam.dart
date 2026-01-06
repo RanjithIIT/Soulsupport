@@ -310,23 +310,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         ),
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white, size: 26),
-          onPressed: () {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Refreshed data')));
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.person_outline, color: Colors.white, size: 26),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const TeacherProfilePage()),
-            );
-          },
-        ),
+
         const SizedBox(width: 8),
       ],
     );

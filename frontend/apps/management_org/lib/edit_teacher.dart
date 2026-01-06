@@ -1129,12 +1129,10 @@ class _FormCard extends StatelessWidget {
                         prefixIcon: const Icon(Icons.school),
                       ),
                       initialValue: classTeacherClass,
-                      items: const [
-                        DropdownMenuItem(value: null, child: Text('Select Class')),
-                        DropdownMenuItem(value: 'Grade 9', child: Text('Grade 9')),
-                        DropdownMenuItem(value: 'Grade 10', child: Text('Grade 10')),
-                        DropdownMenuItem(value: 'Grade 11', child: Text('Grade 11')),
-                        DropdownMenuItem(value: 'Grade 12', child: Text('Grade 12')),
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('Select Class')),
+                        ...List.generate(10, (index) => 'Class ${index + 1}')
+                            .map((c) => DropdownMenuItem(value: c, child: Text(c))),
                       ],
                       onChanged: onClassTeacherClassChanged,
                     ),

@@ -14,11 +14,12 @@ class ParentSerializer(SchoolIdMixin, serializers.ModelSerializer):
     students = StudentSerializer(many=True, read_only=True)
     school_id = serializers.SerializerMethodField()
     school_name = serializers.SerializerMethodField()
+    logo_url = serializers.SerializerMethodField()
     
     class Meta:
         model = Parent
         fields = [
-            'id', 'school_id', 'school_name', 'user', 'students', 'phone', 'address',
+            'id', 'school_id', 'school_name', 'logo_url', 'user', 'students', 'phone', 'address',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
@@ -65,6 +66,30 @@ class ParentSerializer(SchoolIdMixin, serializers.ModelSerializer):
         import logging
         logger = logging.getLogger(__name__)
         logger.warning(f"Parent {obj.id}: No school_name found. Students count: {obj.students.count()}")
+        return None
+
+    def get_logo_url(self, obj):
+        """Get school logo URL directly in profile"""
+        # Try to find school via students
+        from super_admin.models import School
+        
+        # Priority 1: Direct school_id on parent
+        if obj.school_id:
+            school = School.objects.filter(school_id=obj.school_id).first()
+            if school and school.logo:
+                request = self.context.get('request')
+                if request:
+                    return request.build_absolute_uri(school.logo.url)
+                return school.logo.url
+        
+        # Priority 2: From students
+        students = obj.students.all().select_related('school')
+        for student in students:
+            if student and student.school and student.school.logo:
+                request = self.context.get('request')
+                if request:
+                    return request.build_absolute_uri(student.school.logo.url)
+                return student.school.logo.url
         return None
 
 

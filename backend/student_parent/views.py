@@ -1,4 +1,4 @@
-"""
+﻿"""
 Views for student_parent app - API layer for App 4
 """
 from rest_framework import viewsets, status, filters
@@ -7,6 +7,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
+
+import os
 from .models import Parent, Notification, Fee, Communication, ChatMessage
 from .serializers import (
     ParentSerializer, NotificationSerializer,
@@ -15,8 +17,9 @@ from .serializers import (
 from main_login.permissions import IsStudentParent, IsTeacher
 from rest_framework import permissions
 from main_login.mixins import SchoolFilterMixin
-from management_admin.models import Student
+from management_admin.models import Student, Teacher, Department, CampusFeature, NewAdmission
 from management_admin.serializers import StudentSerializer
+from teacher.models import Exam, Timetable, Assignment, Grade, Attendance, StudyMaterial
 
 
 class ParentViewSet(SchoolFilterMixin, viewsets.ReadOnlyModelViewSet):
@@ -279,17 +282,6 @@ class IsTeacherOrStudentParent(permissions.BasePermission):
         )
 
 
-class IsTeacherOrStudentParent(permissions.BasePermission):
-    """Allow both teachers and student/parent to access ChatMessage API"""
-    def has_permission(self, request, view):
-        return (
-            request.user and
-            request.user.is_authenticated and
-            request.user.role and
-            (request.user.role.name == 'teacher' or request.user.role.name == 'student_parent')
-        )
-
-
 class ChatMessageViewSet(SchoolFilterMixin, viewsets.ReadOnlyModelViewSet):
     """ViewSet for ChatMessage model - Real-time chat messages (WhatsApp/Telegram-like)"""
     queryset = ChatMessage.objects.all()
@@ -414,6 +406,62 @@ class StudentDashboardViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+    @action(detail=False, methods=['get'])
+    def attendance_history(self, request):
+        """Get full attendance history and stats for the student"""
+        user = request.user
+        student = None
+        
+        # Determine student
+        if request.query_params.get('student_id'):
+            # Parent viewing specific child
+            try:
+                parent = Parent.objects.get(user=user)
+                student = parent.students.get(id=request.query_params.get('student_id'))
+            except (Parent.DoesNotExist, Student.DoesNotExist):
+                 # Fallback: maybe user IS the student
+                 pass
+        
+        if not student:
+            try:
+                student = Student.objects.get(user=user)
+            except Student.DoesNotExist:
+                 return Response(
+                    {'error': 'Student profile not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        # Fetch all attendance
+        attendances = Attendance.objects.filter(student=student).order_by('date')
+        
+        total_days = attendances.count()
+        present_days = attendances.filter(status='present').count()
+        absent_days = attendances.filter(status='absent').count()
+        late_days = attendances.filter(status='late').count()
+        
+        percentage = 0.0
+        if total_days > 0:
+            percentage = (present_days / total_days) * 100
+            
+        # Group by month for chart? 
+        # For now, return list + stats
+        
+        today = timezone.now().date()
+        month_start = today.replace(day=1)
+        
+        return Response({
+            'stats': {
+                'total_days': total_days,
+                'present_days': present_days,
+                'absent_days': absent_days,
+                'late_days': late_days,
+                'percentage': round(percentage, 1),
+            },
+            'history': list(attendances.values('date', 'status')),
+            'student_name': student.student_name,
+            'class_name': student.applying_class, # or fetch class object name
+        })
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -423,7 +471,7 @@ def student_profile(request):
     student = Student.objects.filter(user=request.user).first()
     
     if student:
-        serializer = StudentSerializer(student)
+        serializer = StudentSerializer(student, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     # If not found by user, try to find by email
@@ -435,7 +483,7 @@ def student_profile(request):
             if not student.user:
                 student.user = request.user
                 student.save()
-            serializer = StudentSerializer(student)
+            serializer = StudentSerializer(student, context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Student.DoesNotExist:
             pass
@@ -445,3 +493,45 @@ def student_profile(request):
         status=status.HTTP_404_NOT_FOUND
     )
 
+from django.utils import timezone
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status, permissions
+from django.db.models import Q
+import re
+import random
+import os
+
+# Import modules to access data
+from management_admin.models import Student
+from teacher.models import Grade, Attendance
+from student_parent.models import Parent, Fee
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsStudentParent])
+def school_details(request):
+    """Get school details including logo for the current student/parent"""
+    try:
+        from super_admin.serializers import SchoolSerializer
+        
+        from main_login.utils import get_user_school
+        school = get_user_school(request.user)
+        
+        if not school:
+            return Response(
+                {'error': 'School not found for this user'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+            
+        # Serialize school data with request context for absolute URLs
+        serializer = SchoolSerializer(school, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Error fetching school details: {str(e)}')
+        return Response(
+            {'error': 'Failed to fetch school details'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

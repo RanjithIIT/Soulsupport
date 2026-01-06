@@ -35,6 +35,8 @@ class ClassViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     search_fields = ['name', 'section']
     ordering_fields = ['name', 'created_at']
     ordering = ['-created_at']
+    pagination_class = None # Show all classes for dropdowns
+
     
     def get_queryset(self):
         """Filter classes by current teacher"""
@@ -192,7 +194,7 @@ def teacher_profile(request):
     teacher = Teacher.objects.filter(user=request.user).first()
     
     if teacher:
-        serializer = TeacherSerializer(teacher)
+        serializer = TeacherSerializer(teacher, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     # If not found by user, try to find by email
@@ -203,7 +205,7 @@ def teacher_profile(request):
             if not teacher.user:
                 teacher.user = request.user
                 teacher.save()
-            serializer = TeacherSerializer(teacher)
+            serializer = TeacherSerializer(teacher, context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)
     
     return Response(
@@ -273,3 +275,136 @@ def teacher_chat_history(request):
     serializer = CommunicationSerializer(messages, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsTeacher])
+def school_details(request):
+    """Get school details including logo for the current teacher"""
+    try:
+        from super_admin.serializers import SchoolSerializer
+        
+        from main_login.utils import get_user_school
+        school = get_user_school(request.user)
+            
+        if not school:
+            return Response(
+                {'error': 'School not found for this teacher'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+            
+        # Serialize school data with request context for absolute URLs
+        serializer = SchoolSerializer(school, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Error fetching school details: {str(e)}')
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsTeacher])
+def dashboard_stats(request):
+    """Get aggregated dashboard statistics for the teacher"""
+    try:
+        teacher = Teacher.objects.get(user=request.user)
+        
+        # 1. Classes and Students
+        classes = Class.objects.filter(teacher=teacher)
+        total_classes = classes.count()
+        
+        # Get unique student count across all classes
+        # ClassStudent -> student
+        student_ids = ClassStudent.objects.filter(
+            class_obj__in=classes
+        ).values_list('student_id', flat=True).distinct()
+        total_students = student_ids.count()
+        
+        # 2. Upcoming Exams (future dates)
+        now = timezone.now()
+        upcoming_exams = Exam.objects.filter(
+            teacher=teacher,
+            exam_date__gte=now
+        ).count()
+        
+        # 3. Pending Assignments (due date in future)
+        pending_assignments = Assignment.objects.filter(
+            teacher=teacher,
+            due_date__gte=now
+        ).count()
+        
+        # 4. Total Results (Grades given)
+        # Assuming simple count of grades created by this teacher? 
+        # Or distinct exams graded? The mock said "Total Results". 
+        # Let's count total grades marked.
+        total_results = Grade.objects.filter(
+            exam__teacher=teacher
+        ).count()
+        
+        # 5. Attendance Rate (Last 30 days)
+        thirty_days_ago = now.date() - timezone.timedelta(days=30)
+        attendances = Attendance.objects.filter(
+            class_obj__in=classes,
+            date__gte=thirty_days_ago
+        )
+        total_recs = attendances.count()
+        present_recs = attendances.filter(status='present').count()
+        
+        attendance_rate_str = "0%"
+        if total_recs > 0:
+            rate = (present_recs / total_recs) * 100
+            attendance_rate_str = f"{round(rate, 1)}%"
+            
+        # 6. Class Breakdown for UI
+        classes_data = []
+        for cls in classes:
+            # Count students in this class
+            cnt = ClassStudent.objects.filter(class_obj=cls).count()
+            # Get subject if possible - Class model behaves like subject-based class in some systems,
+            # but here Class model has 'name' (e.g. 10A).
+            # The mock had 'subjects' list. Here we assume the class itself covers generalized subjects?
+            # Or maybe we fetch subjects from Timetable?
+            # For MVP, let's just return the class name and student count.
+            subjects = Timetable.objects.filter(class_obj=cls).values_list('subject', flat=True).distinct()
+            
+            classes_data.append({
+                'name': f"{cls.name} - {cls.section}",
+                'students': cnt,
+                'subjects': list(subjects) if subjects else ['General']
+            })
+            
+        # 7. Other metrics for mock parity
+        total_attendance_records = Attendance.objects.filter(class_obj__in=classes).count()
+        total_study_materials = StudyMaterial.objects.filter(teacher=teacher).count()
+        total_communications = Communication.objects.filter(
+            Q(sender=request.user) | Q(recipient=request.user)
+        ).count()
+        total_timetable = Timetable.objects.filter(teacher=teacher).count()
+        
+        data = {
+            'totalStudents': total_students,
+            'totalClasses': total_classes,
+            'upcomingExams': upcoming_exams,
+            'pendingAssignments': pending_assignments,
+            'totalResults': total_results,
+            'attendanceRate': attendance_rate_str,
+            'avgGrade': 'B+', # Placeholder as grade calculation is complex
+            'classes': classes_data,
+            'totalAttendanceRecords': total_attendance_records,
+            'totalStudyMaterials': total_study_materials,
+            'totalGradesPending': 0, # Placeholder
+            'totalCommunication': total_communications,
+            'totalTimetableSlots': total_timetable
+        }
+        
+        return Response(data, status=status.HTTP_200_OK)
+        
+    except Teacher.DoesNotExist:
+        return Response(
+            {'error': 'Teacher profile not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Error aggregating dashboard stats: {str(e)}')
+        return Response(
+            {'error': 'Failed to load dashboard stats'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

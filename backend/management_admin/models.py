@@ -220,6 +220,9 @@ class Teacher(models.Model):
     class_teacher_grade = models.CharField(max_length=10, null=True, blank=True, help_text='Grade level for class teacher assignment (e.g., A, B, C, D)')
     subject_specialization = models.TextField(null=True, blank=True, help_text='Subject specialization details')
     emergency_contact = models.CharField(max_length=20, null=True, blank=True, help_text='Emergency contact number')
+    emergency_contact_relation = models.CharField(max_length=50, null=True, blank=True, help_text='Relation with emergency contact')
+    salary = models.CharField(max_length=50, null=True, blank=True, help_text='Salary details')
+    experience = models.CharField(max_length=50, null=True, blank=True, help_text='Experience details (e.g. 5 years)')
     
     profile_photo = models.CharField(
         max_length=100,
@@ -1271,9 +1274,52 @@ class Award(models.Model):
     def __str__(self):
         return f"{self.title} - {self.recipient}"
     
+
+class Activity(models.Model):
+    id = models.AutoField(primary_key=True)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='school_activities', db_column='school_id')
+    school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text="School name (read-only, auto-populated from schools table)")
+    name = models.CharField(max_length=255, help_text="Activity name")
+    category = models.CharField(max_length=50, choices=[
+        ('Sports', 'Sports'),
+        ('Academic', 'Academic'),
+        ('Arts', 'Arts'),
+        ('Games', 'Games'),
+        ('Cultural', 'Cultural'),
+        ('Technical', 'Technical'),
+    ], help_text="Activity category")
+    instructor = models.CharField(max_length=255, help_text="Instructor name")
+    max_participants = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1)], help_text="Maximum number of participants")
+    schedule = models.CharField(max_length=255, help_text="Activity schedule (e.g., Monday, Wednesday 3:00 PM)")
+    location = models.CharField(max_length=255, help_text="Activity location")
+    status = models.CharField(max_length=50, choices=[
+        ('Active', 'Active'),
+        ('Inactive', 'Inactive'),
+        ('Suspended', 'Suspended'),
+        ('Completed', 'Completed'),
+    ], default='Active', help_text="Activity status")
+    start_date = models.DateField(null=True, blank=True, help_text="Activity start date")
+    end_date = models.DateField(null=True, blank=True, help_text="Activity end date")
+    description = models.TextField(help_text="Detailed activity description")
+    requirements = models.TextField(blank=True, help_text="Requirements or prerequisites")
+    notes = models.TextField(blank=True, help_text="Additional notes or comments")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        # Auto-populate school_name from school ForeignKey
+        if self.school and not self.school_name:
+            self.school_name = self.school.school_name
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.name} ({self.category})"
+
     class Meta:
-        db_table = 'awards'
-        verbose_name = 'Award'
-        verbose_name_plural = 'Awards'
-        ordering = ['-date', '-created_at']
+        db_table = 'school_activities'
+        verbose_name = 'School Activity'
+        verbose_name_plural = 'School Activities'
+        ordering = ['-created_at']
+
 

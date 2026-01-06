@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:core/api/auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:parent_app/main.dart' as parent;
 import 'create_password.dart';
 
@@ -227,6 +228,38 @@ class _ParentLoginPageState extends State<ParentLoginPage> {
                                             );
                                           }
                                         } else {
+                                          // Cache school details if available
+                                          try {
+                                            final user = result['user'];
+                                            if (user != null && user is Map) {
+                                              final prefs = await SharedPreferences.getInstance();
+                                              
+                                              // Try to extract school name
+                                              String? schoolName = user['school_name']?.toString();
+                                              // If not directly available, check nested school object
+                                              if (schoolName == null && user['school'] is Map) {
+                                                schoolName = user['school']['school_name']?.toString() ?? 
+                                                           user['school']['name']?.toString();
+                                              }
+                                              
+                                              if (schoolName != null && schoolName.isNotEmpty) {
+                                                await prefs.setString('school_name', schoolName);
+                                              }
+                                              
+                                              // Try to extract logo URL
+                                              String? logoUrl = user['logo_url']?.toString();
+                                              if (logoUrl == null && user['school'] is Map) {
+                                                logoUrl = user['school']['logo_url']?.toString();
+                                              }
+                                              
+                                              if (logoUrl != null && logoUrl.isNotEmpty) {
+                                                await prefs.setString('logo_url', logoUrl);
+                                              }
+                                            }
+                                          } catch (e) {
+                                            debugPrint('Error caching school details: $e');
+                                          }
+
                                           // Navigate to Parent/Student dashboard
                                           Navigator.pushReplacement(
                                             context,
