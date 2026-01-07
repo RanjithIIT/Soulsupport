@@ -7,6 +7,8 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.conf import settings
+from django.core.mail import send_mail
+import random
 from .models import Role
 from .serializers import (
     UserRegistrationSerializer,
@@ -426,3 +428,84 @@ def role_login(request):
             'traceback': traceback.format_exc() if settings.DEBUG else None
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def request_otp(request):
+    """Generate and send OTP to user's email"""
+    email = request.data.get('email')
+    if not email:
+        return Response({'error': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        user = User.objects.get(email=email)
+        otp = str(random.randint(100000, 999999))
+        user.reset_otp = otp
+        user.save()
+        
+        # Send email
+        subject = '🔐 Security Code for Password Reset'
+        message = (
+            f"Dear User,\n\n"
+            f"A password reset was requested for your account. Please use the following 6-digit verification code to proceed:\n\n"
+            f"OTP CODE: {otp}\n\n"
+            f"If you did not request this, please ignore this email. This is a system-generated email, please do not reply.\n\n"
+            f"Regards,\n"
+            f"School Management System Security Team"
+        )
+        from_email = settings.DEFAULT_FROM_EMAIL
+        recipient_list = [email]
+        
+        # We print to console ALWAYS for development as requested
+        print(f"\n\n{'*' * 40}")
+        print(f"FORGOT PASSWORD OTP FOR {email}: {otp}")
+        print(f"{'*' * 40}\n\n")
+
+        try:
+            send_mail(subject, message, from_email, recipient_list)
+            email_sent = True
+        except Exception as e:
+            import traceback
+            print(f"FAILED TO SEND EMAIL TO {email}:")
+            traceback.print_exc()
+            email_sent = False
+        
+        return Response({
+            'success': True, 
+            'message': 'OTP sent successfully to your email and terminal.',
+            'email_sent': email_sent
+        }, status=status.HTTP_200_OK)
+        
+    except User.DoesNotExist:
+        return Response({'error': 'User with this email does not exist'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def reset_password_with_otp(request):
+    """Verify OTP and reset password"""
+    email = request.data.get('email')
+    otp = request.data.get('otp')
+    new_password = request.data.get('new_password')
+    
+    if not all([email, otp, new_password]):
+        return Response({'error': 'Email, OTP, and new password are required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        user = User.objects.get(email=email, reset_otp=otp)
+        
+        # OTP is valid, reset password
+        user.set_new_password(new_password)
+        user.reset_otp = None # Clear OTP after use
+        user.save()
+        
+        return Response({
+            'success': True,
+            'message': 'Password has been reset successfully.'
+        }, status=status.HTTP_200_OK)
+        
+    except User.DoesNotExist:
+        return Response({'error': 'Invalid OTP or email'}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

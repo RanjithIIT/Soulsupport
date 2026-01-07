@@ -35,6 +35,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _qualificationController = TextEditingController();
+  final _departmentController = TextEditingController();
   final _mobileNoController = TextEditingController();
   final _emailController = TextEditingController();
   final _addressController = TextEditingController();
@@ -42,8 +43,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
   final _subjectSpecializationController = TextEditingController();
   final _emergencyContactController = TextEditingController();
 
-  String? _selectedDepartmentId;
-  List<Map<String, dynamic>> _departments = [];
   bool _isLoadingDepartments = false;
   String? _gender;
   String? _bloodGroup;
@@ -51,22 +50,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
   String? _classTeacherClass;
   String? _classTeacherGrade;
   
-  // Default department names (from old designation dropdown)
-  static const List<String> _defaultDepartmentNames = [
-    'Mathematics',
-    'Physics',
-    'Chemistry',
-    'Biology',
-    'English',
-    'History',
-    'Geography',
-    'Computer Science',
-    'Art',
-    'Music',
-    'Principal',
-    'Vice Principal',
-    'Coordinator',
-  ];
   DateTime? _dob;
   DateTime? _joiningDate;
   Uint8List? _photoBytes;
@@ -79,55 +62,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
   @override
   void initState() {
     super.initState();
-    _loadDepartments();
     _loadTeacherData();
-  }
-
-  Future<void> _loadDepartments() async {
-    setState(() => _isLoadingDepartments = true);
-    try {
-      final apiService = ApiService();
-      await apiService.initialize();
-      final response = await apiService.get(Endpoints.departments);
-      
-      if (response.success && response.data != null) {
-        List<dynamic> data = [];
-        if (response.data is List) {
-          data = response.data as List;
-        } else if (response.data is Map && (response.data as Map)['results'] != null) {
-          data = (response.data as Map)['results'] as List;
-        }
-        
-        if (mounted) {
-          setState(() {
-            _departments = data.map((d) => d as Map<String, dynamic>).toList();
-            // If no departments from API, add default ones as fallback
-            if (_departments.isEmpty) {
-              _departments = _defaultDepartmentNames.map((name) => <String, dynamic>{
-                'id': name,
-                'name': name,
-              }).toList();
-            }
-            _isLoadingDepartments = false;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            // If API fails, use default departments as fallback
-            _departments = _defaultDepartmentNames.map((name) => <String, dynamic>{
-              'id': name,
-              'name': name,
-            }).toList();
-            _isLoadingDepartments = false;
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingDepartments = false);
-      }
-    }
   }
 
   Future<void> _loadTeacherData() async {
@@ -148,14 +83,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
       _firstNameController.text = data['first_name'] as String? ?? '';
       _lastNameController.text = data['last_name'] as String? ?? '';
       _qualificationController.text = data['qualification'] as String? ?? '';
-      // Set department from data - department can be an ID or an object
-      if (data['department'] != null) {
-        if (data['department'] is Map) {
-          _selectedDepartmentId = data['department']['id']?.toString();
-        } else {
-          _selectedDepartmentId = data['department'].toString();
-        }
-      }
+      _departmentController.text = data['department_name'] as String? ?? data['department']?['name'] as String? ?? '';
       _gender = data['gender'] as String?;
       _mobileNoController.text = data['mobile_no'] as String? ?? '';
       _emailController.text = data['email'] as String? ?? '';
@@ -190,6 +118,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
     _firstNameController.dispose();
     _lastNameController.dispose();
     _qualificationController.dispose();
+    _departmentController.dispose();
     _mobileNoController.dispose();
     _emailController.dispose();
       _addressController.dispose();
@@ -229,6 +158,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
         'first_name': _firstNameController.text.trim(),
         'last_name': _lastNameController.text.trim(),
         'qualification': _qualificationController.text.trim(),
+        'department_name': _departmentController.text.trim(),
         'joining_date': _joiningDate != null 
             ? DateFormat('yyyy-MM-dd').format(_joiningDate!) 
             : null,
@@ -311,9 +241,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
             children: [
               _PreviewItem('Employee No', _employeeNoController.text),
               _PreviewItem('Name', '${_firstNameController.text} ${_lastNameController.text}'.trim()),
-              _PreviewItem('Department', _selectedDepartmentId != null 
-                  ? _departments.firstWhere((d) => d['id'].toString() == _selectedDepartmentId, orElse: () => {})['name'] ?? 'Not provided'
-                  : 'Not provided'),
+              _PreviewItem('Department', _departmentController.text.isNotEmpty ? _departmentController.text : 'Not provided'),
               _PreviewItem('Gender', _gender ?? 'Not provided'),
               _PreviewItem('Mobile No', _mobileNoController.text),
               _PreviewItem('Email', _emailController.text),
@@ -367,14 +295,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
                         firstNameController: _firstNameController,
                         lastNameController: _lastNameController,
                         qualificationController: _qualificationController,
-                        departmentId: _selectedDepartmentId,
-                        departments: _departments,
-                        isLoadingDepartments: _isLoadingDepartments,
-                        onDepartmentChanged: (value) {
-                          setState(() {
-                            _selectedDepartmentId = value;
-                          });
-                        },
+                        departmentController: _departmentController,
                         gender: _gender,
                         onGenderChanged: (value) {
                           setState(() {
@@ -640,10 +561,7 @@ class _FormCard extends StatelessWidget {
   final TextEditingController firstNameController;
   final TextEditingController lastNameController;
   final TextEditingController qualificationController;
-  final String? departmentId;
-  final List<Map<String, dynamic>> departments;
-  final bool isLoadingDepartments;
-  final ValueChanged<String?> onDepartmentChanged;
+  final TextEditingController departmentController;
   final String? gender;
   final ValueChanged<String?> onGenderChanged;
   final DateTime? dob;
@@ -673,17 +591,14 @@ class _FormCard extends StatelessWidget {
   final Future<void> Function() onSubmit;
   final VoidCallback onPreview;
 
-  const _FormCard({
+  _FormCard({
     required this.formKey,
     required this.gradient,
     required this.employeeNoController,
     required this.firstNameController,
     required this.lastNameController,
     required this.qualificationController,
-    required this.departmentId,
-    required this.departments,
-    required this.isLoadingDepartments,
-    required this.onDepartmentChanged,
+    required this.departmentController,
     required this.gender,
     required this.onGenderChanged,
     required this.dob,
@@ -953,48 +868,24 @@ class _FormCard extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             // Department
-            isLoadingDepartments
-                ? const Center(child: Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: CircularProgressIndicator(),
-                  ))
-                : DropdownButtonFormField<String>(
-                    decoration: InputDecoration(
-                      labelText: 'Department *',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      prefixIcon: const Icon(Icons.business),
-                    ),
-                    initialValue: departmentId,
-                    items: [
-                      const DropdownMenuItem<String>(
-                        value: null,
-                        child: Text('Select Department'),
-                      ),
-                      ...departments.map(
-                        (dept) {
-                          final id = dept['id'];
-                          final name = dept['name']?.toString() ?? dept['id']?.toString() ?? 'Unknown';
-                          // Use ID as string for value, but ensure it's not null
-                          final value = id?.toString() ?? name;
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(name),
-                          );
-                        },
-                      ),
-                    ],
-                    onChanged: onDepartmentChanged,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please select a department';
-                      }
-                      return null;
-                    },
-                  ),
+            TextFormField(
+              controller: departmentController,
+              decoration: InputDecoration(
+                labelText: 'Department *',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                prefixIcon: const Icon(Icons.business),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter a department';
+                }
+                return null;
+              },
+            ),
             const SizedBox(height: 20),
             // Mobile No and Email
             Row(

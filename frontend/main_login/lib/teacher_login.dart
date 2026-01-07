@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:core/api/auth_service.dart';
 import 'package:teacher_app/main.dart' as teacher;
 import 'create_password.dart';
+import 'forgot_password_flow.dart';
+import 'dart:math';
+import 'dart:developer' as dev;
 
 void main() {
   runApp(const TeacherLoginPage());
@@ -28,6 +31,93 @@ class _TeacherLoginPageState extends State<TeacherLoginPage> {
     super.dispose();
   }
 
+  void _showForgotPasswordDialog(BuildContext context) {
+    final emailController = TextEditingController(text: _emailController.text);
+    bool isDialogLoading = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent accidental close
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Forgot Password', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Enter your registered email address to receive a password reset link.', style: TextStyle(color: Colors.black54)),
+              const SizedBox(height: 20),
+              TextField(
+                controller: emailController,
+                enabled: !isDialogLoading,
+                decoration: InputDecoration(
+                  labelText: 'Email Address',
+                  hintText: 'name@school.edu',
+                  prefixIcon: const Icon(Icons.email_outlined),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isDialogLoading ? null : () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: isDialogLoading
+                  ? null
+                  : () async {
+                      setDialogState(() => isDialogLoading = true);
+                      final authService = AuthService();
+                      final result = await authService.requestPasswordResetOtp(emailController.text);
+
+                      if (context.mounted) {
+                        setDialogState(() => isDialogLoading = false);
+                        if (result['success']) {
+                          Navigator.pop(context); // Close dialog
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ForgotPasswordFlow(
+                                email: emailController.text,
+                                role: 'teacher',
+                              ),
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(result['message']),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF667EEA),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                minimumSize: const Size(120, 45),
+              ),
+              child: isDialogLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Text('Send Reset Link'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -260,6 +350,19 @@ class _TeacherLoginPageState extends State<TeacherLoginPage> {
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Center(
+                          child: TextButton(
+                            onPressed: () => _showForgotPasswordDialog(context),
+                            child: const Text(
+                              'Forgot password',
+                              style: TextStyle(
+                                color: Color(0xFF667EEA),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ),
                       ],

@@ -17,56 +17,34 @@ class TeacherProfileApp extends StatelessWidget {
       title: 'Teacher Profile',
       theme: ThemeData(
         useMaterial3: true,
-        scaffoldBackgroundColor: Colors.white,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueGrey),
-        // === BOLDNESS/SHARPNESS INCREASED HERE ===
-        textTheme: const TextTheme(
-          bodyLarge: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
-          ),
-          bodyMedium: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ),
-          bodySmall: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.black54,
-          ),
-          titleMedium: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: Colors.black,
-          ),
-          headlineSmall: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
-            color: Colors.black,
-          ),
+        scaffoldBackgroundColor: const Color(0xFFF0F2F5),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF6366F1), // Indigo
+          secondary: const Color(0xFFEC4899), // Pink
         ),
-        // ==========================================
+        textTheme: const TextTheme(
+          displaySmall: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black),
+          titleLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.black, letterSpacing: -0.5),
+          titleMedium: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.black87),
+          bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
+          bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black54),
+        ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: Colors.grey.shade100,
+          fillColor: Colors.white,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide: BorderSide(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide: BorderSide(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide: const BorderSide(color: Colors.black, width: 1),
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2),
           ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 14,
-          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
         ),
       ),
       home: const TeacherProfilePage(),
@@ -85,8 +63,8 @@ class TeacherProfilePage extends StatefulWidget {
 }
 
 class _TeacherProfilePageState extends State<TeacherProfilePage>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+    {
+  // Navigation state removed as sidebar is gone
 
   // ====================== METADATA VARIABLES ==========================
   // NOTE: These are made mutable for demonstration, but should typically remain read-only in a production environment.
@@ -149,6 +127,14 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
   late bool parentMessagesEnabled;
   late bool attendanceAlertsEnabled;
   late bool gradeUpdatesEnabled;
+  
+  // Password Change State
+  String _currentPassword = '';
+  String _newPassword = '';
+  String _confirmPassword = '';
+  bool _obscureCurrent = true;
+  bool _obscureNew = true;
+  bool _obscureConfirm = true;
 
   final TextEditingController _subjectController = TextEditingController();
   // image_picker plugin removed in demo; simulate pick behavior instead
@@ -306,13 +292,11 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
   void initState() {
     super.initState();
     _initializeData(); // Set defaults first
-    _tabController = TabController(length: 4, vsync: this);
     _loadTeacherData(); // Then load from API
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
     _subjectController.dispose();
     super.dispose();
   }
@@ -431,365 +415,219 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
           'Teacher Profile',
           style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
-              setState(() {
-                // Refresh profile data
-              });
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.person, color: Colors.white),
-            onPressed: () {
-              // Already on profile page
-            },
-          ),
-        ],
         elevation: 0,
       ),
-      body: Column(
-        children: [
-          // -------------------- PROFILE HEADER TAB --------------------
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-            color: Colors.white,
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: _pickImage,
-                  child: CircleAvatar(
-                    radius: 35,
-                    backgroundColor: Colors.grey.shade200,
-                    backgroundImage: _profileImage != null
-                        ? FileImage(_profileImage!)
-                        : null,
-                    child: _profileImage == null
-                        ? Icon(
-                            Icons.camera_alt,
-                            color: Colors.grey.shade600,
-                            size: 30,
-                          )
-                        : null,
+      body: Container(
+        color: const Color(0xFFF0F2F5),
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                children: [
+                  // -------------------- COLORFUL HERO HEADER --------------------
+                  _buildColorfulHeroHeader(),
+                  
+                  const SizedBox(height: 32),
+  
+                  // -------------------- UNIFIED CONTENT SECTION --------------------
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF6366F1).withOpacity(0.08),
+                            blurRadius: 30,
+                            offset: const Offset(0, 15),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(30),
+                        child: Column(
+                          children: [
+                            _buildSectionWrapper(
+                              icon: Icons.person_rounded,
+                              title: 'Personal Info',
+                              color: const Color(0xFFEEF2FF),
+                              accentColor: const Color(0xFF6366F1),
+                              child: _buildPersonalSection(isMobile),
+                            ),
+                            const Divider(height: 1, color: Color(0xFFF1F4F9)),
+                            _buildSectionWrapper(
+                              icon: Icons.school_rounded,
+                              title: 'Professional',
+                              color: const Color(0xFFF5F3FF),
+                              accentColor: const Color(0xFF8B5CF6),
+                              child: _buildProfessionalSection(isMobile),
+                            ),
+                            const Divider(height: 1, color: Color(0xFFF1F4F9)),
+                            _buildSectionWrapper(
+                              icon: Icons.notifications_active_rounded,
+                              title: 'Alerts & Tips',
+                              color: const Color(0xFFFFF1F2),
+                              accentColor: const Color(0xFFF43F5E),
+                              child: _buildNotificationsSection(),
+                            ),
+                            const Divider(height: 1, color: Color(0xFFF1F4F9)),
+                            _buildSectionWrapper(
+                              icon: Icons.admin_panel_settings_rounded,
+                              title: 'Security',
+                              color: const Color(0xFFECFDF5),
+                              accentColor: const Color(0xFF10B981),
+                              child: _buildSecuritySection(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 15),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // BOLDER NAME
-                    Text(
-                      profileName,
-                      style: Theme.of(context).textTheme.titleMedium!.copyWith(
-                        color: Colors.black,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    // BOLDER SUBJECT/DESIGNATION
-                    Text(
-                      '$designation - $department',
-                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                        color: Colors.black87,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    // BOLDER ID
-                    Text(
-                      'Employee ID: $employeeNo',
-                      style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                        color: Colors.black54,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.grey),
-                  onPressed: () {
-                    _show('Edit profile (simulated)');
-                  },
-                ),
-              ],
+                  
+                  const SizedBox(height: 100),
+                ],
+              ),
             ),
-          ),
-          const Divider(height: 1, color: Colors.grey),
-
-          // -------------------- TABS --------------------
-          Container(
-            color: Colors.grey.shade100,
-            child: TabBar(
-              controller: _tabController,
-              labelColor: Colors.black,
-              labelStyle: const TextStyle(fontWeight: FontWeight.w700),
-              unselectedLabelColor: Colors.grey,
-              indicatorColor: Colors.black,
-              indicatorWeight: 3,
-              tabs: const [
-                Tab(text: 'Personal'),
-                Tab(text: 'Professional'),
-                Tab(text: 'Notifications'),
-                Tab(text: 'Security'),
-              ],
+  
+            Positioned(
+              bottom: 24,
+              left: 20,
+              right: 20,
+              child: _buildFloatingAction(),
             ),
-          ),
-
-          // -------------------- CONTENT --------------------
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildPersonalTab(isMobile),
-                _buildProfessionalTab(isMobile),
-                _buildNotificationsTab(),
-                _buildSecurityTab(),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
+  // _buildNavItem removed as sidebar is gone
+
+  // Sections are now built directly within the scroll view
+
   // ============================================================================
   // PERSONAL TAB — ALL FIELDS EDITABLE
   // ============================================================================
-  Widget _buildPersonalTab(bool isMobile) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _title('Personal Information'),
-
-          _row(isMobile, [
-            _input('First Name', firstName, (v) => firstName = v),
-            _input('Middle Name', middleName, (v) => middleName = v),
-            _input('Last Name', lastName, (v) => lastName = v),
-            _input('Employee Number', employeeNo, (v) => employeeNo = v),
-          ]),
-
-          _row(isMobile, [
-            _input(
-              'Date of Birth (YYYY-MM-DD)',
-              dateOfBirth,
-              (v) => dateOfBirth = v,
-            ),
-            _input('Gender', gender, (v) => gender = v),
-            _input('Blood Group', bloodGroup, (v) => bloodGroup = v),
-            _input('Nationality', nationality, (v) => nationality = v),
-          ]),
-
-          const SizedBox(height: 20),
-          _title('Contact'),
-
-          _row(isMobile, [
-            _input('Email', email, (v) => email = v),
-            _input('Mobile', mobile, (v) => mobile = v),
-          ]),
-
-          const SizedBox(height: 20),
-          _title('Location'),
-
-          _row(isMobile, [
-            _input('City', addressCity, (v) => addressCity = v),
-            _input('State', addressState, (v) => addressState = v),
-            _input('Country', addressCountry, (v) => addressCountry = v),
-            _input('Postal Code', postalCode, (v) => postalCode = v),
-          ]),
-
-          _inputArea('Full Address', addressFull, (v) => addressFull = v),
-
-          const SizedBox(height: 20),
-          _title('Religious/Caste Details'),
-          _row(isMobile, [
-            _input('Religion', religion, (v) => religion = v),
-            _input('Sub Caste', subCaste, (v) => subCaste = v),
-          ]),
-
-          const SizedBox(height: 30),
-          _saveButton(() => _show('Personal Info Saved!')),
-        ],
-      ),
+  Widget _buildPersonalSection(bool isMobile) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _row(isMobile, [
+          _input('First Name', firstName, (v) => firstName = v),
+          _input('Middle Name', middleName, (v) => middleName = v),
+          _input('Last Name', lastName, (v) => lastName = v),
+          _input('Employee Number', employeeNo, (v) => employeeNo = v),
+        ]),
+        _row(isMobile, [
+          _input('Date of Birth (YYYY-MM-DD)', dateOfBirth, (v) => dateOfBirth = v),
+          _input('Gender', gender, (v) => gender = v),
+          _input('Blood Group', bloodGroup, (v) => bloodGroup = v),
+          _input('Nationality', nationality, (v) => nationality = v),
+        ]),
+        const SizedBox(height: 20),
+        const Text('Contact & Location', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        const SizedBox(height: 10),
+        _row(isMobile, [
+          _input('Email', email, (v) => email = v),
+          _input('Mobile', mobile, (v) => mobile = v),
+        ]),
+        _row(isMobile, [
+          _input('City', addressCity, (v) => addressCity = v),
+          _input('State', addressState, (v) => addressState = v),
+          _input('Country', addressCountry, (v) => addressCountry = v),
+          _input('Postal Code', postalCode, (v) => postalCode = v),
+        ]),
+        _inputArea('Full Address', addressFull, (v) => addressFull = v),
+        const SizedBox(height: 10),
+        _saveButton(() => _show('Personal Info Saved!')),
+      ],
     );
   }
 
   // ============================================================================
   // PROFESSIONAL TAB — ALL FIELDS EDITABLE
   // ============================================================================
-  Widget _buildProfessionalTab(bool isMobile) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _title('Professional Details'),
-
-          _row(isMobile, [
-            _input('Department', department, (v) => department = v),
-            _input('Designation', designation, (v) => designation = v),
-            _input('Qualification', qualification, (v) => qualification = v),
-            _input(
-              'Joining Date (YYYY-MM-DD)',
-              joiningDate,
-              (v) => joiningDate = v,
-            ),
-          ]),
-
-          const SizedBox(height: 20),
-          _title('System Assignment'),
-
-          _row(isMobile, [
-            _input('Primary Room ID', primaryRoomId, (v) => primaryRoomId = v),
-            _input(
-              'Class Teacher Section ID',
-              classTeacherOfSectionId,
-              (v) => classTeacherOfSectionId = v,
-            ),
-            _input('Department ID', departmentId, (v) => departmentId = v),
-            _input(
-              'Employment Status',
-              employmentStatus,
-              (v) => employmentStatus = v,
-            ),
-          ]),
-
-          const SizedBox(height: 20),
-          _title('Subjects Specialization'),
-          Wrap(
-            spacing: 8,
-            children: [
-              for (int i = 0; i < subjectsSpecialization.length; i++)
-                Chip(
-                  label: Text(
-                    subjectsSpecialization[i],
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  onDeleted: () =>
-                      setState(() => subjectsSpecialization.removeAt(i)),
-                ),
-            ],
-          ),
-
-          TextField(
-            controller: _subjectController,
-            decoration: const InputDecoration(hintText: 'Add subject'),
-            onSubmitted: (v) {
-              if (v.trim().isNotEmpty) {
-                setState(() => subjectsSpecialization.add(v.trim()));
-                _subjectController.clear();
-              }
-            },
-          ),
-
-          const SizedBox(height: 20),
-          _title('Work Schedule'),
-          _row(isMobile, [
-            _input('Available From', availableFrom, (v) => availableFrom = v),
-            _input('Available To', availableTo, (v) => availableTo = v),
-            _input(
-              'Active Work Days (List:Monday,Tuesday,Wednesday,Thursday,Friday & Saturday)',
-              workDays.join(', '),
-              (v) {
-                // Note: This conversion is simplistic and assumes comma-separated integers.
-                try {
-                  workDays = v
-                      .split(',')
-                      .map((s) => int.parse(s.trim()))
-                      .toList();
-                } catch (_) {
-                  /* handle error */
-                }
-              },
-            ), // MADE EDITABLE
-            _input(
-              'Is Class Teacher (Yes/No)',
-              isClassTeacher ? 'Yes' : 'No',
-              (v) => isClassTeacher = (v.toLowerCase() == 'yes'),
-            ),
-          ]),
-
-          const SizedBox(height: 20),
-          _title('Emergency Contact'),
-          _row(isMobile, [
-            _input(
-              'Contact Name',
-              emergencyContactName,
-              (v) => emergencyContactName = v,
-            ),
-            _input(
-              'Relation',
-              emergencyContactRelation,
-              (v) => emergencyContactRelation = v,
-            ),
-            _input(
-              'Phone',
-              emergencyContactPhone,
-              (v) => emergencyContactPhone = v,
-            ),
-          ]),
-
-          const SizedBox(height: 20),
-          _inputArea('Notes', notes, (v) => notes = v),
-
-          const SizedBox(height: 20),
-          _title('System IDs'),
-          _row(isMobile, [
-            _input('Teacher ID', teacherId, (v) => teacherId = v),
-            _input('User ID', userId, (v) => userId = v),
-            _input(
-              'Account Active (True/False)',
-              isActive.toString(),
-              (v) => isActive = (v.toLowerCase() == 'true'),
-            ),
-          ]),
-
-          const SizedBox(height: 30),
-
-          _saveButton(() => _show('Professional Info Saved!')),
-        ],
-      ),
+  Widget _buildProfessionalSection(bool isMobile) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _row(isMobile, [
+          _input('Department', department, (v) => department = v),
+          _input('Designation', designation, (v) => designation = v),
+          _input('Qualification', qualification, (v) => qualification = v),
+          _input('Joining Date (YYYY-MM-DD)', joiningDate, (v) => joiningDate = v),
+        ]),
+        const SizedBox(height: 20),
+        const Text('System Assignment', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        const SizedBox(height: 10),
+        _row(isMobile, [
+          _input('Primary Room ID', primaryRoomId, (v) => primaryRoomId = v),
+          _input('Class Teacher Section ID', classTeacherOfSectionId, (v) => classTeacherOfSectionId = v),
+          _input('Department ID', departmentId, (v) => departmentId = v),
+          _input('Employment Status', employmentStatus, (v) => employmentStatus = v),
+        ]),
+        const SizedBox(height: 20),
+        const Text('Subjects Specialization', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          children: [
+            for (int i = 0; i < subjectsSpecialization.length; i++)
+              Chip(
+                label: Text(subjectsSpecialization[i], style: const TextStyle(fontWeight: FontWeight.w700)),
+                onDeleted: () => setState(() => subjectsSpecialization.removeAt(i)),
+              ),
+          ],
+        ),
+        TextField(
+          controller: _subjectController,
+          decoration: const InputDecoration(hintText: 'Add subject'),
+          onSubmitted: (v) {
+            if (v.trim().isNotEmpty) {
+              setState(() => subjectsSpecialization.add(v.trim()));
+              _subjectController.clear();
+            }
+          },
+        ),
+        const SizedBox(height: 20),
+        const Text('Work Schedule & Emergency', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        const SizedBox(height: 10),
+        _row(isMobile, [
+          _input('Available From', availableFrom, (v) => availableFrom = v),
+          _input('Available To', availableTo, (v) => availableTo = v),
+          _input('Active Work Days (CSV)', workDays.join(', '), (v) {
+            try { workDays = v.split(',').map((s) => int.parse(s.trim())).toList(); } catch (_) {}
+          }),
+          _input('Is Class Teacher (Yes/No)', isClassTeacher ? 'Yes' : 'No', (v) => isClassTeacher = (v.toLowerCase() == 'yes')),
+        ]),
+        _row(isMobile, [
+          _input('Emergency Contact', emergencyContactName, (v) => emergencyContactName = v),
+          _input('Relation', emergencyContactRelation, (v) => emergencyContactRelation = v),
+          _input('Phone', emergencyContactPhone, (v) => emergencyContactPhone = v),
+        ]),
+        const SizedBox(height: 20),
+        _inputArea('Notes', notes, (v) => notes = v),
+        const SizedBox(height: 10),
+        _saveButton(() => _show('Professional Details Saved!')),
+      ],
     );
   }
 
   // ============================================================================
   // NOTIFICATIONS TAB
   // ============================================================================
-  Widget _buildNotificationsTab() {
-    return ListView(
-      padding: const EdgeInsets.all(20),
+  Widget _buildNotificationsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _title('Alert Preferences'),
-        _notifyTile(
-          'Assignment Submissions',
-          assignmentsEnabled,
-          (v) => setState(() => assignmentsEnabled = v),
-        ),
-        _notifyTile(
-          'Exam Reminders',
-          examsEnabled,
-          (v) => setState(() => examsEnabled = v),
-        ),
-        _notifyTile(
-          'Parent Messages',
-          parentMessagesEnabled,
-          (v) => setState(() => parentMessagesEnabled = v),
-        ),
-        _notifyTile(
-          'Attendance Alerts',
-          attendanceAlertsEnabled,
-          (v) => setState(() => attendanceAlertsEnabled = v),
-        ),
-        _notifyTile(
-          'Grade Updates',
-          gradeUpdatesEnabled,
-          (v) => setState(() => gradeUpdatesEnabled = v),
-        ),
-
-        const SizedBox(height: 20),
+        _notifyTile('Assignment Submissions', assignmentsEnabled, (v) => setState(() => assignmentsEnabled = v)),
+        _notifyTile('Exam Reminders', examsEnabled, (v) => setState(() => examsEnabled = v)),
+        _notifyTile('Parent Messages', parentMessagesEnabled, (v) => setState(() => parentMessagesEnabled = v)),
+        _notifyTile('Attendance Alerts', attendanceAlertsEnabled, (v) => setState(() => attendanceAlertsEnabled = v)),
+        _notifyTile('Grade Updates', gradeUpdatesEnabled, (v) => setState(() => gradeUpdatesEnabled = v)),
+        const SizedBox(height: 10),
         _saveButton(() => _show('Notification Preferences Saved!')),
       ],
     );
@@ -798,84 +636,228 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
   // ============================================================================
   // SECURITY TAB — System fields moved to Professional tab, security actions remain.
   // ============================================================================
-  Widget _buildSecurityTab() {
-    return ListView(
-      padding: const EdgeInsets.all(20),
+  Widget _buildSecuritySection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _title('Account Status (Metadata)'),
+        const Text('Account Metadata', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        const SizedBox(height: 10),
         _readonly('School ID', schoolId),
         _readonly('Created By', createdBy),
         _readonly('Created At', createdAt),
         _readonly('Last Updated At', updatedAt),
-
+        
+        const SizedBox(height: 32),
+        const Text('Change Password', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        const SizedBox(height: 16),
+        _passwordField('Current Password', (v) => _currentPassword = v, _obscureCurrent, () => setState(() => _obscureCurrent = !_obscureCurrent)),
+        const SizedBox(height: 16),
+        _passwordField('New Password', (v) => _newPassword = v, _obscureNew, () => setState(() => _obscureNew = !_obscureNew)),
+        const SizedBox(height: 16),
+        _passwordField('Confirm New Password', (v) => _confirmPassword = v, _obscureConfirm, () => setState(() => _obscureConfirm = !_obscureConfirm)),
         const SizedBox(height: 20),
-        _title('Credentials and Sessions'),
-        _securityTile(
-          'Change Password',
-          Icons.lock,
-          () => _show('Change Password'),
-        ),
-        _securityTile(
-          'Enable Two-Factor Authentication',
-          Icons.security,
-          () => _show('2FA Setup'),
-        ),
-        _securityTile(
-          'Manage Active Sessions',
-          Icons.devices,
-          () => _show('Sessions Management'),
-        ),
+        _saveButton(() {
+          if (_newPassword != _confirmPassword) {
+            _show('Passwords do not match!');
+            return;
+          }
+          if (_newPassword.length < 6 && _newPassword.isNotEmpty) {
+            _show('Password too short!');
+            return;
+          }
+          _show('Password Updated Successfully!');
+        }, label: 'Update Password'),
 
-        const SizedBox(height: 20),
-        _saveButton(() => _show('Security Settings Updated!')),
+        const SizedBox(height: 32),
+        const Text('Other Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        const SizedBox(height: 10),
+        _securityTile('Enable Two-Factor Authentication', Icons.security, () => _show('2FA Setup')),
+        _securityTile('Manage Active Sessions', Icons.devices, () => _show('Sessions Management')),
       ],
+    );
+  }
+
+  Widget _buildColorfulHeroHeader() {
+    return Column(
+      children: [
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF6366F1), Color(0xFFA855F7), Color(0xFFEC4899)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF6366F1).withOpacity(0.4),
+                    blurRadius: 25,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+              ),
+            ),
+            GestureDetector(
+              onTap: _pickImage,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                child: CircleAvatar(
+                  radius: 60,
+                  backgroundColor: const Color(0xFFF8FAFC),
+                  backgroundImage: _profileImage != null ? FileImage(_profileImage!) : null,
+                  child: _profileImage == null
+                      ? const Icon(Icons.person_outline_rounded, color: Color(0xFF6366F1), size: 50)
+                      : null,
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 10),
+                  ],
+                ),
+                child: const Icon(Icons.edit_rounded, color: Colors.white, size: 18),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        Text(
+          profileName,
+          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Color(0xFF1E293B), letterSpacing: -0.8),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _heroBadge(department, const Color(0xFFE0E7FF), const Color(0xFF4338CA)),
+            const SizedBox(width: 8),
+            _heroBadge(designation, const Color(0xFFFDF2F8), const Color(0xFFBE185D)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _heroBadge(String text, Color bg, Color textCol) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20), border: Border.all(color: textCol.withOpacity(0.1))),
+      child: Text(text, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: textCol)),
+    );
+  }
+
+  Widget _buildSectionWrapper({required IconData icon, required String title, required Color color, required Color accentColor, required Widget child}) {
+    return Container(
+      color: color.withOpacity(0.3),
+      child: Theme(
+        data: ThemeData().copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: true,
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: accentColor.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: accentColor, size: 22),
+          ),
+          title: Text(
+            title,
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.black.withOpacity(0.85)),
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              child: child,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFloatingAction() {
+    return Container(
+      height: 64,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6366F1).withOpacity(0.4),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _show('Vibrant Profile Saved!'),
+          borderRadius: BorderRadius.circular(20),
+          child: const Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 22),
+                const SizedBox(width: 12),
+                Text(
+                  'SAVE CHANGES',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1.5),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
   // ============================================================================
   // -------------------------- UI HELPERS --------------------------------------
-  // (Note: _input is used throughout for editable fields, _readonly is now only for pure metadata)
   // ============================================================================
 
   Widget _row(bool mobile, List<Widget> items) {
-    return mobile
-        ? Column(
-            children: items
-                .map(
-                  (e) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: e,
-                  ),
-                )
-                .toList(),
-          )
-        : Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: items.map((e) => SizedBox(width: 280, child: e)).toList(),
-          );
+    if (mobile) {
+      return Column(
+        children: items.map((e) => Padding(padding: const EdgeInsets.only(bottom: 16), child: e)).toList(),
+      );
+    }
+    return Wrap(
+      spacing: 20,
+      runSpacing: 20,
+      children: items.map((e) => SizedBox(width: 250, child: e)).toList(),
+    );
   }
 
   Widget _input(String label, String value, Function(String) onChanged) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Bolder Label
         Text(
           label,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Colors.black,
-          ),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.blueGrey),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         TextFormField(
           initialValue: value,
           onChanged: (v) => setState(() => onChanged(v)),
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ), // Bolder input text
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+          decoration: const InputDecoration(), // Uses theme decoration
         ),
       ],
     );
@@ -885,30 +867,20 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Bolder Label
         Text(
           label,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Colors.black54,
-          ),
-        ), // Slightly muted for metadata
-        const SizedBox(height: 6),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.blueGrey),
+        ),
+        const SizedBox(height: 8),
         TextFormField(
           initialValue: value,
           readOnly: true,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            color: Colors.black54,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Colors.black54),
           decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.grey.shade50,
-            border: OutlineInputBorder(
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
+            fillColor: const Color(0xFFF8F9FB),
             enabledBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: Colors.grey.shade200),
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFECF0F3)),
             ),
           ),
         ),
@@ -917,96 +889,111 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
   }
 
   Widget _inputArea(String label, String value, Function(String) onChanged) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.blueGrey),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            initialValue: value,
+            maxLines: 3,
+            onChanged: (v) => setState(() => onChanged(v)),
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _notifyTile(String title, bool value, Function(bool) onChanged) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FB),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: SwitchListTile(
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        value: value,
+        onChanged: onChanged,
+        activeColor: const Color(0xFF8B47E6),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      ),
+    );
+  }
+
+  Widget _securityTile(String title, IconData i, VoidCallback onTap) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FB),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        leading: Icon(i, color: const Color(0xFF8B47E6), size: 20),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        trailing: const Icon(Icons.chevron_right, size: 20),
+        onTap: onTap,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      ),
+    );
+  }
+
+  Widget _passwordField(String label, Function(String) onChanged, bool obscure, VoidCallback onToggle) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Bolder Label
         Text(
           label,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Colors.black,
-          ),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.blueGrey),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         TextFormField(
-          initialValue: value,
-          maxLines: 3,
+          obscureText: obscure,
           onChanged: (v) => setState(() => onChanged(v)),
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ), // Bolder input text
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+          decoration: InputDecoration(
+            suffixIcon: IconButton(
+              icon: Icon(obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 20),
+              onPressed: onToggle,
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _notifyTile(String title, bool value, Function(bool) onChanged) {
-    return SwitchListTile(
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          color: Colors.black87,
+  Widget _saveButton(VoidCallback f, {String label = 'Save Changes'}) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 20),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: f,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF8B47E6),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 0,
+          ),
+          child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         ),
-      ), // Bolder title
-      value: value,
-      onChanged: onChanged,
-      contentPadding: EdgeInsets.zero,
-    );
-  }
-
-  Widget _securityTile(String title, IconData i, VoidCallback onTap) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          color: Colors.black87,
-        ),
-      ), // Bolder title
-      leading: Icon(i, color: Colors.black54), // Sharper icon color
-      trailing: const Icon(
-        Icons.chevron_right,
-        color: Colors.black54,
-      ), // Sharper icon color
-      onTap: onTap,
-    );
-  }
-
-  Widget _title(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: Text(
-      text,
-      style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w900,
-        color: Colors.black,
-      ), // Very bold section title
-    ),
-  );
-
-  Widget _saveButton(VoidCallback f) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: ElevatedButton(
-        onPressed: f,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          textStyle: const TextStyle(
-            fontWeight: FontWeight.w700,
-          ), // Bolder button text
-        ),
-        child: const Text('Save'),
       ),
     );
   }
 
   void _show(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: const Color(0xFF1E293B),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
   }
 }

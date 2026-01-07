@@ -11,6 +11,8 @@ class Endpoints {
   static const String register = '/auth/register/';
   static const String routes = '/auth/routes/';
   static const String createPassword = '/auth/create-password/';
+  static const String requestOtp = '/auth/request-otp/';
+  static const String resetPasswordOtp = '/auth/reset-password-otp/';
 
   // Admin endpoints
   static const String adminSchools = '/super-admin/schools/';

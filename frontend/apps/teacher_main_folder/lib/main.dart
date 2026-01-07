@@ -739,7 +739,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 : MediaQuery.of(context).size.width * 0.9,
             constraints: BoxConstraints(
               maxWidth: 800,
-              maxHeight: MediaQuery.of(context).size.height * 0.85,
+              maxHeight: max(50.0, MediaQuery.of(context).size.height * 0.85),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,

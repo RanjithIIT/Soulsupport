@@ -116,6 +116,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     # 🔥 User's own created password (plain text) - stored when has_custom_password is True
     updated_password = models.CharField(max_length=255, null=True, blank=True, help_text="User's custom created password (plain text)")
 
+    # 🔥 OTP for password reset
+    reset_otp = models.CharField(max_length=6, null=True, blank=True, help_text="OTP for password reset")
+
     first_name = models.CharField(max_length=150, null=True, blank=True)
     last_name = models.CharField(max_length=150, null=True, blank=True)
 

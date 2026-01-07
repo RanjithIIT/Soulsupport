@@ -951,7 +951,7 @@ class _EnterResultsScreenState extends State<EnterResultsScreen> {
           scrollDirection: Axis.horizontal,
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minWidth: MediaQuery.of(context).size.width - 80,
+              minWidth: max(0.0, MediaQuery.of(context).size.width - 80),
             ),
             child: DataTable(
               columnSpacing: isLargeScreen ? 30 : 15,

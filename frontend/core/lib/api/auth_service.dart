@@ -191,6 +191,69 @@ class AuthService {
   String? getCurrentToken() {
     return _apiService.authToken;
   }
+
+  // Request password reset OTP
+  Future<Map<String, dynamic>> requestPasswordResetOtp(String email) async {
+    try {
+      final response = await _apiService.post(
+        Endpoints.requestOtp,
+        body: {'email': email},
+      );
+      
+      if (response.success) {
+        return {
+          'success': true,
+          'message': response.data['message'] ?? 'OTP sent successfully',
+          'email_sent': response.data['email_sent'] ?? false,
+        };
+      } else {
+        return {
+          'success': false,
+          'message': response.error ?? 'Failed to send OTP',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+      };
+    }
+  }
+
+  // Reset password with OTP
+  Future<Map<String, dynamic>> resetPasswordWithOtp({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await _apiService.post(
+        Endpoints.resetPasswordOtp,
+        body: {
+          'email': email,
+          'otp': otp,
+          'new_password': newPassword,
+        },
+      );
+      
+      if (response.success) {
+        return {
+          'success': true,
+          'message': response.data['message'] ?? 'Password reset successfully',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': response.error ?? 'Failed to reset password',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+      };
+    }
+  }
 }
 
 /// Auth Response model

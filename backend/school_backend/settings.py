@@ -178,6 +178,17 @@ else:
 
 ASGI_APPLICATION = 'school_backend.asgi.application'
 
+# Email Configuration
+# Default to console backend for development so OTPs show in backend terminal
+# Set EMAIL_BACKEND to 'django.core.mail.backends.smtp.EmailBackend' for real emails
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'python.nexnoratech@gmail.com'
+EMAIL_HOST_PASSWORD = 'aazm gwze vplo kehg'
+DEFAULT_FROM_EMAIL = '"School Admin (No-Reply)" <python.nexnoratech@gmail.com>'
+
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels.layers.InMemoryChannelLayer',  # OK for dev
