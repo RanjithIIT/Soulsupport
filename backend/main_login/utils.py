@@ -18,6 +18,10 @@ def get_user_school_id(user):
     """
     if not user or not user.is_authenticated:
         return None
+        
+    # First priority: check direct school_id field on User model if available
+    if hasattr(user, 'school_id') and user.school_id:
+        return user.school_id
     
     # Check if user is a management admin (has school_account)
     try:

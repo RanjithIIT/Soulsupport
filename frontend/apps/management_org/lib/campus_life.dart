@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -6,6 +8,7 @@ import 'main.dart' as app;
 import 'dashboard.dart';
 import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
+import 'widgets/school_profile_header.dart';
 
 // --- Style Constants ---
 
@@ -689,6 +692,47 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
     );
   }
 
+
+  Widget _buildUserInfo() {
+    return SchoolProfileHeader(apiService: ApiService());
+  }
+
+  Widget _buildBackButton() {
+    return InkWell(
+      onTap: () => Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => DashboardPage()),
+      ),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6C757D), Color(0xFF495057)],
+          ),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF495057).withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.arrow_back, size: 16, color: Colors.white),
+            SizedBox(width: 8),
+            Text(
+              'Back to Dashboard',
+              style: TextStyle(color: Colors.white, fontSize: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final stats = _getStats();
@@ -704,78 +748,35 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
               color: const Color(0xFFF5F6FA),
               child: Column(
                 children: [
-                  // --- TOP HEADER ---
-                  Container(
-                    color: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 30,
-                      vertical: 20,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: () => Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => DashboardPage(),
-                                ),
-                              ),
-                              icon: const Icon(Icons.arrow_back, size: 16),
-                              label: const Text("Back to Dashboard"),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primaryColorLight.withValues(
-                                  alpha: 0.1,
-                                ),
-                                foregroundColor: primaryColorLight,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 12,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 20),
-                            const Text(
-                              '🏫 Campus Life Management',
-                              style: TextStyle(
-                                color: textColor,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            // Export Button
-                            IconButton(
-                              icon: const Icon(
-                                Icons.download,
-                                color: secondaryTextColor,
-                              ),
-                              onPressed: () => _exportData(context),
-                              tooltip: 'Export Data',
-                            ),
-                            const SizedBox(width: 15),
-                            // User Info & Logout
-                            const UserInfo(),
-                            const SizedBox(width: 15),
-                            LogoutButton(onPressed: () => _logout(context)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
                   // --- CONTENT BODY ---
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(20.0),
+                      padding: const EdgeInsets.all(30),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // --- TOP HEADER ---
+                          GlassContainer(
+                            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
+                            margin: const EdgeInsets.only(bottom: 30),
+                            child: Row(
+                              children: [
+                                const Expanded(
+                                  child: Text(
+                                    'Campus Life Management',
+                                    style: TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF333333),
+                                    ),
+                                  ),
+                                ),
+                                _buildUserInfo(),
+                                const SizedBox(width: 20),
+                                _buildBackButton(),
+                              ],
+                            ),
+                          ),
                           // Stats Overview
                           _StatsOverview(stats: stats),
                           const SizedBox(height: 30),
@@ -1352,30 +1353,31 @@ class _StatsOverview extends StatelessWidget {
       crossAxisCount: 4,
       mainAxisSpacing: 20,
       crossAxisSpacing: 20,
+      childAspectRatio: 1.35,
       physics: const NeverScrollableScrollPhysics(),
       children: [
         _StatCard(
           icon: '🏫',
-          label: 'Total Campus Features',
-          number: stats['total'].toString(),
+          label: 'Total Features',
+          value: stats['total'].toString(),
           color: primaryColorLight,
         ),
         _StatCard(
           icon: '🎯',
           label: 'Active Features',
-          number: stats['active'].toString(),
+          value: stats['active'].toString(),
           color: Colors.green,
         ),
         _StatCard(
           icon: '⭐',
-          label: 'Campus Specialities',
-          number: stats['specialities'].toString(),
+          label: 'Specialities',
+          value: stats['specialities'].toString(),
           color: Colors.orange,
         ),
         _StatCard(
           icon: '📈',
-          label: 'Student Satisfaction',
-          number: stats['satisfaction'].toString(),
+          label: 'Satisfaction',
+          value: stats['satisfaction'].toString(),
           color: Colors.blue,
         ),
       ],
@@ -1386,14 +1388,14 @@ class _StatsOverview extends StatelessWidget {
 // Stat Card (from V2, renamed and updated styles)
 class _StatCard extends StatelessWidget {
   final String icon;
-  final String number;
   final String label;
+  final String value;
   final Color color;
 
   const _StatCard({
     required this.icon,
-    required this.number,
     required this.label,
+    required this.value,
     required this.color,
   });
 
@@ -1401,41 +1403,41 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: EdgeInsets.zero,
+      color: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       elevation: 5,
       shadowColor: Colors.black.withValues(alpha: 0.1),
-      child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(15),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(icon, style: TextStyle(fontSize: 40, color: color)),
-              const SizedBox(height: 10),
-              Text(
-                number,
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: textColor,
-                ),
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(icon, style: TextStyle(fontSize: 40, color: color)),
+            const SizedBox(height: 10),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: textColor,
               ),
-              const SizedBox(height: 5),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: secondaryTextColor,
-                  fontSize: 13,
-                  letterSpacing: 0.5,
-                  fontWeight: FontWeight.w500,
-                ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              label.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: secondaryTextColor,
+                fontSize: 12,
+                letterSpacing: 1,
+                fontWeight: FontWeight.w600,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+      ),
       ),
     );
   }
@@ -2256,6 +2258,63 @@ class _FeatureFormDialogState extends State<_FeatureFormDialog> {
                 ],
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+
+// Glass Container Widget
+class GlassContainer extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final bool drawRightBorder;
+  final double borderRadius;
+
+  const GlassContainer({
+    super.key,
+    required this.child,
+    this.padding,
+    this.margin,
+    this.drawRightBorder = false,
+    this.borderRadius = 12,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = drawRightBorder
+        ? BorderRadius.zero
+        : BorderRadius.circular(borderRadius);
+
+    return Container(
+      margin: margin,
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.95),
+              borderRadius: radius,
+              border: Border(
+                right: drawRightBorder
+                    ? BorderSide(color: Colors.white.withValues(alpha: 0.2))
+                    : BorderSide.none,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 24,
+                  offset: const Offset(2, 6),
+                ),
+              ],
+            ),
+            child: child,
           ),
         ),
       ),

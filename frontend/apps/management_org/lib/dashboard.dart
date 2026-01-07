@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:main_login/main.dart' as main_login;
 import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
 import 'main.dart' as app;
 import 'widgets/school_profile_header.dart';
+import 'widgets/management_sidebar.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -27,66 +29,105 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  final List<Map<String, dynamic>> _recentTeachers = [
-    {
-      'name': 'Dr. Sarah Johnson',
-      'designation': 'Mathematics',
-      'initials': 'SJ',
-    },
-    {
-      'name': 'Prof. Michael Chen',
-      'designation': 'Physics',
-      'initials': 'MC',
-    },
-    {
-      'name': 'Ms. Emily White',
-      'designation': 'English',
-      'initials': 'EW',
-    },
-    {
-      'name': 'Mr. David Brown',
-      'designation': 'History',
-      'initials': 'DB',
-    },
-    {
-      'name': 'Mrs. Lisa Garcia',
-      'designation': 'Biology',
-      'initials': 'LG',
-    },
-  ];
+  List<Map<String, dynamic>> _recentTeachers = [];
+  List<Map<String, dynamic>> _recentStudents = [];
+  bool _isLoading = true;
 
-  final List<Map<String, dynamic>> _recentStudents = [
-    {
-      'name': 'Alice Brown',
-      'class': '10th',
-      'section': 'A',
-      'initials': 'AB',
-    },
-    {
-      'name': 'Charlie Wilson',
-      'class': '11th',
-      'section': 'B',
-      'initials': 'CW',
-    },
-    {
-      'name': 'Diana Davis',
-      'class': '12th',
-      'section': 'C',
-      'initials': 'DD',
-    },
-    {
-      'name': 'Ethan Miller',
-      'class': '9th',
-      'section': 'A',
-      'initials': 'EM',
-    },
-    {
-      'name': 'Fiona Taylor',
-      'class': '10th',
-      'section': 'B',
-      'initials': 'FT',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchDashboardData();
+  }
+
+  Future<void> _fetchDashboardData() async {
+    final api = ApiService();
+    try {
+      final responses = await Future.wait([
+        api.get(Endpoints.teachers),
+        api.get(Endpoints.students),
+        api.get(Endpoints.gallery),
+      ]);
+
+      if (mounted) {
+        setState(() {
+          // Process Teachers
+          if (responses[0].success && responses[0].data != null) {
+            final data = responses[0].data;
+            final List<dynamic> list = data is List ? data : (data['results'] is List ? data['results'] : []);
+            
+            _recentTeachers = list.take(5).map((t) {
+              final Map<String, dynamic> user = t['user'] is Map ? t['user'] : {};
+              final String firstName = t['first_name'] ?? user['first_name'] ?? '';
+              final String lastName = t['last_name'] ?? user['last_name'] ?? '';
+              final String fullName = '$firstName $lastName'.trim();
+              final String name = fullName.isNotEmpty ? fullName : (t['name'] ?? 'Unknown Teacher');
+              
+              final String initials = name.isNotEmpty 
+                  ? name.split(' ').take(2).map((e) => e.isNotEmpty ? e[0] : '').join()
+                  : 'T';
+
+              return {
+                'name': name,
+                'designation': t['subject'] ?? t['designation'] ?? 'Teacher',
+                'initials': initials.toUpperCase(),
+              };
+            }).toList().cast<Map<String, dynamic>>();
+          }
+
+          // Process Students
+          if (responses[1].success && responses[1].data != null) {
+             final data = responses[1].data;
+            final List<dynamic> list = data is List ? data : (data['results'] is List ? data['results'] : []);
+
+            _recentStudents = list.take(5).map((s) {
+              final Map<String, dynamic> user = s['user'] is Map ? s['user'] : {};
+              final String firstName = s['first_name'] ?? user['first_name'] ?? '';
+              final String lastName = s['last_name'] ?? user['last_name'] ?? '';
+              final String fullName = '$firstName $lastName'.trim();
+              final String name = fullName.isNotEmpty ? fullName : (s['student_name'] ?? s['name'] ?? 'Unknown Student');
+
+              final String initials = name.isNotEmpty 
+                  ? name.split(' ').take(2).map((e) => e.isNotEmpty ? e[0] : '').join()
+                  : 'S';
+
+              return {
+                'name': name,
+                'class': s['class_name'] ?? s['applying_class'] ?? '',
+                'section': s['section'] ?? '',
+                'initials': initials.toUpperCase(),
+              };
+            }).toList().cast<Map<String, dynamic>>();
+          }
+
+          // Process Gallery
+          if (responses[2].success && responses[2].data != null) {
+            final data = responses[2].data;
+            final List<dynamic> list = data is List ? data : (data['results'] is List ? data['results'] : []);
+            
+            _galleryItems = list.take(3).map((item) {
+              String imageUrl = '';
+              if (item['images'] != null && (item['images'] as List).isNotEmpty) {
+                final firstImage = (item['images'] as List).first;
+                imageUrl = firstImage['image'] ?? '';
+              }
+              
+              return {
+                'id': item['id'],
+                'title': item['title'] ?? 'Untitled Gallery',
+                'category': item['category'] ?? 'General',
+                'image': imageUrl.isNotEmpty ? imageUrl : 'https://via.placeholder.com/150',
+                'date': item['date'] ?? '',
+              };
+            }).toList().cast<Map<String, dynamic>>();
+          }
+           _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching dashboard data: $e');
+       if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   final List<Map<String, dynamic>> _recentActivities = [
     {
@@ -181,44 +222,7 @@ class _DashboardPageState extends State<DashboardPage> {
     },
   ];
 
-  final List<Map<String, dynamic>> _galleryItems = [
-    {
-      'id': 1,
-      'title': 'Annual Sports Day',
-      'image': 'https://via.placeholder.com/150/667eea/ffffff?text=Sports',
-      'date': '2024-01-15',
-    },
-    {
-      'id': 2,
-      'title': 'Science Fair',
-      'image': 'https://via.placeholder.com/150/764ba2/ffffff?text=Science',
-      'date': '2024-01-20',
-    },
-    {
-      'id': 3,
-      'title': 'Cultural Program',
-      'image': 'https://via.placeholder.com/150/fa709a/ffffff?text=Culture',
-      'date': '2024-01-25',
-    },
-    {
-      'id': 4,
-      'title': 'Teacher\'s Day',
-      'image': 'https://via.placeholder.com/150/43e97b/ffffff?text=Teachers',
-      'date': '2024-01-30',
-    },
-    {
-      'id': 5,
-      'title': 'Independence Day',
-      'image': 'https://via.placeholder.com/150/ffd700/ffffff?text=Independence',
-      'date': '2024-02-01',
-    },
-    {
-      'id': 6,
-      'title': 'Republic Day',
-      'image': 'https://via.placeholder.com/150/ff6347/ffffff?text=Republic',
-      'date': '2024-02-05',
-    },
-  ];
+  List<Map<String, dynamic>> _galleryItems = [];
 
   final List<Map<String, dynamic>> _recentAdmissions = [
     {
@@ -271,80 +275,7 @@ class _DashboardPageState extends State<DashboardPage> {
     },
   ];
 
-  final List<Map<String, dynamic>> _extracurricularActivities = [
-    {
-      'id': 1,
-      'name': 'NCC (National Cadet Corps)',
-      'type': 'ncc',
-      'icon': '🎖️',
-      'description': 'Military training and discipline',
-      'incharge': 'Capt. Rajesh Kumar',
-      'schedule': 'Every Saturday 8:00 AM',
-    },
-    {
-      'id': 2,
-      'name': 'NSS (National Service Scheme)',
-      'type': 'nss',
-      'icon': '🤝',
-      'description': 'Community service and social work',
-      'incharge': 'Dr. Priya Sharma',
-      'schedule': 'Every Sunday 9:00 AM',
-    },
-    {
-      'id': 3,
-      'name': 'Basketball Team',
-      'type': 'sports',
-      'icon': '🏀',
-      'description': 'School basketball team training',
-      'incharge': 'Mr. Amit Singh',
-      'schedule': 'Mon, Wed, Fri 4:00 PM',
-    },
-    {
-      'id': 4,
-      'name': 'Music Band',
-      'type': 'arts',
-      'icon': '🎵',
-      'description': 'School music band and orchestra',
-      'incharge': 'Ms. Neha Patel',
-      'schedule': 'Tue, Thu 3:30 PM',
-    },
-    {
-      'id': 5,
-      'name': 'Science Club',
-      'type': 'academic',
-      'icon': '🔬',
-      'description': 'Science experiments and projects',
-      'incharge': 'Dr. Sanjay Verma',
-      'schedule': 'Every Friday 2:00 PM',
-    },
-    {
-      'id': 6,
-      'name': 'Debate Club',
-      'type': 'academic',
-      'icon': '🎤',
-      'description': 'Public speaking and debates',
-      'incharge': 'Ms. Ritu Gupta',
-      'schedule': 'Every Wednesday 3:00 PM',
-    },
-    {
-      'id': 7,
-      'name': 'Chess Club',
-      'type': 'academic',
-      'icon': '♟️',
-      'description': 'Chess training and tournaments',
-      'incharge': 'Mr. Deepak Malhotra',
-      'schedule': 'Every Tuesday 4:30 PM',
-    },
-    {
-      'id': 8,
-      'name': 'Art & Craft',
-      'type': 'arts',
-      'icon': '🎨',
-      'description': 'Creative arts and crafts',
-      'incharge': 'Ms. Kavita Joshi',
-      'schedule': 'Every Thursday 2:30 PM',
-    },
-  ];
+
 
   @override
   Widget build(BuildContext context) {
@@ -364,12 +295,19 @@ class _DashboardPageState extends State<DashboardPage> {
               : Drawer(
                   child: SizedBox(
                     width: 280,
-                    child: _Sidebar(gradient: gradient),
+                    child: ManagementSidebar(
+                      gradient: gradient,
+                      activeRoute: '/dashboard',
+                    ),
                   ),
                 ),
           body: Row(
             children: [
-              if (showSidebar) _Sidebar(gradient: gradient),
+              if (showSidebar)
+                ManagementSidebar(
+                  gradient: gradient,
+                  activeRoute: '/dashboard',
+                ),
               Expanded(
                 child: Container(
                   color: const Color(0xFFF5F6FA),
@@ -469,10 +407,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           _RecentAdmissionsSection(
                             admissions: _recentAdmissions,
                           ),
-                          const SizedBox(height: 24),
-                          _ExtracurricularSection(
-                            activities: _extracurricularActivities,
-                          ),
+
                           const SizedBox(height: 24),
                           _RTISection(
                             rtiRequests: _rtiRequests,
@@ -491,182 +426,9 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 }
 
-class _Sidebar extends StatelessWidget {
-  final LinearGradient gradient;
 
-  const _Sidebar({required this.gradient});
 
-  // Safe navigation helper for sidebar
-  void _navigateToRoute(BuildContext context, String route) {
-    final navigator = Navigator.of(context);
-    if (navigator.canPop() || route != '/dashboard') {
-      navigator.pushReplacementNamed(route);
-    } else {
-      navigator.pushNamed(route);
-    }
-  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 280,
-      decoration: BoxDecoration(
-        gradient: gradient,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(2, 0),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  'packages/management_org/assets/Vidyarambh.png',
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
-                  errorBuilder: (context, error, stackTrace) {
-                    // Fallback if image is not found
-                    return Container(
-                      height: 120,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.school,
-                        size: 56,
-                        color: Color(0xFF667EEA),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _NavItem(
-                    icon: '📊',
-                    title: 'Overview',
-                    isActive: true,
-                    onTap: () => _navigateToRoute(context, '/dashboard'),
-                  ),
-                  _NavItem(
-                    icon: '👨‍🏫',
-                    title: 'Teachers',
-                    onTap: () => _navigateToRoute(context, '/teachers'),
-                  ),
-                  _NavItem(
-                    icon: '👥',
-                    title: 'Students',
-                    onTap: () => _navigateToRoute(context, '/students'),
-                  ),
-                  _NavItem(
-                    icon: '🚌',
-                    title: 'Buses',
-                    onTap: () => _navigateToRoute(context, '/buses'),
-                  ),
-                  _NavItem(
-                    icon: '🎯',
-                    title: 'Activities',
-                    onTap: () => _navigateToRoute(context, '/activities'),
-                  ),
-                  _NavItem(
-                    icon: '📅',
-                    title: 'Events',
-                    onTap: () => _navigateToRoute(context, '/events'),
-                  ),
-                  _NavItem(
-                    icon: '📆',
-                    title: 'Calendar',
-                    onTap: () => _navigateToRoute(context, '/calendar'),
-                  ),
-                  _NavItem(
-                    icon: '🔔',
-                    title: 'Notifications',
-                    onTap: () => _navigateToRoute(context, '/notifications'),
-                  ),
-                  _NavItem(
-                    icon: '🛣️',
-                    title: 'Bus Routes',
-                    onTap: () => _navigateToRoute(context, '/buses'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  final String icon;
-  final String title;
-  final VoidCallback? onTap;
-  final bool isActive;
-
-  const _NavItem({
-    required this.icon,
-    required this.title,
-    this.onTap,
-    this.isActive = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: isActive
-            ? Colors.white.withValues(alpha: 0.3)
-            : Colors.white.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListTile(
-        leading: Text(
-          icon,
-          style: const TextStyle(fontSize: 18),
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            fontSize: 14,
-          ),
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        onTap: onTap,
-      ),
-    );
-  }
-}
 
 class _Header extends StatelessWidget {
   final bool showMenuButton;
@@ -763,17 +525,80 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _StatsGrid extends StatelessWidget {
+class _StatsGrid extends StatefulWidget {
   final ValueChanged<String> onNavigate;
 
   const _StatsGrid({required this.onNavigate});
+
+  @override
+  State<_StatsGrid> createState() => _StatsGridState();
+}
+
+class _StatsGridState extends State<_StatsGrid> {
+  Map<String, String> _counts = {};
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchStats();
+  }
+
+  Future<void> _fetchStats() async {
+    final api = ApiService();
+    final Map<String, String> newCounts = {};
+
+    Future<void> fetchCount(String key, String endpoint) async {
+      try {
+        final response = await api.get(endpoint);
+        if (response.success && response.data != null) {
+          if (response.data is List) {
+            newCounts[key] = (response.data as List).length.toString();
+          } else if (response.data is Map) {
+            if (response.data.containsKey('count')) {
+              newCounts[key] = response.data['count'].toString();
+            } else if (response.data.containsKey('results') && response.data['results'] is List) {
+              newCounts[key] = (response.data['results'] as List).length.toString();
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching $key: $e');
+      }
+    }
+
+    await Future.wait([
+      fetchCount('admissions', Endpoints.admissions),
+      fetchCount('teachers', Endpoints.teachers),
+      fetchCount('students', Endpoints.students),
+      fetchCount('buses', Endpoints.buses),
+      fetchCount('examinations', Endpoints.examinations),
+      fetchCount('fees', Endpoints.fees),
+      fetchCount('notifications', Endpoints.notifications),
+      fetchCount('activities', Endpoints.activities),
+
+      fetchCount('events', Endpoints.events),
+      fetchCount('calendar', Endpoints.calendar),
+      fetchCount('awards', Endpoints.awards),
+      fetchCount('gallery', Endpoints.gallery),
+      fetchCount('campus_life', Endpoints.campusLife),
+      fetchCount('departments', Endpoints.departments),
+    ]);
+
+    if (mounted) {
+      setState(() {
+        _counts = newCounts;
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final stats = [
       {
         'icon': '🎓',
-        'number': '45',
+        'number': _isLoading ? '...' : (_counts['admissions'] ?? '0'),
         'label': 'Admissions',
         'description': 'Click to manage new admissions',
         'color': const Color(0xFFFF6347),
@@ -781,7 +606,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '👨‍🏫',
-        'number': '28',
+        'number': _isLoading ? '...' : (_counts['teachers'] ?? '0'),
         'label': 'Total Teachers',
         'description': 'Click to manage teachers',
         'color': const Color(0xFF667EEA),
@@ -789,7 +614,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '👥',
-        'number': '450',
+        'number': _isLoading ? '...' : (_counts['students'] ?? '0'),
         'label': 'Total Students',
         'description': 'Click to manage students',
         'color': const Color(0xFF764BA2),
@@ -797,7 +622,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '🚌',
-        'number': '8',
+        'number': _isLoading ? '...' : (_counts['buses'] ?? '0'),
         'label': 'Total Buses',
         'description': 'Click to manage bus routes',
         'color': const Color(0xFF4FACFE),
@@ -805,7 +630,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '📝',
-        'number': '12',
+        'number': _isLoading ? '...' : (_counts['examinations'] ?? '0'),
         'label': 'Examination Section',
         'description': 'Click to manage exams',
         'color': const Color(0xFFFF6B35),
@@ -813,7 +638,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '💰',
-        'number': '450',
+        'number': _isLoading ? '...' : (_counts['fees'] ?? '0'),
         'label': 'Fees',
         'description': 'Click to manage fee structure',
         'color': const Color(0xFF28A745),
@@ -821,7 +646,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '🔔',
-        'number': '5',
+        'number': _isLoading ? '...' : (_counts['notifications'] ?? '0'),
         'label': 'Notifications',
         'description': 'Important updates',
         'color': const Color(0xFFFED6E3),
@@ -829,23 +654,16 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '🎯',
-        'number': '15',
+        'number': _isLoading ? '...' : (_counts['activities'] ?? '0'),
         'label': 'Activities',
         'description': 'Click to manage activities',
         'color': const Color(0xFFA8EDEA),
         'route': 'activities',
       },
-      {
-        'icon': '🛣️',
-        'number': '6',
-        'label': 'Bus Routes',
-        'description': 'Transportation network',
-        'color': const Color(0xFFFFECD2),
-        'route': 'buses',
-      },
+
       {
         'icon': '📅',
-        'number': '8',
+        'number': _isLoading ? '...' : (_counts['events'] ?? '0'),
         'label': 'Events',
         'description': 'Click to manage events',
         'color': const Color(0xFFFA709A),
@@ -853,7 +671,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '📊',
-        'number': '12',
+        'number': _isLoading ? '...' : (_counts['calendar'] ?? '0'),
         'label': 'Calendar Events',
         'description': 'Upcoming activities',
         'color': const Color(0xFF43E97B),
@@ -861,7 +679,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '🏆',
-        'number': '25',
+        'number': _isLoading ? '...' : (_counts['awards'] ?? '0'),
         'label': 'Awards',
         'description': 'Click to manage awards',
         'color': const Color(0xFFFFD700),
@@ -869,23 +687,16 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '📸',
-        'number': '150',
+        'number': _isLoading ? '...' : (_counts['gallery'] ?? '0'),
         'label': 'Photo Gallery',
         'description': 'Click to manage photos',
         'color': const Color(0xFFFF69B4),
         'route': 'gallery',
       },
-      {
-        'icon': '🎭',
-        'number': '8',
-        'label': 'Extra Curricular',
-        'description': 'Click to manage activities',
-        'color': const Color(0xFF9370DB),
-        'route': 'activities',
-      },
+
       {
         'icon': '📋',
-        'number': '3',
+        'number': '3', // Keep hardcoded as no endpoint found
         'label': 'RTI Act',
         'description': 'Right to Information',
         'color': const Color(0xFF20B2AA),
@@ -893,7 +704,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '🏫',
-        'number': '12',
+        'number': _isLoading ? '...' : (_counts['campus_life'] ?? '0'),
         'label': 'Campus Life',
         'description': 'Campus speciality',
         'color': const Color(0xFF32CD32),
@@ -901,7 +712,7 @@ class _StatsGrid extends StatelessWidget {
       },
       {
         'icon': '🏢',
-        'number': '6',
+        'number': _isLoading ? '...' : (_counts['departments'] ?? '0'),
         'label': 'Departments',
         'description': 'Academic departments',
         'color': const Color(0xFF6F42C1),
@@ -951,7 +762,7 @@ class _StatsGrid extends StatelessWidget {
               description: stat['description'] as String,
               color: stat['color'] as Color,
               onTap: stat['route'] != null
-                  ? () => onNavigate(stat['route'] as String)
+                  ? () => widget.onNavigate(stat['route'] as String)
                   : null,
             );
           },
@@ -1039,8 +850,10 @@ class _StatCardState extends State<_StatCard> {
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
+                padding: const EdgeInsets.all(12),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1075,6 +888,7 @@ class _StatCardState extends State<_StatCard> {
                       ),
                     ),
                   ],
+                ),
                 ),
               ),
             ],
@@ -2060,9 +1874,9 @@ class _GallerySection extends StatelessWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: crossAxisCount,
-                  crossAxisSpacing: 15,
-                  mainAxisSpacing: 15,
-                  childAspectRatio: 1.0,
+                  crossAxisSpacing: 20,
+                  mainAxisSpacing: 20,
+                  childAspectRatio: 0.8,
                 ),
                 itemCount: galleryItems.length,
                 itemBuilder: (context, index) => _GalleryItem(
@@ -2097,76 +1911,104 @@ class _GalleryItemState extends State<_GalleryItem> {
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         onTap: () {
-          final navigator = Navigator.of(context);
-          navigator.pushReplacementNamed('/gallery');
+          app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/gallery');
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           transform: _isHovered
-              ? (Matrix4.identity()..scale(1.05))
+              ? (Matrix4.identity()..translate(0, -5))
               : Matrix4.identity(),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE0E0E0)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Stack(
-            fit: StackFit.expand,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                color: _isHovered
-                    ? const Color(0xFF667EEA).withValues(alpha: 0.6)
-                    : const Color(0xFF667EEA).withValues(alpha: 0.3),
-                child: Center(
-                  child: Text(
-                    widget.item['title'] as String,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
+              // Image Section
+              Expanded(
+                flex: 3,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                    child: Image.network(
+                      widget.item['image'],
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: Colors.grey[200],
+                        child: const Center(
+                          child: Icon(Icons.image_not_supported, color: Colors.grey),
+                        ),
+                      ),
                     ),
-                    textAlign: TextAlign.center,
                   ),
                 ),
               ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: 0.7),
-                      ],
-                    ),
-                  ),
-                  child: Text(
-                    widget.item['title'] as String,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+              // Content Section
+              Expanded(
+                flex: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.item['title'] as String,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.item['date'] as String,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF667EEA).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          widget.item['category'] as String,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF667EEA),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ],
           ),
-        ),
         ),
       ),
     );
@@ -2255,209 +2097,6 @@ class _RecentAdmissionsSection extends StatelessWidget {
                 },
               )),
         ],
-      ),
-    );
-  }
-}
-
-class _ExtracurricularSection extends StatelessWidget {
-  final List<Map<String, dynamic>> activities;
-
-  const _ExtracurricularSection({required this.activities});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(25),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Row(
-                children: [
-                  Text('🎭', style: TextStyle(fontSize: 20)),
-                  SizedBox(width: 10),
-                  Text(
-                    'Extra Curricular Activities',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/activities');
-                  },
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('Add New'),
-                      SizedBox(width: 4),
-                      Icon(Icons.arrow_forward, size: 14),
-                    ],
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    foregroundColor: Colors.white,
-                    shadowColor: Colors.transparent,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final crossAxisCount = constraints.maxWidth > 1200 ? 4 : constraints.maxWidth > 800 ? 3 : constraints.maxWidth > 600 ? 2 : 1;
-              return GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossAxisCount,
-                  crossAxisSpacing: 20,
-                  mainAxisSpacing: 20,
-                  childAspectRatio: 0.9,
-                ),
-                itemCount: activities.length,
-                itemBuilder: (context, index) => _ExtracurricularCard(
-                  activity: activities[index],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ExtracurricularCard extends StatefulWidget {
-  final Map<String, dynamic> activity;
-
-  const _ExtracurricularCard({required this.activity});
-
-  @override
-  State<_ExtracurricularCard> createState() => _ExtracurricularCardState();
-}
-
-class _ExtracurricularCardState extends State<_ExtracurricularCard> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: _isHovered
-              ? null
-              : Colors.white,
-          gradient: _isHovered
-              ? const LinearGradient(
-                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                )
-              : null,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Colors.grey.withValues(alpha: 0.2),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: _isHovered ? Colors.white : const Color(0xFF667EEA),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  widget.activity['icon'] as String,
-                  style: TextStyle(
-                    fontSize: 24,
-                    color: _isHovered ? const Color(0xFF667EEA) : Colors.white,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              widget.activity['name'] as String,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: _isHovered ? Colors.white : Colors.black87,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              widget.activity['description'] as String,
-              style: TextStyle(
-                fontSize: 12,
-                color: _isHovered ? Colors.white70 : Colors.grey,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Incharge: ${widget.activity['incharge'] as String}',
-              style: TextStyle(
-                fontSize: 11,
-                color: _isHovered ? Colors.white70 : Colors.grey,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
       ),
     );
   }

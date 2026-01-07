@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:core/api/auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:teacher_app/main.dart' as teacher;
 import 'create_password.dart';
 import 'forgot_password_flow.dart';
@@ -315,8 +316,60 @@ class _TeacherLoginPageState extends State<TeacherLoginPage> {
                                       );
                                     }
                                   } else {
-                                    // Navigate to Teacher dashboard
-                                    Navigator.pushReplacement(
+                                          // Cache school details if available
+                                          try {
+                                            final user = result['user'];
+                                            if (user != null && user is Map) {
+                                              final prefs = await SharedPreferences.getInstance();
+                                              
+                                              // Try to extract school name
+                                              String? schoolName = user['school_name']?.toString();
+                                              
+                                              // Check department -> school
+                                              if (schoolName == null && user['department'] is Map) {
+                                                final dept = user['department'];
+                                                if (dept['school'] is Map) {
+                                                  schoolName = dept['school']['school_name']?.toString() ?? 
+                                                             dept['school']['name']?.toString();
+                                                }
+                                              }
+                                              
+                                              // Check direct school object
+                                              if (schoolName == null && user['school'] is Map) {
+                                                schoolName = user['school']['school_name']?.toString() ?? 
+                                                           user['school']['name']?.toString();
+                                              }
+                                              
+                                              if (schoolName != null && schoolName.isNotEmpty) {
+                                                await prefs.setString('school_name', schoolName);
+                                              }
+                                              
+                                              // Try to extract logo URL
+                                              String? logoUrl = user['logo_url']?.toString();
+                                              
+                                              // Check department -> school -> logo_url
+                                              if (logoUrl == null && user['department'] is Map) {
+                                                final dept = user['department'];
+                                                if (dept['school'] is Map) {
+                                                  logoUrl = dept['school']['logo_url']?.toString();
+                                                }
+                                              }
+                                              
+                                              // Check direct school object -> logo_url
+                                              if (logoUrl == null && user['school'] is Map) {
+                                                logoUrl = user['school']['logo_url']?.toString();
+                                              }
+                                              
+                                              if (logoUrl != null && logoUrl.isNotEmpty) {
+                                                await prefs.setString('logo_url', logoUrl);
+                                              }
+                                            }
+                                          } catch (e) {
+                                            debugPrint('Error caching school details: $e');
+                                          }
+
+                                          // Navigate to Teacher dashboard
+                                          Navigator.pushReplacement(
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) => const teacher.TeacherDashboardApp(),

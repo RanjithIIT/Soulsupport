@@ -38,6 +38,7 @@ dependencies:
   # Core package for shared API services
   core:
     path: ../core
+  shared_preferences: ^2.2.2
   
   # App packages for navigation
   teacher_app:

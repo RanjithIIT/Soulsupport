@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
 import 'widgets/school_profile_header.dart';
 
 class EditActivityPage extends StatefulWidget {
@@ -25,60 +26,68 @@ class _EditActivityPageState extends State<EditActivityPage> {
   final _notesController = TextEditingController();
 
   String? _category;
-  String? _status;
-  DateTime? _startDate;
-  DateTime? _endDate;
+
 
   bool _isSubmitting = false;
   bool _showSuccess = false;
   bool _showError = false;
   String _errorMessage = '';
 
-  // Mock activity data - in real app, fetch from API based on activityId
-  final Map<String, dynamic> _mockActivity = {
-    'id': 1,
-    'name': 'Basketball Team',
-    'category': 'Sports',
-    'instructor': 'Mr. Michael Johnson',
-    'participants': 25,
-    'schedule': 'Monday, Wednesday, Friday 4:00 PM',
-    'location': 'School Gymnasium',
-    'status': 'Active',
-    'startDate': '2024-01-15',
-    'endDate': '2024-06-30',
-    'description':
-        'Competitive basketball team for students interested in sports. Regular practice sessions and participation in inter-school tournaments.',
-    'requirements':
-        'Basic basketball skills, commitment to regular practice, good physical fitness',
-    'notes': 'Team has won 3 district championships in the last 2 years',
-  };
-
   @override
   void initState() {
     super.initState();
-    _loadActivityData();
+    if (widget.activityId != null) {
+      _loadActivityData();
+    }
   }
 
-  void _loadActivityData() {
-    // In real app, fetch activity data based on widget.activityId
-    if (widget.activityId != null) {
-      _nameController.text = _mockActivity['name'] ?? '';
-      _category = _mockActivity['category'];
-      _instructorController.text = _mockActivity['instructor'] ?? '';
-      _participantsController.text =
-          _mockActivity['participants']?.toString() ?? '';
-      _scheduleController.text = _mockActivity['schedule'] ?? '';
-      _locationController.text = _mockActivity['location'] ?? '';
-      _status = _mockActivity['status'];
-      if (_mockActivity['startDate'] != null) {
-        _startDate = DateTime.parse(_mockActivity['startDate']);
+  Future<void> _loadActivityData() async {
+    if (widget.activityId == null) return;
+    
+    setState(() {
+      _isSubmitting = true; // Use as loading indicator
+    });
+    
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.get('${Endpoints.activities}${widget.activityId}/');
+      
+      if (!mounted) return;
+      
+      if (response.success && response.data != null) {
+        final activity = response.data as Map<String, dynamic>;
+        
+        _nameController.text = activity['name']?.toString() ?? '';
+        _category = activity['category']?.toString();
+        _instructorController.text = activity['instructor']?.toString() ?? '';
+        _participantsController.text = activity['max_participants']?.toString() ?? '';
+        _scheduleController.text = activity['schedule']?.toString() ?? '';
+        _locationController.text = activity['location']?.toString() ?? '';
+
+        
+        _descriptionController.text = activity['description']?.toString() ?? '';
+        _requirementsController.text = activity['requirements']?.toString() ?? '';
+        _notesController.text = activity['notes']?.toString() ?? '';
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to load activity: ${response.error ?? "Unknown error"}')),
+          );
+        }
       }
-      if (_mockActivity['endDate'] != null) {
-        _endDate = DateTime.parse(_mockActivity['endDate']);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading activity: $e')),
+        );
       }
-      _descriptionController.text = _mockActivity['description'] ?? '';
-      _requirementsController.text = _mockActivity['requirements'] ?? '';
-      _notesController.text = _mockActivity['notes'] ?? '';
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
     }
   }
 
@@ -97,6 +106,7 @@ class _EditActivityPageState extends State<EditActivityPage> {
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
+    if (widget.activityId == null) return;
 
     setState(() {
       _isSubmitting = true;
@@ -106,23 +116,58 @@ class _EditActivityPageState extends State<EditActivityPage> {
     });
 
     try {
-      // Simulate API call
-      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      final apiService = ApiService();
+      await apiService.initialize();
+      
+      // Prepare activity data
+      final activityData = {
+        'name': _nameController.text.trim(),
+        'category': _category,
+        'instructor': _instructorController.text.trim(),
+        'max_participants': _participantsController.text.trim().isEmpty
+            ? null
+            : int.tryParse(_participantsController.text.trim()),
+        'schedule': _scheduleController.text.trim(),
+        'location': _locationController.text.trim(),
+
+
+        'description': _descriptionController.text.trim(),
+        'requirements': _requirementsController.text.trim(),
+        'notes': _notesController.text.trim(),
+      };
+      
+      final response = await apiService.put(
+        '${Endpoints.activities}${widget.activityId}/',
+        body: activityData
+      );
+      
       if (!mounted) return;
-      setState(() {
-        _isSubmitting = false;
-        _showSuccess = true;
-        _showError = false;
-      });
-      await Future<void>.delayed(const Duration(seconds: 2));
-      if (!mounted) return;
+      
+      if (response.success) {
+        setState(() {
+          _isSubmitting = false;
+          _showSuccess = true;
+          _showError = false;
+        });
+        await Future<void>.delayed(const Duration(seconds: 2));
+        if (!mounted) return;
+        // Navigate back to activities page after success
+        Navigator.pushReplacementNamed(context, '/activities');
+      } else {
+        setState(() {
+          _isSubmitting = false;
+          _showSuccess = false;
+          _showError = true;
+          _errorMessage = response.error ?? 'Error updating activity. Please try again.';
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
         _showSuccess = false;
         _showError = true;
-        _errorMessage = 'Error updating activity information. Please try again.';
+        _errorMessage = 'Error updating activity: $e';
       });
     }
   }
@@ -150,15 +195,7 @@ class _EditActivityPageState extends State<EditActivityPage> {
                       : _participantsController.text),
               _PreviewItem('Schedule', _scheduleController.text),
               _PreviewItem('Location', _locationController.text),
-              _PreviewItem('Status', _status ?? 'Not provided'),
-              _PreviewItem('Start Date',
-                  _startDate != null
-                      ? DateFormat('yyyy-MM-dd').format(_startDate!)
-                      : 'Not specified'),
-              _PreviewItem('End Date',
-                  _endDate != null
-                      ? DateFormat('yyyy-MM-dd').format(_endDate!)
-                      : 'Not specified'),
+
               _PreviewItem('Description', _descriptionController.text),
               _PreviewItem('Requirements',
                   _requirementsController.text.isEmpty
@@ -535,20 +572,25 @@ class _EditActivityPageState extends State<EditActivityPage> {
                                       initialValue: _category,
                                       items: const [
                                         DropdownMenuItem(
-                                            value: 'Sports', child: Text('Sports')),
+                                            value: 'Academic', child: Text('Academic')),
                                         DropdownMenuItem(
-                                            value: 'Academic',
-                                            child: Text('Academic')),
+                                            value: 'Sports', child: Text('Sports')),
                                         DropdownMenuItem(
                                             value: 'Arts', child: Text('Arts')),
                                         DropdownMenuItem(
-                                            value: 'Games', child: Text('Games')),
+                                            value: 'Leadership', child: Text('Leadership')),
                                         DropdownMenuItem(
-                                            value: 'Cultural',
-                                            child: Text('Cultural')),
+                                            value: 'Innovation', child: Text('Innovation')),
                                         DropdownMenuItem(
-                                            value: 'Technical',
-                                            child: Text('Technical')),
+                                            value: 'Community', child: Text('Community')),
+                                        DropdownMenuItem(
+                                            value: 'Science Fair', child: Text('Science Fair')),
+                                        DropdownMenuItem(
+                                            value: 'NSS', child: Text('NSS')),
+                                        DropdownMenuItem(
+                                            value: 'NCC', child: Text('NCC')),
+                                        DropdownMenuItem(
+                                            value: 'Other', child: Text('Other')),
                                       ],
                                       onChanged: (value) {
                                         setState(() {
@@ -612,20 +654,73 @@ class _EditActivityPageState extends State<EditActivityPage> {
                                   Expanded(
                                     child: TextFormField(
                                       controller: _scheduleController,
+                                      readOnly: true,
                                       decoration: InputDecoration(
-                                        labelText: 'Schedule *',
-                                        hintText: 'e.g., Monday, Wednesday 3:00 PM',
+                                        labelText: 'Schedule (Date & Time) *',
+                                        hintText: 'Select date and time',
+                                        prefixIcon: const Icon(Icons.access_time, color: Color(0xFF667EEA)),
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(10),
                                         ),
                                         filled: true,
                                         fillColor: Colors.white,
+                                        suffixIcon: IconButton(
+                                          icon: const Icon(Icons.calendar_today, color: Color(0xFF667EEA)),
+                                          onPressed: () async {
+                                            final date = await showDatePicker(
+                                              context: context,
+                                              initialDate: DateTime.now(),
+                                              firstDate: DateTime.now(),
+                                              lastDate: DateTime(2100),
+                                            );
+                                            if (date != null && context.mounted) {
+                                              final time = await showTimePicker(
+                                                context: context,
+                                                initialTime: TimeOfDay.now(),
+                                              );
+                                              if (time != null) {
+                                                final dateTime = DateTime(
+                                                  date.year,
+                                                  date.month,
+                                                  date.day,
+                                                  time.hour,
+                                                  time.minute,
+                                                );
+                                                _scheduleController.text = DateFormat('yyyy-MM-dd hh:mm a').format(dateTime);
+                                              }
+                                            }
+                                          },
+                                        ),
                                       ),
                                       validator: (value) {
                                         if (value == null || value.isEmpty) {
-                                          return 'Please enter schedule';
+                                          return 'Please select schedule';
                                         }
                                         return null;
+                                      },
+                                      onTap: () async {
+                                        final date = await showDatePicker(
+                                          context: context,
+                                          initialDate: DateTime.now(),
+                                          firstDate: DateTime.now(),
+                                          lastDate: DateTime(2100),
+                                        );
+                                        if (date != null && context.mounted) {
+                                          final time = await showTimePicker(
+                                            context: context,
+                                            initialTime: TimeOfDay.now(),
+                                          );
+                                          if (time != null) {
+                                            final dateTime = DateTime(
+                                              date.year,
+                                              date.month,
+                                              date.day,
+                                              time.hour,
+                                              time.minute,
+                                            );
+                                            _scheduleController.text = DateFormat('yyyy-MM-dd hh:mm a').format(dateTime);
+                                          }
+                                        }
                                       },
                                     ),
                                   ),
@@ -648,136 +743,6 @@ class _EditActivityPageState extends State<EditActivityPage> {
                                         }
                                         return null;
                                       },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 20),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: DropdownButtonFormField<String>(
-                                      decoration: InputDecoration(
-                                        labelText: 'Status *',
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(10),
-                                        ),
-                                        filled: true,
-                                        fillColor: Colors.white,
-                                      ),
-                                      initialValue: _status,
-                                      items: const [
-                                        DropdownMenuItem(
-                                            value: 'Active', child: Text('Active')),
-                                        DropdownMenuItem(
-                                            value: 'Inactive',
-                                            child: Text('Inactive')),
-                                        DropdownMenuItem(
-                                            value: 'Suspended',
-                                            child: Text('Suspended')),
-                                        DropdownMenuItem(
-                                            value: 'Completed',
-                                            child: Text('Completed')),
-                                      ],
-                                      onChanged: (value) {
-                                        setState(() {
-                                          _status = value;
-                                        });
-                                      },
-                                      validator: (value) {
-                                        if (value == null || value.isEmpty) {
-                                          return 'Please select status';
-                                        }
-                                        return null;
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 20),
-                                  Expanded(
-                                    child: InkWell(
-                                      onTap: () async {
-                                        final date = await showDatePicker(
-                                          context: context,
-                                          initialDate: _startDate ?? DateTime.now(),
-                                          firstDate: DateTime(2000),
-                                          lastDate: DateTime(2100),
-                                        );
-                                        if (date != null) {
-                                          setState(() {
-                                            _startDate = date;
-                                          });
-                                        }
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(color: Colors.grey[300]!),
-                                          borderRadius: BorderRadius.circular(10),
-                                          color: Colors.white,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.calendar_today,
-                                                color: Colors.grey[600]),
-                                            const SizedBox(width: 10),
-                                            Text(
-                                              _startDate == null
-                                                  ? 'Start Date'
-                                                  : DateFormat('yyyy-MM-dd')
-                                                      .format(_startDate!),
-                                              style: TextStyle(
-                                                color: _startDate == null
-                                                    ? Colors.grey[600]
-                                                    : Colors.black87,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 20),
-                                  Expanded(
-                                    child: InkWell(
-                                      onTap: () async {
-                                        final date = await showDatePicker(
-                                          context: context,
-                                          initialDate: _endDate ?? DateTime.now(),
-                                          firstDate: _startDate ?? DateTime(2000),
-                                          lastDate: DateTime(2100),
-                                        );
-                                        if (date != null) {
-                                          setState(() {
-                                            _endDate = date;
-                                          });
-                                        }
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(color: Colors.grey[300]!),
-                                          borderRadius: BorderRadius.circular(10),
-                                          color: Colors.white,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.calendar_today,
-                                                color: Colors.grey[600]),
-                                            const SizedBox(width: 10),
-                                            Text(
-                                              _endDate == null
-                                                  ? 'End Date'
-                                                  : DateFormat('yyyy-MM-dd')
-                                                      .format(_endDate!),
-                                              style: TextStyle(
-                                                color: _endDate == null
-                                                    ? Colors.grey[600]
-                                                    : Colors.black87,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
                                     ),
                                   ),
                                 ],

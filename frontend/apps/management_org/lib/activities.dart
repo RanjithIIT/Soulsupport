@@ -2,32 +2,49 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
 import 'main.dart' as app;
 import 'dashboard.dart';
+import 'management_routes.dart';
 import 'widgets/school_profile_header.dart';
+import 'widgets/management_sidebar.dart';
 
 class Activity {
   final int id;
   final String name;
   final String category;
   final String instructor;
-  final int participants;
+  final int? participants;
   final String schedule;
   final String location;
-  final String status;
+
   final String description;
 
-  const Activity({
+  Activity({
     required this.id,
     required this.name,
     required this.category,
     required this.instructor,
-    required this.participants,
+    this.participants,
     required this.schedule,
     required this.location,
-    required this.status,
+
     required this.description,
   });
+
+  factory Activity.fromJson(Map<String, dynamic> json) {
+    return Activity(
+      id: json['id'] as int,
+      name: json['name']?.toString() ?? '',
+      category: json['category']?.toString() ?? '',
+      instructor: json['instructor']?.toString() ?? '',
+      participants: json['max_participants'] as int?,
+      schedule: json['schedule']?.toString() ?? '',
+      location: json['location']?.toString() ?? '',
+
+      description: json['description']?.toString() ?? '',
+    );
+  }
 }
 
 class ActivitiesManagementPage extends StatefulWidget {
@@ -39,71 +56,64 @@ class ActivitiesManagementPage extends StatefulWidget {
 }
 
 class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
-  final List<Activity> _activities = [
-    const Activity(
-      id: 1,
-      name: 'Basketball Team',
-      category: 'Sports',
-      instructor: 'Coach Johnson',
-      participants: 15,
-      schedule: 'Mon, Wed, Fri 3:00 PM',
-      location: 'Gymnasium',
-      status: 'Active',
-      description: 'Competitive basketball team for grades 9-12',
-    ),
-    const Activity(
-      id: 2,
-      name: 'Science Club',
-      category: 'Academic',
-      instructor: 'Dr. Sarah Chen',
-      participants: 20,
-      schedule: 'Tue, Thu 4:00 PM',
-      location: 'Science Lab',
-      status: 'Active',
-      description: 'Advanced science experiments and projects',
-    ),
-    const Activity(
-      id: 3,
-      name: 'Music Band',
-      category: 'Arts',
-      instructor: 'Ms. Emily White',
-      participants: 12,
-      schedule: 'Mon, Wed 2:30 PM',
-      location: 'Music Room',
-      status: 'Active',
-      description: 'School band performing various genres',
-    ),
-    const Activity(
-      id: 4,
-      name: 'Debate Club',
-      category: 'Academic',
-      instructor: 'Mr. David Brown',
-      participants: 18,
-      schedule: 'Fri 3:30 PM',
-      location: 'Library',
-      status: 'Active',
-      description: 'Competitive debate and public speaking',
-    ),
-    const Activity(
-      id: 5,
-      name: 'Chess Club',
-      category: 'Games',
-      instructor: 'Prof. Michael Wilson',
-      participants: 25,
-      schedule: 'Tue, Thu 3:00 PM',
-      location: 'Classroom 201',
-      status: 'Active',
-      description: 'Strategic thinking and chess tournaments',
-    ),
-  ];
-
+  List<Activity> _activities = [];
   final TextEditingController _searchController = TextEditingController();
   late List<Activity> _visibleActivities;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _visibleActivities = List<Activity>.from(_activities);
+    _visibleActivities = [];
+    _fetchActivities();
+  }
+
+  Future<void> _fetchActivities() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.get(Endpoints.activities);
+
+      if (response.success && response.data != null) {
+        List<dynamic> data = [];
+        if (response.data is List) {
+          data = response.data as List;
+        } else if (response.data is Map && (response.data as Map)['results'] != null) {
+          data = (response.data as Map)['results'] as List;
+        }
+
+        final activities = data
+            .map((item) => Activity.fromJson(item as Map<String, dynamic>))
+            .toList();
+
+        if (!mounted) return;
+        setState(() {
+          _activities = activities;
+          _visibleActivities = List<Activity>.from(_activities);
+          _isLoading = false;
+        });
+      } else {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to fetch activities: ${response.error ?? "Unknown error"}')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching activities: $e')),
+      );
+    }
   }
 
   @override
@@ -113,11 +123,12 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
   }
 
   int get _totalActivities => _activities.length;
-  int get _activeActivities =>
-      _activities.where((activity) => activity.status == 'Active').length;
+  // Since status was removed, effectively all visible activities are active
+  int get _activeActivities => _activities.length;
+
   int get _totalParticipants => _activities.fold(
         0,
-        (sum, activity) => sum + activity.participants,
+        (sum, activity) => sum + (activity.participants ?? 0),
       );
   int get _activityCategories =>
       _activities.map((activity) => activity.category).toSet().length;
@@ -152,7 +163,7 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
               Text('Instructor: ${activity.instructor}'),
               Text('Schedule: ${activity.schedule}'),
               Text('Location: ${activity.location}'),
-              Text('Participants: ${activity.participants}'),
+              Text('Participants: ${activity.participants ?? 'Not specified'}'),
             ],
           ),
           actions: [
@@ -170,27 +181,20 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
     Navigator.pushNamed(context, '/edit-activity', arguments: activity.id);
   }
 
-  void _deleteActivity(Activity activity) {
-    showDialog<void>(
+  Future<void> _deleteActivity(Activity activity) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Confirm Deletion'),
-          content: Text('Delete ${activity.name}?'),
+          content: Text('Are you sure you want to delete "${activity.name}"? This action cannot be undone.'),
           actions: [
             TextButton(
-              onPressed: Navigator.of(context).pop,
+              onPressed: () => Navigator.of(context).pop(false),
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
-                setState(() {
-                  _activities.removeWhere((a) => a.id == activity.id);
-                });
-                _filterActivities(_searchController.text);
-                Navigator.of(context).pop();
-                _showSnack('Activity deleted successfully!');
-              },
+              onPressed: () => Navigator.of(context).pop(true),
               child: const Text(
                 'Delete',
                 style: TextStyle(color: Colors.red),
@@ -200,13 +204,33 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
         );
       },
     );
+
+    if (confirmed != true) return;
+
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.delete('${Endpoints.activities}${activity.id}/');
+
+      if (!mounted) return;
+
+      if (response.success) {
+        setState(() {
+          _activities.removeWhere((a) => a.id == activity.id);
+        });
+        _filterActivities(_searchController.text);
+        _showSnack('Activity deleted successfully!');
+      } else {
+        _showSnack('Failed to delete activity: ${response.error ?? "Unknown error"}');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack('Error deleting activity: $e');
+    }
   }
 
   void _addActivity() {
-    // Navigate to add activity page (can be created later)
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add activity feature coming soon')),
-    );
+    Navigator.pushNamed(context, ManagementRoutes.addActivity);
   }
 
   void _showSnack(String message) {
@@ -246,7 +270,17 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(width: 280, child: _buildSidebar()),
+                SizedBox(
+                  width: 280,
+                  child: ManagementSidebar(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    activeRoute: '/activities',
+                  ),
+                ),
                 Expanded(
                   child: Container(
                     color: const Color(0xFFF5F6FA),
@@ -261,138 +295,7 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
     );
   }
 
-  Widget _buildSidebar() {
-    final gradient = const LinearGradient(
-      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
 
-    // Safe navigation helper for sidebar
-    void navigateToRoute(String route) {
-      final navigator = app.SchoolManagementApp.navigatorKey.currentState;
-      if (navigator != null) {
-        if (navigator.canPop() || route != '/dashboard') {
-          navigator.pushReplacementNamed(route);
-        } else {
-          navigator.pushNamed(route);
-        }
-      }
-    }
-
-    return Container(
-      width: 280,
-      decoration: BoxDecoration(
-        gradient: gradient,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(2, 0),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  'packages/management_org/assets/Vidyarambh.png',
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      height: 120,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.school,
-                        size: 56,
-                        color: Color(0xFF667EEA),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _NavItem(
-                    icon: '📊',
-                    title: 'Overview',
-                    isActive: false,
-                    onTap: () => navigateToRoute('/dashboard'),
-                  ),
-                  _NavItem(
-                    icon: '👨‍🏫',
-                    title: 'Teachers',
-                    onTap: () => navigateToRoute('/teachers'),
-                  ),
-                  _NavItem(
-                    icon: '👥',
-                    title: 'Students',
-                    onTap: () => navigateToRoute('/students'),
-                  ),
-                  _NavItem(
-                    icon: '🚌',
-                    title: 'Buses',
-                    onTap: () => navigateToRoute('/buses'),
-                  ),
-                  _NavItem(
-                    icon: '🎯',
-                    title: 'Activities',
-                    isActive: true,
-                    onTap: () => navigateToRoute('/activities'),
-                  ),
-                  _NavItem(
-                    icon: '📅',
-                    title: 'Events',
-                    onTap: () => navigateToRoute('/events'),
-                  ),
-                  _NavItem(
-                    icon: '📆',
-                    title: 'Calendar',
-                    onTap: () => navigateToRoute('/calendar'),
-                  ),
-                  _NavItem(
-                    icon: '🔔',
-                    title: 'Notifications',
-                    onTap: () => navigateToRoute('/notifications'),
-                  ),
-                  _NavItem(
-                    icon: '🛣️',
-                    title: 'Bus Routes',
-                    onTap: () => navigateToRoute('/bus-routes'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildMainContent({required bool isMobile}) {
     return SingleChildScrollView(
@@ -406,13 +309,29 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    'Activities Management',
-                    style: TextStyle(
-                      fontSize: isMobile ? 22 : 28,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF333333),
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('🎯', style: TextStyle(fontSize: 32)),
+                          const SizedBox(width: 15),
+                          Text(
+                            'Activities Management',
+                            style: TextStyle(
+                              fontSize: isMobile ? 22 : 28,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF333333),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Manage school activities, clubs, sports, and extracurricular programs',
+                        style: TextStyle(color: Color(0xFF666666), fontSize: 16),
+                      ),
+                    ],
                   ),
                 ),
                 if (!isMobile) ...[
@@ -434,34 +353,6 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
                 ],
               ),
             ),
-          GlassContainer(
-            padding: const EdgeInsets.all(25),
-            margin: const EdgeInsets.only(bottom: 30),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Row(
-                  children: [
-                    Text('🎯', style: TextStyle(fontSize: 32)),
-                    SizedBox(width: 15),
-                    Text(
-                      'Activities Management',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF333333),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 10),
-                Text(
-                  'Manage school activities, clubs, sports, and extracurricular programs',
-                  style: TextStyle(color: Color(0xFF666666), fontSize: 16),
-                ),
-              ],
-            ),
-          ),
           LayoutBuilder(
             builder: (context, constraints) {
               final crossAxisCount = isMobile ? 1 : 4;
@@ -474,12 +365,29 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
                 crossAxisSpacing: 20,
                 mainAxisSpacing: 20,
                 children: [
-                  _StatCard(label: 'Total Activities', value: '$_totalActivities'),
-                  _StatCard(label: 'Active Activities', value: '$_activeActivities'),
-                  _StatCard(label: 'Total Participants', value: '$_totalParticipants'),
+                  _StatCard(
+                    label: 'Total Activities',
+                    value: '$_totalActivities',
+                    icon: '🎯',
+                    color: const Color(0xFF667EEA),
+                  ),
+                  _StatCard(
+                    label: 'Active Activities',
+                    value: '$_activeActivities',
+                    icon: '🏃',
+                    color: const Color(0xFF40C057),
+                  ),
+                  _StatCard(
+                    label: 'Total Participants',
+                    value: '$_totalParticipants',
+                    icon: '👥',
+                    color: const Color(0xFF42A5F5),
+                  ),
                   _StatCard(
                     label: 'Activity Categories',
                     value: '$_activityCategories',
+                    icon: '🏆',
+                    color: const Color(0xFFFFD700),
                   ),
                 ],
               );
@@ -571,14 +479,35 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
               return Wrap(
                 spacing: 20,
                 runSpacing: 20,
-                children: _visibleActivities
-                    .map(
-                      (activity) => SizedBox(
-                        width: cardWidth,
-                        child: _buildActivityCard(activity),
-                      ),
-                    )
-                    .toList(),
+                children: _isLoading
+                    ? [
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(40.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+                      ]
+                    : _visibleActivities.isEmpty
+                        ? [
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(40.0),
+                                child: Text(
+                                  'No activities found',
+                                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                                ),
+                              ),
+                            ),
+                          ]
+                        : _visibleActivities
+                            .map(
+                              (activity) => SizedBox(
+                                width: cardWidth,
+                                child: _buildActivityCard(activity),
+                              ),
+                            )
+                            .toList(),
               );
             },
           ),
@@ -731,7 +660,7 @@ class _ActivityCardWithHoverState extends State<_ActivityCardWithHover> {
                         width: itemWidth,
                         child: _DetailItem(
                           title: 'Participants',
-                          value: '${widget.activity.participants}',
+                          value: '${widget.activity.participants ?? 'Not specified'}',
                         ),
                       ),
                       SizedBox(
@@ -748,13 +677,7 @@ class _ActivityCardWithHoverState extends State<_ActivityCardWithHover> {
                           value: widget.activity.location,
                         ),
                       ),
-                      SizedBox(
-                        width: itemWidth,
-                        child: _DetailItem(
-                          title: 'Status',
-                          value: widget.activity.status,
-                        ),
-                      ),
+
                     ],
                   );
                 },
@@ -899,35 +822,55 @@ class _NavItem extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
+  final String icon;
+  final Color color;
 
-  const _StatCard({required this.label, required this.value});
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GlassContainer(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 36,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF667EEA),
-            ),
+    return Card(
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      elevation: 5,
+      shadowColor: Colors.black.withValues(alpha: 0.1),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(icon, style: TextStyle(fontSize: 40, color: color)),
+              const SizedBox(height: 10),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF333333),
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                label.toUpperCase(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF666666),
+                  fontSize: 12,
+                  letterSpacing: 1,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 5),
-          Text(
-            label.toUpperCase(),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF666666),
-              fontSize: 12,
-              letterSpacing: 1,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

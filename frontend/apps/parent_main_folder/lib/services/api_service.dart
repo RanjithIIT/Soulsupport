@@ -2,11 +2,26 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+
 class ApiService {
+  static const baseUrl = 'http://localhost:8000/api';
+    /// Fetch bus details for a student by student ID
+    static Future<Map<String, dynamic>?> fetchStudentBusDetails(String studentId) async {
+      final headers = await _getAuthHeaders();
+      final resp = await http.get(
+        Uri.parse('http://localhost:8000/api/management-admin/student/$studentId/bus-details/'),
+        headers: headers,
+      );
+      if (resp.statusCode == 200) {
+        return jsonDecode(resp.body) as Map<String, dynamic>;
+      }
+      return null;
+    }
   static const _base = 'http://localhost:8000/api/management-admin';
   static const teachersEndpoint = '$_base/teachers/';
   static const studentsEndpoint = '$_base/students/';
   static const communicationsEndpoint = 'http://localhost:8000/api/student-parent/communications/';
+  static const chatMessagesEndpoint = 'http://localhost:8000/api/student-parent/chat-messages/';
   static const parentBase = 'http://localhost:8000/api/student-parent';
   static const parentEndpoint = '$parentBase/parent/';
 
@@ -35,7 +50,25 @@ class ApiService {
     return await _getAuthHeaders();
   }
 
+  /// Fetch chat messages between two users using ChatMessage API (new WhatsApp/Telegram-like chat)
+  /// Uses the new ChatMessage model endpoint for real-time chat history
+  static Future<List<Map<String, dynamic>>> fetchChatMessages(String senderUsername, String recipientUsername) async {
+    final uri = Uri.parse('$chatMessagesEndpoint?sender=$senderUsername&recipient=$recipientUsername');
+    final headers = await _getAuthHeaders();
+    final resp = await http.get(uri, headers: headers).timeout(const Duration(seconds: 10));
+    if (resp.statusCode == 200) {
+      final data = jsonDecode(resp.body);
+      if (data is List) return List<Map<String, dynamic>>.from(data);
+      if (data is Map && data.containsKey('results')) {
+        return List<Map<String, dynamic>>.from(data['results'] as List);
+      }
+      return [];
+    }
+    throw Exception('Failed to fetch chat messages: ${resp.statusCode}');
+  }
+
   /// Fetch chat messages between two users (sender and recipient usernames)
+  /// @deprecated Use fetchChatMessages instead for real-time chat. This is kept for backward compatibility.
   static Future<List<Map<String, dynamic>>> fetchCommunications(String senderUsername, String recipientUsername) async {
     final uri = Uri.parse('$communicationsEndpoint?sender=$senderUsername&recipient=$recipientUsername');
     final headers = await _getAuthHeaders();
@@ -162,6 +195,24 @@ class ApiService {
     } catch (e) {
       print('Exception fetching student profile: $e');
       return null; // Return null instead of throwing to allow fallback handling
+    }
+  }
+
+  static Future<Map<String, dynamic>?> fetchAttendanceHistory({String? studentId}) async {
+    try {
+      final headers = await _getAuthHeaders();
+      String url = '$parentBase/student-dashboard/attendance_history/';
+      if (studentId != null) {
+        url += '?student_id=$studentId';
+      }
+      final resp = await http.get(Uri.parse(url), headers: headers);
+      if (resp.statusCode == 200) {
+        return jsonDecode(resp.body) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching attendance history: $e');
+      return null;
     }
   }
 }

@@ -134,13 +134,67 @@ class _StudentListDialogState extends State<StudentListDialog> {
           const SnackBar(content: Text('Student added successfully')),
         );
       } else {
-        throw Exception(response.error ?? 'Failed to add student');
+        // Check if error contains bus assignment info
+        final errorMessage = response.error ?? 'Failed to add student';
+        String? assignedBusNumber;
+        
+        // Try to extract bus number from error message
+        if (errorMessage.contains('already assigned to Bus Number')) {
+          // Extract bus number from error message
+          final busNumberMatch = RegExp(r'Bus Number: ([^\s.]+)').firstMatch(errorMessage);
+          if (busNumberMatch != null) {
+            assignedBusNumber = busNumberMatch.group(1);
+          }
+        }
+        
+        // Also check response data for assigned_bus_number
+        if (response.data is Map) {
+          final dataMap = response.data as Map;
+          if (dataMap['assigned_bus_number'] != null) {
+            assignedBusNumber = dataMap['assigned_bus_number'].toString();
+          }
+        }
+        
+        // If student is assigned to another bus, show popup
+        if (assignedBusNumber != null && assignedBusNumber.isNotEmpty) {
+          if (mounted) {
+            await showDialog(
+              context: context,
+              builder: (dialogContext) => AlertDialog(
+                title: const Row(
+                  children: [
+                    Icon(Icons.warning, color: Colors.orange, size: 28),
+                    SizedBox(width: 10),
+                    Text('Student Already Assigned'),
+                  ],
+                ),
+                content: Text(
+                  'The student with ID $studentId is already assigned to Bus Number: $assignedBusNumber\n\n'
+                  'Please remove the student from that bus first before assigning to this bus.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          }
+          return; // Prevent showing error snackbar
+        }
+        
+        throw Exception(errorMessage);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error adding student: $e')),
-        );
+        // Only show snackbar if it's not a bus assignment error (already handled above)
+        final errorStr = e.toString();
+        if (!errorStr.contains('already assigned to Bus Number')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error adding student: $e')),
+          );
+        }
       }
     } finally {
       if (mounted) {

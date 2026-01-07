@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:main_login/main.dart' as main_login;
+import 'package:core/api/api_service.dart';
+import 'package:core/api/endpoints.dart';
+import 'package:intl/intl.dart';
 
 // --- UTILITY FUNCTION TO CREATE CUSTOM MATERIAL COLOR ---
 MaterialColor createMaterialColor(Color color) {
@@ -20,7 +23,44 @@ MaterialColor createMaterialColor(Color color) {
 // 1. DATA MODELS & MOCK DATA DEFINITIONS (ORIGINAL CONTENT RESTORED)
 // -------------------------------------------------------------------------
 
+class Event {
+  final int id;
+  final String name;
+  final String status;
+  final DateTime? startDatetime;
+  final String location;
+  final String organizer;
+
+  const Event({
+    required this.id,
+    required this.name,
+    required this.status,
+    required this.startDatetime,
+    required this.location,
+    required this.organizer,
+  });
+
+  factory Event.fromJson(Map<String, dynamic> json) {
+    DateTime? start;
+    if (json['start_datetime'] != null) {
+      start = DateTime.tryParse(json['start_datetime']);
+    } else if (json['date'] != null) {
+      start = DateTime.tryParse(json['date']); // Legacy
+    }
+
+    return Event(
+      id: json['id'] is int ? json['id'] : 0,
+      name: json['name'] ?? 'Unnamed Event',
+      status: json['status'] ?? 'Upcoming',
+      startDatetime: start,
+      location: json['location'] ?? 'TBD',
+      organizer: json['organizer'] ?? 'School',
+    );
+  }
+}
+
 class Activity {
+  final int id;
   final String name;
   final String status;
   final String role;
@@ -30,6 +70,7 @@ class Activity {
   final int participation;
 
   const Activity({
+    this.id = 0,
     required this.name,
     required this.status,
     required this.role,
@@ -38,6 +79,40 @@ class Activity {
     required this.instructor,
     required this.participation,
   });
+
+  factory Activity.fromJson(Map<String, dynamic> json) {
+    // Extract time from schedule if possible, or use a default
+    // Schedule format might be "Monday 10:00 AM" or just "2025-01-01 10:00 AM"
+    String timeStr = 'N/A';
+    String scheduleStr = json['schedule'] ?? 'N/A';
+    
+    // Simple logic to extract time part if it looks like a datetime
+    try {
+      if (scheduleStr.contains(' ')) {
+        // e.g. "2026-01-01 10:30 AM" -> split and take last parts?
+        // Let's just keep the full schedule string in 'schedule' 
+        // and try to parse a readable time for the 'time' field.
+        // If it matches our knowing format:
+         DateTime dt = DateFormat('yyyy-MM-dd hh:mm a').parse(scheduleStr);
+         timeStr = DateFormat('hh:mm a').format(dt);
+         scheduleStr = DateFormat('EEE, MMM d').format(dt);
+      }
+    } catch (e) {
+      // Fallback if parsing fails
+      timeStr = ''; 
+    }
+
+    return Activity(
+      id: json['id'] ?? 0,
+      name: json['name'] ?? 'Unnamed Activity',
+      status: 'active', // Default validation since status removed from backend
+      role: 'Member', // Default role
+      schedule: scheduleStr,
+      time: timeStr,
+      instructor: json['instructor'] ?? 'Unknown',
+      participation: json['max_participants'] ?? 0, // Using max_participants as proxy for now
+    );
+  }
 }
 
 class Achievement {
@@ -198,16 +273,97 @@ class SchoolApp extends StatelessWidget {
   }
 }
 
-class ActivityScreen extends StatelessWidget {
+class ActivityScreen extends StatefulWidget {
   const ActivityScreen({super.key});
 
+  @override
+  State<ActivityScreen> createState() => _ActivityScreenState();
+}
+
+class _ActivityScreenState extends State<ActivityScreen> {
+  List<Activity> _activities = [];
+  List<Event> _events = [];
+  bool _isLoading = true;
+  String _errorMessage = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchActivities();
+  }
+
+  Future<void> _fetchActivities() async {
+    try {
+      final apiService = ApiService();
+      // Fetch both activities and events
+      final results = await Future.wait([
+        apiService.get(Endpoints.activities),
+        apiService.get(Endpoints.events),
+      ]);
+
+      final activityResponse = results[0];
+      final eventResponse = results[1];
+
+      List<Activity> loadedActivities = [];
+      List<Event> loadedEvents = [];
+
+      // Process Activities
+      if (activityResponse.success && activityResponse.data != null) {
+        List<dynamic> data = [];
+        if (activityResponse.data is Map && activityResponse.data.containsKey('results')) {
+          data = activityResponse.data['results'];
+        } else if (activityResponse.data is List) {
+          data = activityResponse.data;
+        } else if (activityResponse.data is Map && activityResponse.data.containsKey('data')) {
+          data = activityResponse.data['data'];
+        }
+        loadedActivities = data.map((json) => Activity.fromJson(json)).toList();
+      }
+
+      // Process Events
+      if (eventResponse.success && eventResponse.data != null) {
+        List<dynamic> data = [];
+         if (eventResponse.data is Map && eventResponse.data.containsKey('results')) {
+          data = eventResponse.data['results'];
+        } else if (eventResponse.data is List) {
+          data = eventResponse.data;
+        } else if (eventResponse.data is Map && eventResponse.data.containsKey('data')) {
+           data = eventResponse.data['data'];
+        }
+        
+        loadedEvents = data.map((json) => Event.fromJson(json)).toList();
+        // Filter out past events if desired, or sort by date
+        loadedEvents.sort((a, b) {
+           if (a.startDatetime == null) return 1;
+           if (b.startDatetime == null) return -1;
+           return a.startDatetime!.compareTo(b.startDatetime!);
+        });
+      }
+
+      if (mounted) {
+        setState(() {
+          _activities = loadedActivities;
+          _events = loadedEvents;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Error: $e';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   int _calculateAvgAttendance() {
-    if (mockActivities.isEmpty) return 0;
+    if (_activities.isEmpty) return 0;
     int totalParticipation = 0;
-    for (var activity in mockActivities) {
+    for (var activity in _activities) {
       totalParticipation += activity.participation;
     }
-    return (totalParticipation / mockActivities.length).round();
+    return (totalParticipation / _activities.length).round();
   }
 
   void _handleAction(BuildContext context, String action) {
@@ -251,29 +407,15 @@ class ActivityScreen extends StatelessWidget {
 
   AppBar _buildAppBar(BuildContext context) {
     return AppBar(
-      title: const Text('Extracurricular Dashboard'),
+      title: const Text(
+        'Activities Dashboard',
+        style: TextStyle(color: Colors.white),
+      ),
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
+        icon: const Icon(Icons.arrow_back, color: Colors.white),
         onPressed: () => Navigator.pop(context),
       ),
       actions: [
-        // Quick shortcut to open the full Activity Schedule screen
-        IconButton(
-          icon: const Icon(Icons.schedule),
-          tooltip: 'Activity Schedule',
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const ActivityScheduleScreen(),
-              ),
-            );
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.person),
-          onPressed: () => _handleAction(context, 'Profile'),
-        ),
         IconButton(
           icon: const Icon(Icons.logout),
           onPressed: () => _handleAction(context, 'Logout'),
@@ -284,7 +426,32 @@ class ActivityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeActivitiesCount = mockActivities
+    if (_isLoading) {
+      return Scaffold(
+        appBar: _buildAppBar(context),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_errorMessage.isNotEmpty && _activities.isEmpty) {
+      return Scaffold(
+        appBar: _buildAppBar(context),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(_errorMessage),
+              ElevatedButton(
+                onPressed: _fetchActivities,
+                child: const Text('Retry'),
+              )
+            ],
+          ),
+        ),
+      );
+    }
+
+    final activeActivitiesCount = _activities
         .where((a) => a.status == 'active')
         .length;
     final achievementsCount = mockAchievements.length;
@@ -364,13 +531,20 @@ class ActivityScreen extends StatelessWidget {
 
             // Current Activities Section
             _SectionHeader(title: 'Current Activities 🎯'),
-            _SectionContainer(
-              children: mockActivities
+            _activities.isEmpty 
+              ? const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text('No activities found.'),
+                )
+              : _SectionContainer(
+              children: _activities
                   .map(
                     (a) => _ActivityListTile(
                       activity: a,
 
                       onTap: () {
+                        // Pass 'a' (the Activity object) to detail screen
+                        // Make sure ActivityDetailScreen can accept this Activity object
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -383,6 +557,18 @@ class ActivityScreen extends StatelessWidget {
                   )
                   .toList(),
             ),
+            const SizedBox(height: 35),
+            
+             // Current Events Section (New)
+            _SectionHeader(title: 'Upcoming Events 📅'),
+            _events.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text('No upcoming events found.'),
+                  )
+                : _SectionContainer(
+                    children: _events.take(5).map((e) => _EventListTile(event: e)).toList(),
+                  ),
             const SizedBox(height: 35),
 
             // Achievements Section with Activity Schedule Tab
@@ -424,7 +610,7 @@ class ActivityScreen extends StatelessWidget {
   // Builds a tabbed card that shows Achievements and an Activity Schedule
   Widget _buildAchievementsScheduleSection(BuildContext context) {
     final int achCount = mockAchievements.length;
-    final int actCount = mockActivities.length;
+    final int actCount = _activities.length;
     final int maxCount = achCount > actCount ? achCount : actCount;
     final double computedHeight = (maxCount * 78.0) + 100.0;
     final double height = computedHeight.clamp(220.0, 600.0);
@@ -482,7 +668,7 @@ class ActivityScreen extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
                       physics: const BouncingScrollPhysics(),
                       itemBuilder: (context, index) {
-                        final a = mockActivities[index];
+                        final a = _activities[index];
                         return _ActivityScheduleTile(
                           activity: a,
                           onTap: () {
@@ -498,7 +684,7 @@ class ActivityScreen extends StatelessWidget {
                       },
                       separatorBuilder: (context, index) =>
                           const Divider(height: 1, indent: 16, endIndent: 16),
-                      itemCount: mockActivities.length,
+                      itemCount: _activities.length,
                     ),
                   ),
                 ],
@@ -692,8 +878,13 @@ class _ActivityListTile extends StatelessWidget {
           onTap: onTap,
         ),
         // Add a Divider if it's not the last item in the list
-        if (mockActivities.indexOf(activity) != mockActivities.length - 1)
-          const Divider(height: 1, indent: 72, endIndent: 16),
+        // Note: We need to access the list length to know if it is last.
+        // For simplicity, we can just always add divider or handle this in ListView.separated
+        // But since this is inside a column mapping, we'll leave as is or verify logic.
+        // Assuming _ActivityListTile is used within a map, we can't easily check 'last' without context.
+        // Let's just remove the divider logic here and rely on the container, or just leave it.
+        // Ideally we should pass 'isLast' bool to this widget.
+        const Divider(height: 1, indent: 72, endIndent: 16),
       ],
     );
   }
@@ -1335,6 +1526,52 @@ class ActivityScheduleScreen extends StatelessWidget {
               const Divider(height: 1, indent: 16, endIndent: 16),
         ),
       ),
+    );
+  }
+}
+
+// Event Tile for list
+class _EventListTile extends StatelessWidget {
+  final Event event;
+
+  const _EventListTile({required this.event});
+
+  @override
+  Widget build(BuildContext context) {
+    // Format date: "Mon, Jan 1"
+    final dateStr = event.startDatetime != null 
+        ? DateFormat('EEE, MMM d').format(event.startDatetime!)
+        : 'Date TBD';
+    final timeStr = event.startDatetime != null
+        ? DateFormat('h:mm a').format(event.startDatetime!)
+        : '';
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              event.startDatetime != null ? DateFormat('MMM').format(event.startDatetime!) : '',
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue.shade800),
+            ),
+             Text(
+              event.startDatetime != null ? DateFormat('dd').format(event.startDatetime!) : '',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue.shade800),
+            ),
+          ],
+        ),
+      ),
+      title: Text(event.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text('$dateStr • $timeStr\n${event.location}', style: const TextStyle(fontSize: 12)),
+      isThreeLine: true,
     );
   }
 }

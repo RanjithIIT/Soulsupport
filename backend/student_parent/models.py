@@ -1,7 +1,9 @@
 """
 Models for student_parent app - API layer for App 4
 """
+import uuid
 from django.db import models
+from django.core.exceptions import ValidationError
 from main_login.models import User
 from management_admin.models import Student
 from teacher.models import Class, Attendance, Assignment, Exam, Grade, Timetable, StudyMaterial
@@ -217,4 +219,247 @@ class Communication(models.Model):
         verbose_name = 'Communication'
         verbose_name_plural = 'Communications'
         ordering = ['-created_at']
+
+
+class ChatMessage(models.Model):
+    """Chat message model for real-time messaging with support for text, images, and files"""
+    
+    MESSAGE_TYPE_CHOICES = [
+        ('text', 'Text'),
+        ('image', 'Image'),
+        ('file', 'File'),
+        ('video', 'Video'),
+    ]
+    
+    message_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    sender = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='sent_chat_messages',
+        help_text='User who sent the message'
+    )
+    recipient = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='received_chat_messages',
+        help_text='User who receives the message'
+    )
+    school_id = models.CharField(
+        max_length=100, 
+        db_index=True, 
+        null=True, 
+        blank=True, 
+        editable=False, 
+        help_text='School ID for filtering (read-only, fetched from users table)'
+    )
+    school_name = models.CharField(
+        max_length=255, 
+        null=True, 
+        blank=True, 
+        editable=False, 
+        help_text='School name (read-only, auto-populated from schools table)'
+    )
+    
+    # Message content
+    message_type = models.CharField(
+        max_length=20,
+        choices=MESSAGE_TYPE_CHOICES,
+        default='text',
+        help_text='Type of message: text, image, file, or video'
+    )
+    message_text = models.TextField(
+        null=True,
+        blank=True,
+        help_text='Text content of the message (required for text messages)'
+    )
+    
+    # File/Image attachment
+    attachment = models.FileField(
+        upload_to='chat_attachments/%Y/%m/%d/',
+        null=True,
+        blank=True,
+        help_text='Attached file, image, or video'
+    )
+    attachment_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text='Original filename of the attachment'
+    )
+    attachment_size = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text='File size in bytes'
+    )
+    attachment_type = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text='MIME type of the attachment (e.g., image/jpeg, application/pdf)'
+    )
+    
+    # Message metadata
+    is_read = models.BooleanField(
+        default=False,
+        help_text='Whether the recipient has read this message'
+    )
+    read_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Timestamp when the message was read'
+    )
+    is_deleted = models.BooleanField(
+        default=False,
+        help_text='Soft delete flag - message is marked as deleted but kept in database'
+    )
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Timestamp when the message was deleted'
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def save(self, *args, **kwargs):
+        """Auto-populate school_id, school_name, and attachment metadata"""
+        from main_login.utils import get_user_school_id, get_user_school
+        
+        # Validate message content based on type
+        if self.message_type == 'text' and not self.message_text:
+            raise ValidationError('Text messages must have message_text content')
+        
+        if self.message_type in ['image', 'file', 'video'] and not self.attachment:
+            raise ValidationError(f'{self.message_type.capitalize()} messages must have an attachment')
+        
+        # Get school_id for both sender and recipient
+        sender_school_id = get_user_school_id(self.sender)
+        recipient_school_id = get_user_school_id(self.recipient)
+        
+        # Validate that sender and recipient have matching school_id
+        if sender_school_id and recipient_school_id:
+            if sender_school_id != recipient_school_id:
+                raise ValidationError(
+                    f'Cannot send message: Sender and recipient must belong to the same school. '
+                    f'Sender school: {sender_school_id}, Recipient school: {recipient_school_id}'
+                )
+            self.school_id = sender_school_id
+            # Get school name
+            school = get_user_school(self.sender)
+            if school:
+                self.school_name = school.school_name
+        elif sender_school_id:
+            self.school_id = sender_school_id
+            school = get_user_school(self.sender)
+            if school:
+                self.school_name = school.school_name
+        elif recipient_school_id:
+            self.school_id = recipient_school_id
+            school = get_user_school(self.recipient)
+            if school:
+                self.school_name = school.school_name
+        
+        # Auto-populate attachment metadata if attachment is provided
+        if self.attachment:
+            import os
+            import mimetypes
+            
+            if not self.attachment_name:
+                self.attachment_name = os.path.basename(self.attachment.name)
+            
+            if not self.attachment_size:
+                try:
+                    self.attachment_size = self.attachment.size
+                except:
+                    pass
+            
+            if not self.attachment_type:
+                # Try to detect MIME type
+                mime_type, _ = mimetypes.guess_type(self.attachment.name)
+                if mime_type:
+                    self.attachment_type = mime_type
+                else:
+                    # Fallback based on file extension
+                    ext = os.path.splitext(self.attachment.name)[1].lower()
+                    if ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
+                        self.attachment_type = 'image/' + ext.lstrip('.')
+                    elif ext in ['.pdf']:
+                        self.attachment_type = 'application/pdf'
+                    elif ext in ['.doc', '.docx']:
+                        self.attachment_type = 'application/msword'
+                    elif ext in ['.mp4', '.avi', '.mov']:
+                        self.attachment_type = 'video/' + ext.lstrip('.')
+                    else:
+                        self.attachment_type = 'application/octet-stream'
+        
+        super().save(*args, **kwargs)
+    
+    def mark_as_read(self):
+        """Mark the message as read"""
+        if not self.is_read:
+            from django.utils import timezone
+            self.is_read = True
+            self.read_at = timezone.now()
+            self.save(update_fields=['is_read', 'read_at'])
+    
+    def soft_delete(self):
+        """Soft delete the message"""
+        if not self.is_deleted:
+            from django.utils import timezone
+            self.is_deleted = True
+            self.deleted_at = timezone.now()
+            self.save(update_fields=['is_deleted', 'deleted_at'])
+    
+    @property
+    def attachment_url(self):
+        """Get the URL for the attachment if it exists"""
+        if self.attachment:
+            return self.attachment.url
+        return None
+    
+    @property
+    def is_image(self):
+        """Check if the message contains an image"""
+        return self.message_type == 'image' or (
+            self.attachment_type and self.attachment_type.startswith('image/')
+        )
+    
+    @property
+    def is_video(self):
+        """Check if the message contains a video"""
+        return self.message_type == 'video' or (
+            self.attachment_type and self.attachment_type.startswith('video/')
+        )
+    
+    @property
+    def is_file(self):
+        """Check if the message contains a file (non-image, non-video)"""
+        return self.message_type == 'file' or (
+            self.attachment_type and 
+            not self.attachment_type.startswith('image/') and 
+            not self.attachment_type.startswith('video/')
+        )
+    
+    def __str__(self):
+        sender_name = f"{self.sender.first_name} {self.sender.last_name}".strip() or self.sender.username
+        recipient_name = f"{self.recipient.first_name} {self.recipient.last_name}".strip() or self.recipient.username
+        
+        if self.message_type == 'text':
+            preview = (self.message_text[:50] + '...') if self.message_text and len(self.message_text) > 50 else (self.message_text or '')
+        else:
+            preview = f"[{self.get_message_type_display()}] {self.attachment_name or 'No file'}"
+        
+        return f"{sender_name} -> {recipient_name}: {preview}"
+    
+    class Meta:
+        db_table = 'chat_messages'
+        verbose_name = 'Chat Message'
+        verbose_name_plural = 'Chat Messages'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['sender', 'recipient', 'created_at']),
+            models.Index(fields=['school_id', 'created_at']),
+            models.Index(fields=['is_read', 'created_at']),
+        ]
 

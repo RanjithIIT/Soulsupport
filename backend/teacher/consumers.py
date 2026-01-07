@@ -2,7 +2,8 @@ import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
-from student_parent.models import Communication
+from student_parent.models import Communication, ChatMessage
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -51,28 +52,48 @@ class TeacherStudentChatConsumer(AsyncWebsocketConsumer):
         try:
             data = json.loads(text_data or '{}')
             message_text = data.get('message', '').strip()
-            recipient_username = data.get('recipient')
+            recipient_username = data.get('recipient', '').strip()
             
             if not message_text:
                 return
             
             # If recipient is provided, save to database
+            recipient = None
+            chat_message = None
             if recipient_username:
                 recipient = await self.get_user_by_username(recipient_username)
                 if recipient:
-                    # Save message to database
-                    await self.save_message(self.user, recipient, message_text)
+                    # Save message to database (returns ChatMessage instance)
+                    chat_message = await self.save_message(self.user, recipient, message_text)
+                else:
+                    # Log warning if recipient not found
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f'Recipient not found: {recipient_username}')
             
-            # Broadcast to group
+            # Get sender's display name (first_name + last_name or username)
+            # Always use the authenticated user's info, ignore sender from frontend
+            sender_name = self.user.username
+            if self.user.first_name or self.user.last_name:
+                sender_name = f"{self.user.first_name or ''} {self.user.last_name or ''}".strip()
+                if not sender_name:  # If stripped result is empty, use username
+                    sender_name = self.user.username
+            
+            # Broadcast to group - This ensures BOTH sender and recipient receive the message
+            # Both users should be connected to the same room_id (group_name)
+            # This works like WhatsApp/Telegram - both ends receive messages in real-time
             await self.channel_layer.group_send(
                 self.group_name,
                 {
                     'type': 'chat.message',
-                    'sender': self.user.username,
+                    'sender': sender_name,  # Send full name instead of just username
+                    'sender_username': self.user.username,  # Also include username for comparison
                     'sender_id': str(self.user.user_id),
-                    'recipient': recipient_username or '',
+                    'recipient': recipient_username or '',  # Can be empty if not provided
+                    'recipient_id': str(recipient.user_id) if recipient else '',
                     'message': message_text,
-                    'timestamp': data.get('timestamp', ''),
+                    'timestamp': data.get('timestamp', timezone.now().isoformat()),
+                    'message_id': str(chat_message.message_id) if chat_message else '',
                 },
             )
         except json.JSONDecodeError:
@@ -87,14 +108,20 @@ class TeacherStudentChatConsumer(AsyncWebsocketConsumer):
             }))
 
     async def chat_message(self, event):
-        """Send message to WebSocket"""
+        """Send message to WebSocket - Send to both sender and recipient in the same room"""
+        # IMPORTANT: Both sender and recipient should receive the message
+        # The frontend will filter based on the current conversation
+        # This ensures real-time bidirectional messaging like WhatsApp/Telegram
         await self.send(text_data=json.dumps({
             'type': 'message',
             'sender': event['sender'],
+            'sender_username': event.get('sender_username', event['sender']),
             'sender_id': event.get('sender_id'),
-            'recipient': event.get('recipient'),
+            'recipient': event.get('recipient', ''),
+            'recipient_id': event.get('recipient_id', ''),
             'message': event['message'],
-            'timestamp': event.get('timestamp'),
+            'timestamp': event.get('timestamp', ''),
+            'message_id': event.get('message_id', ''),
         }))
 
     @database_sync_to_async
@@ -149,7 +176,7 @@ class TeacherStudentChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def save_message(self, sender, recipient, message):
-        """Save message to Communication model with school_id validation"""
+        """Save message to ChatMessage model for real-time chat (WhatsApp/Telegram-like)"""
         from main_login.utils import get_user_school_id
         
         # Get school_id for both sender and recipient
@@ -164,11 +191,28 @@ class TeacherStudentChatConsumer(AsyncWebsocketConsumer):
                     f'Sender school: {sender_school_id}, Recipient school: {recipient_school_id}'
                 )
         
-        # Save message (Communication model's save() will also validate)
-        Communication.objects.create(
+        # Save message to ChatMessage model (designed for real-time chat)
+        chat_message = ChatMessage.objects.create(
             sender=sender,
             recipient=recipient,
-            subject=f'Chat: {sender.username} to {recipient.username}',
-            message=message,
+            message_type='text',
+            message_text=message,
             is_read=False
         )
+        
+        # Also save to Communication model for backward compatibility
+        try:
+            Communication.objects.create(
+                sender=sender,
+                recipient=recipient,
+                subject=f'Chat: {sender.username} to {recipient.username}',
+                message=message,
+                is_read=False
+            )
+        except Exception as e:
+            # If Communication save fails, log but don't fail the chat message
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f'Failed to save to Communication model: {str(e)}')
+        
+        return chat_message

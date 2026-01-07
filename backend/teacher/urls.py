@@ -22,5 +22,7 @@ urlpatterns = [
     path('profile/', views.teacher_profile, name='teacher-profile'),
     path('communications/', views.teacher_communications, name='teacher-communications'),
     path('chat-history/', views.teacher_chat_history, name='teacher-chat-history'),
+    path('school-details/', views.school_details, name='school-details'),
+    path('dashboard-stats/', views.dashboard_stats, name='dashboard-stats'),
 ]
 

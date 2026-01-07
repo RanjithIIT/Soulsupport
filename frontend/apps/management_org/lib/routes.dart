@@ -23,9 +23,11 @@ import 'edit_student.dart';
 import 'edit_teacher.dart';
 import 'edit_bus.dart';
 import 'edit_activity.dart';
+import 'add_newactivity.dart';
 import 'add_newBus.dart';
 import 'add_event.dart';
 import 'edit_event.dart';
+
 
 class ManagementRoutePages {
   static Map<String, WidgetBuilder> routes = {
@@ -66,6 +68,7 @@ class ManagementRoutePages {
       final activityId = args is int ? args : null;
       return EditActivityPage(activityId: activityId);
     },
+    ManagementRoutes.addActivity: (_) => const AddNewActivityPage(),
     ManagementRoutes.addNewBus: (_) => const AddNewBusPage(),
     ManagementRoutes.addEvent: (_) => const AddEventPage(),
     ManagementRoutes.editEvent: (context) {

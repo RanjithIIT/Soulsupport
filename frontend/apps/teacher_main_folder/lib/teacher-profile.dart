@@ -17,6 +17,7 @@ class TeacherProfileApp extends StatelessWidget {
       title: 'Teacher Profile',
       theme: ThemeData(
         useMaterial3: true,
+<<<<<<< HEAD
         scaffoldBackgroundColor: const Color(0xFFF0F2F5),
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF6366F1), // Indigo
@@ -28,6 +29,37 @@ class TeacherProfileApp extends StatelessWidget {
           titleMedium: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.black87),
           bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
           bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black54),
+=======
+        scaffoldBackgroundColor: const Color(0xFFF8F9FE), // Soft blue-grey background
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6A1B9A)),
+        // === BOLDNESS/SHARPNESS INCREASED HERE ===
+        textTheme: const TextTheme(
+          bodyLarge: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: Colors.black87,
+          ),
+          bodyMedium: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+          bodySmall: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.black54,
+          ),
+          titleMedium: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: Colors.black,
+          ),
+          headlineSmall: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            color: Colors.black,
+          ),
+>>>>>>> origin/praneeth
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
@@ -62,9 +94,14 @@ class TeacherProfilePage extends StatefulWidget {
   State<TeacherProfilePage> createState() => _TeacherProfilePageState();
 }
 
+<<<<<<< HEAD
 class _TeacherProfilePageState extends State<TeacherProfilePage>
     {
   // Navigation state removed as sidebar is gone
+=======
+class _TeacherProfilePageState extends State<TeacherProfilePage> {
+
+>>>>>>> origin/praneeth
 
   // ====================== METADATA VARIABLES ==========================
   // NOTE: These are made mutable for demonstration, but should typically remain read-only in a production environment.
@@ -95,6 +132,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
   late String addressCountry;
   late String postalCode;
   late String profilePhotoId;
+  String? profilePhotoUrl; // Added for remote image
   File? _profileImage;
 
   // Professional
@@ -196,6 +234,19 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
     emergencyContactRelation = '';
     emergencyContactPhone = data['emergency_contact'] ?? '';
     isActive = data['is_active'] ?? true;
+
+    // Parse profile photo URL
+    profilePhotoUrl = null;
+    if (data['profile_photo_url'] != null && data['profile_photo_url'].toString().isNotEmpty) {
+      profilePhotoUrl = data['profile_photo_url'] as String;
+    } else if (data['profile_photo'] != null) {
+      if (data['profile_photo'] is Map) {
+        final photo = data['profile_photo'] as Map<String, dynamic>;
+        profilePhotoUrl = photo['file_url'] as String?;
+      } else if (data['profile_photo'] is String && (data['profile_photo'] as String).isNotEmpty) {
+        profilePhotoUrl = data['profile_photo'] as String;
+      }
+    }
     
     // Parse subject specialization
     final specialization = data['subject_specialization'] ?? '';
@@ -259,6 +310,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
     addressCountry = 'United States';
     postalCode = '12345';
     profilePhotoId = 'PPH-5555';
+    profilePhotoUrl = null;
 
     qualification = 'M.Ed Mathematics';
     subjectsSpecialization = ['Advanced Mathematics', 'Calculus'];
@@ -395,6 +447,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
     }
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FE),
       appBar: AppBar(
         automaticallyImplyLeading: false,
         toolbarHeight: 60,
@@ -415,6 +468,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
           'Teacher Profile',
           style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
         ),
+<<<<<<< HEAD
         elevation: 0,
       ),
       body: Container(
@@ -497,6 +551,89 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
               right: 20,
               child: _buildFloatingAction(),
             ),
+=======
+        actions: const [],
+        elevation: 0,
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // -------------------- PROFILE HEADER --------------------
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+              color: Colors.white,
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: _pickImage,
+                    child: CircleAvatar(
+                      radius: 35,
+                      backgroundColor: Colors.grey.shade200,
+                      backgroundImage: _profileImage != null
+                          ? FileImage(_profileImage!)
+                          : (profilePhotoUrl != null && profilePhotoUrl!.isNotEmpty
+                              ? NetworkImage(profilePhotoUrl!) as ImageProvider
+                              : null),
+                      child: _profileImage == null && (profilePhotoUrl == null || profilePhotoUrl!.isEmpty)
+                          ? Icon(
+                              Icons.camera_alt,
+                              color: Colors.grey.shade600,
+                              size: 30,
+                            )
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 15),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        profileName,
+                        style: Theme.of(context).textTheme.titleMedium!.copyWith(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '$designation - $department',
+                        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                          color: Colors.black87,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Employee ID: $employeeNo',
+                        style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                          color: Colors.black54,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.grey),
+                    onPressed: () {
+                      _show('Edit profile (simulated)');
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: Colors.grey),
+
+            // -------------------- SECTIONS --------------------
+            _buildPersonalTab(isMobile),
+            const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
+            _buildProfessionalTab(isMobile),
+            const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
+            _buildNotificationsTab(),
+            const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
+            _buildSecurityTab(),
+            const SizedBox(height: 30),
+>>>>>>> origin/praneeth
           ],
         ),
       ),
@@ -510,9 +647,15 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
   // ============================================================================
   // PERSONAL TAB — ALL FIELDS EDITABLE
   // ============================================================================
+<<<<<<< HEAD
   Widget _buildPersonalSection(bool isMobile) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+=======
+  Widget _buildPersonalTab(bool isMobile) {
+    return _buildSectionCard(
+      title: 'Personal Information',
+>>>>>>> origin/praneeth
       children: [
         _row(isMobile, [
           _input('First Name', firstName, (v) => firstName = v),
@@ -520,6 +663,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
           _input('Last Name', lastName, (v) => lastName = v),
           _input('Employee Number', employeeNo, (v) => employeeNo = v),
         ]),
+<<<<<<< HEAD
         _row(isMobile, [
           _input('Date of Birth (YYYY-MM-DD)', dateOfBirth, (v) => dateOfBirth = v),
           _input('Gender', gender, (v) => gender = v),
@@ -542,6 +686,49 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
         _inputArea('Full Address', addressFull, (v) => addressFull = v),
         const SizedBox(height: 10),
         _saveButton(() => _show('Personal Info Saved!')),
+=======
+
+          _row(isMobile, [
+            _input(
+              'Date of Birth (YYYY-MM-DD)',
+              dateOfBirth,
+              (v) => dateOfBirth = v,
+            ),
+            _input('Gender', gender, (v) => gender = v),
+            _input('Blood Group', bloodGroup, (v) => bloodGroup = v),
+            _input('Nationality', nationality, (v) => nationality = v),
+          ]),
+
+          const SizedBox(height: 20),
+          _title('Contact'),
+
+          _row(isMobile, [
+            _input('Email', email, (v) => email = v),
+            _input('Mobile', mobile, (v) => mobile = v),
+          ]),
+
+          const SizedBox(height: 20),
+          _title('Location'),
+
+          _row(isMobile, [
+            _input('City', addressCity, (v) => addressCity = v),
+            _input('State', addressState, (v) => addressState = v),
+            _input('Country', addressCountry, (v) => addressCountry = v),
+            _input('Postal Code', postalCode, (v) => postalCode = v),
+          ]),
+
+          _inputArea('Full Address', addressFull, (v) => addressFull = v),
+
+          const SizedBox(height: 20),
+          _title('Religious/Caste Details'),
+          _row(isMobile, [
+            _input('Religion', religion, (v) => religion = v),
+            _input('Sub Caste', subCaste, (v) => subCaste = v),
+          ]),
+
+          const SizedBox(height: 30),
+          _saveButton(() => _show('Personal Info Saved!')),
+>>>>>>> origin/praneeth
       ],
     );
   }
@@ -549,14 +736,21 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
   // ============================================================================
   // PROFESSIONAL TAB — ALL FIELDS EDITABLE
   // ============================================================================
+<<<<<<< HEAD
   Widget _buildProfessionalSection(bool isMobile) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+=======
+  Widget _buildProfessionalTab(bool isMobile) {
+    return _buildSectionCard(
+      title: 'Professional Details',
+>>>>>>> origin/praneeth
       children: [
         _row(isMobile, [
           _input('Department', department, (v) => department = v),
           _input('Designation', designation, (v) => designation = v),
           _input('Qualification', qualification, (v) => qualification = v),
+<<<<<<< HEAD
           _input('Joining Date (YYYY-MM-DD)', joiningDate, (v) => joiningDate = v),
         ]),
         const SizedBox(height: 20),
@@ -611,6 +805,126 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
         _inputArea('Notes', notes, (v) => notes = v),
         const SizedBox(height: 10),
         _saveButton(() => _show('Professional Details Saved!')),
+=======
+          _input(
+            'Joining Date (YYYY-MM-DD)',
+            joiningDate,
+            (v) => joiningDate = v,
+          ),
+        ]),
+
+          const SizedBox(height: 20),
+          _title('System Assignment'),
+
+          _row(isMobile, [
+            _input('Primary Room ID', primaryRoomId, (v) => primaryRoomId = v),
+            _input(
+              'Class Teacher Section ID',
+              classTeacherOfSectionId,
+              (v) => classTeacherOfSectionId = v,
+            ),
+            _input('Department ID', departmentId, (v) => departmentId = v),
+            _input(
+              'Employment Status',
+              employmentStatus,
+              (v) => employmentStatus = v,
+            ),
+          ]),
+
+          const SizedBox(height: 20),
+          _title('Subjects Specialization'),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (int i = 0; i < subjectsSpecialization.length; i++)
+                Chip(
+                  label: Text(
+                    subjectsSpecialization[i],
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  onDeleted: () =>
+                      setState(() => subjectsSpecialization.removeAt(i)),
+                ),
+            ],
+          ),
+
+          TextField(
+            controller: _subjectController,
+            decoration: const InputDecoration(hintText: 'Add subject'),
+            onSubmitted: (v) {
+              if (v.trim().isNotEmpty) {
+                setState(() => subjectsSpecialization.add(v.trim()));
+                _subjectController.clear();
+              }
+            },
+          ),
+
+          const SizedBox(height: 20),
+          _title('Work Schedule'),
+          _row(isMobile, [
+            _input('Available From', availableFrom, (v) => availableFrom = v),
+            _input('Available To', availableTo, (v) => availableTo = v),
+            _input(
+              'Active Work Days (List:Monday,Tuesday,Wednesday,Thursday,Friday & Saturday)',
+              workDays.join(', '),
+              (v) {
+                // Note: This conversion is simplistic and assumes comma-separated integers.
+                try {
+                  workDays = v
+                      .split(',')
+                      .map((s) => int.parse(s.trim()))
+                      .toList();
+                } catch (_) {
+                  /* handle error */
+                }
+              },
+            ), // MADE EDITABLE
+            _input(
+              'Is Class Teacher (Yes/No)',
+              isClassTeacher ? 'Yes' : 'No',
+              (v) => isClassTeacher = (v.toLowerCase() == 'yes'),
+            ),
+          ]),
+
+          const SizedBox(height: 20),
+          _title('Emergency Contact'),
+          _row(isMobile, [
+            _input(
+              'Contact Name',
+              emergencyContactName,
+              (v) => emergencyContactName = v,
+            ),
+            _input(
+              'Relation',
+              emergencyContactRelation,
+              (v) => emergencyContactRelation = v,
+            ),
+            _input(
+              'Phone',
+              emergencyContactPhone,
+              (v) => emergencyContactPhone = v,
+            ),
+          ]),
+
+          const SizedBox(height: 20),
+          _inputArea('Notes', notes, (v) => notes = v),
+
+          const SizedBox(height: 20),
+          _title('System IDs'),
+          _row(isMobile, [
+            _input('Teacher ID', teacherId, (v) => teacherId = v),
+            _input('User ID', userId, (v) => userId = v),
+            _input(
+              'Account Active (True/False)',
+              isActive.toString(),
+              (v) => isActive = (v.toLowerCase() == 'true'),
+            ),
+          ]),
+
+          const SizedBox(height: 30),
+
+          _saveButton(() => _show('Professional Info Saved!')),
+>>>>>>> origin/praneeth
       ],
     );
   }
@@ -618,6 +932,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
   // ============================================================================
   // NOTIFICATIONS TAB
   // ============================================================================
+<<<<<<< HEAD
   Widget _buildNotificationsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -628,6 +943,39 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
         _notifyTile('Attendance Alerts', attendanceAlertsEnabled, (v) => setState(() => attendanceAlertsEnabled = v)),
         _notifyTile('Grade Updates', gradeUpdatesEnabled, (v) => setState(() => gradeUpdatesEnabled = v)),
         const SizedBox(height: 10),
+=======
+  Widget _buildNotificationsTab() {
+    return _buildSectionCard(
+      title: 'Alert Preferences',
+      children: [
+        _notifyTile(
+          'Assignment Submissions',
+          assignmentsEnabled,
+          (v) => setState(() => assignmentsEnabled = v),
+        ),
+        _notifyTile(
+          'Exam Reminders',
+          examsEnabled,
+          (v) => setState(() => examsEnabled = v),
+        ),
+        _notifyTile(
+          'Parent Messages',
+          parentMessagesEnabled,
+          (v) => setState(() => parentMessagesEnabled = v),
+        ),
+        _notifyTile(
+          'Attendance Alerts',
+          attendanceAlertsEnabled,
+          (v) => setState(() => attendanceAlertsEnabled = v),
+        ),
+        _notifyTile(
+          'Grade Updates',
+          gradeUpdatesEnabled,
+          (v) => setState(() => gradeUpdatesEnabled = v),
+        ),
+
+        const SizedBox(height: 20),
+>>>>>>> origin/praneeth
         _saveButton(() => _show('Notification Preferences Saved!')),
       ],
     );
@@ -636,16 +984,35 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
   // ============================================================================
   // SECURITY TAB — System fields moved to Professional tab, security actions remain.
   // ============================================================================
+<<<<<<< HEAD
   Widget _buildSecuritySection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Account Metadata', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         const SizedBox(height: 10),
+=======
+  Widget _buildSecurityTab() {
+    return _buildSectionCard(
+      title: 'Account & Security',
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Text(
+            'Account Status (Metadata)',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
+            ),
+          ),
+        ),
+>>>>>>> origin/praneeth
         _readonly('School ID', schoolId),
         _readonly('Created By', createdBy),
         _readonly('Created At', createdAt),
         _readonly('Last Updated At', updatedAt),
+<<<<<<< HEAD
         
         const SizedBox(height: 32),
         const Text('Change Password', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
@@ -667,6 +1034,36 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
           }
           _show('Password Updated Successfully!');
         }, label: 'Update Password'),
+=======
+
+        const SizedBox(height: 24),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Text(
+            'Credentials and Sessions',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
+            ),
+          ),
+        ),
+        _securityTile(
+          'Change Password',
+          Icons.lock,
+          () => _show('Change Password'),
+        ),
+        _securityTile(
+          'Enable Two-Factor Authentication',
+          Icons.security,
+          () => _show('2FA Setup'),
+        ),
+        _securityTile(
+          'Manage Active Sessions',
+          Icons.devices,
+          () => _show('Sessions Management'),
+        ),
+>>>>>>> origin/praneeth
 
         const SizedBox(height: 32),
         const Text('Other Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
@@ -828,10 +1225,52 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
   }
 
   // ============================================================================
+<<<<<<< HEAD
   // -------------------------- UI HELPERS --------------------------------------
+=======
+  // -------------------------- PREMIUM UI HELPERS ------------------------------
+>>>>>>> origin/praneeth
   // ============================================================================
 
+  Widget _buildSectionCard({required String title, required List<Widget> children}) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (title.isNotEmpty) ...[
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF2D3142),
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+          ...children,
+        ],
+      ),
+    );
+  }
+
   Widget _row(bool mobile, List<Widget> items) {
+<<<<<<< HEAD
     if (mobile) {
       return Column(
         children: items.map((e) => Padding(padding: const EdgeInsets.only(bottom: 16), child: e)).toList(),
@@ -842,6 +1281,19 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
       runSpacing: 20,
       children: items.map((e) => SizedBox(width: 250, child: e)).toList(),
     );
+=======
+    return mobile
+        ? Column(
+            children: items
+                .map((e) => Padding(padding: const EdgeInsets.only(bottom: 16), child: e))
+                .toList(),
+          )
+        : Wrap(
+            spacing: 20,
+            runSpacing: 20,
+            children: items.map((e) => SizedBox(width: 300, child: e)).toList(),
+          );
+>>>>>>> origin/praneeth
   }
 
   Widget _input(String label, String value, Function(String) onChanged) {
@@ -850,14 +1302,47 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
       children: [
         Text(
           label,
+<<<<<<< HEAD
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.blueGrey),
+=======
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
+          ),
+>>>>>>> origin/praneeth
         ),
         const SizedBox(height: 8),
         TextFormField(
           initialValue: value,
           onChanged: (v) => setState(() => onChanged(v)),
+<<<<<<< HEAD
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
           decoration: const InputDecoration(), // Uses theme decoration
+=======
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+            fontSize: 15,
+          ),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFFF5F7FA),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none, // Clean look
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF8B47E6), width: 1.5),
+            ),
+          ),
+>>>>>>> origin/praneeth
         ),
       ],
     );
@@ -869,6 +1354,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
       children: [
         Text(
           label,
+<<<<<<< HEAD
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.blueGrey),
         ),
         const SizedBox(height: 8),
@@ -881,9 +1367,33 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Color(0xFFECF0F3)),
+=======
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[600],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: Colors.black54,
+>>>>>>> origin/praneeth
             ),
           ),
         ),
+        const SizedBox(height: 16),
       ],
     );
   }
@@ -950,17 +1460,44 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
       children: [
         Text(
           label,
+<<<<<<< HEAD
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.blueGrey),
+=======
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
+          ),
+>>>>>>> origin/praneeth
         ),
         const SizedBox(height: 8),
         TextFormField(
           obscureText: obscure,
           onChanged: (v) => setState(() => onChanged(v)),
+<<<<<<< HEAD
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
           decoration: InputDecoration(
             suffixIcon: IconButton(
               icon: Icon(obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 20),
               onPressed: onToggle,
+=======
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+            fontSize: 15,
+          ),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFFF5F7FA),
+            contentPadding: const EdgeInsets.all(16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF8B47E6), width: 1.5),
+>>>>>>> origin/praneeth
             ),
           ),
         ),
@@ -968,6 +1505,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
     );
   }
 
+<<<<<<< HEAD
   Widget _saveButton(VoidCallback f, {String label = 'Save Changes'}) {
     return Padding(
       padding: const EdgeInsets.only(top: 20),
@@ -984,16 +1522,125 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
           ),
           child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         ),
+=======
+  Widget _notifyTile(String title, bool value, Function(bool) onChanged) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+       color: value ? const Color(0xFFF3E5F5) : const Color(0xFFF5F7FA),
+        borderRadius: BorderRadius.circular(12),
+        border: value ? Border.all(color: const Color(0xFF8B47E6).withOpacity(0.3)) : null,
+      ),
+      child: SwitchListTile(
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: value ? const Color(0xFF6A1B9A) : Colors.black87,
+          ),
+        ),
+        value: value,
+        activeColor: const Color(0xFF8B47E6),
+        onChanged: onChanged,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  Widget _securityTile(String title, IconData i, VoidCallback onTap) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF8B47E6).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(i, color: const Color(0xFF8B47E6), size: 20),
+        ),
+        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  Widget _title(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 16),
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w800,
+        color: Color(0xFF2D3142),
+      ), 
+    ),
+  );
+
+  Widget _saveButton(VoidCallback f) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: ElevatedButton.icon(
+        onPressed: f,
+        icon: const Icon(Icons.check_circle_outline, size: 20),
+        label: const Text('Save Changes'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF2D3142),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+          ),
+        ),
+>>>>>>> origin/praneeth
       ),
     );
   }
 
   void _show(String msg) {
+<<<<<<< HEAD
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
       behavior: SnackBarBehavior.floating,
       backgroundColor: const Color(0xFF1E293B),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ));
+=======
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(20),
+      ),
+    );
+>>>>>>> origin/praneeth
   }
 }

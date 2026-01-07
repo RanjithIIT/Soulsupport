@@ -1133,39 +1133,131 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                                   
                                   debugPrint('✓ Found matching student assignment!');
                                   
-                                  // Get the bus_stop info
-                                  final busStopInfo = assignment['bus_stop'];
+                                  // Try to get bus number from the new bus_number field first (from updated serializer)
+                                  String? assignedBusNumber = assignment['bus_number']?.toString();
+                                  debugPrint('Bus number from direct field: $assignedBusNumber');
                                   
-                                  if (busStopInfo is Map) {
+                                  // If not available, try the nested structure
+                                  if (assignedBusNumber == null || assignedBusNumber.isEmpty) {
+                                    // Try bus_stop_detail first (new structure)
+                                    final busStopDetail = assignment['bus_stop_detail'];
+                                    if (busStopDetail is Map) {
+                                      final busInfo = busStopDetail['bus'];
+                                      if (busInfo is Map) {
+                                        assignedBusNumber = busInfo['bus_number']?.toString() ?? 
+                                                           busInfo['id']?.toString();
+                                        debugPrint('Bus number from bus_stop_detail: $assignedBusNumber');
+                                      }
+                                    }
+                                    
+                                    // Fallback to old structure
+                                    if (assignedBusNumber == null || assignedBusNumber.isEmpty) {
+                                      // Get the bus_stop info
+                                      final busStopInfo = assignment['bus_stop'];
+                                      debugPrint('Bus stop info: $busStopInfo');
+                                      
+                                      if (busStopInfo is Map) {
+                                    // Try to get bus info from nested structure
                                     final busInfo = busStopInfo['bus'];
                                     debugPrint('Bus info type: ${busInfo.runtimeType}, value: $busInfo');
                                     
                                     if (busInfo is Map) {
-                                      final assignedBusNumber = busInfo['bus_number']?.toString() ?? 
-                                                               busInfo['bus_id']?.toString() ??
-                                                               busInfo['id']?.toString();
-                                      
-                                      debugPrint('Assigned bus number: $assignedBusNumber');
-                                      debugPrint('Comparing: "$assignedBusNumber" vs "$currentBusNumber"');
-                                      
-                                      // If assigned to a different bus, show popup
-                                      if (assignedBusNumber != null && 
-                                          assignedBusNumber.isNotEmpty &&
-                                          assignedBusNumber.trim() != currentBusNumber.trim()) {
-                                        existingBusNumber = assignedBusNumber;
-                                        debugPrint('✓✓✓ Student is assigned to different bus: $existingBusNumber');
-                                        break;
-                                      } else {
-                                        debugPrint('Student is assigned to same bus, skipping...');
-                                      }
+                                      assignedBusNumber = busInfo['bus_number']?.toString() ?? 
+                                                         busInfo['bus_id']?.toString() ??
+                                                         busInfo['id']?.toString();
+                                      debugPrint('Extracted bus_number from Map: $assignedBusNumber');
                                     } else if (busInfo is String) {
-                                      // Sometimes bus might be just an ID string
-                                      if (busInfo.trim() != currentBusNumber.trim()) {
-                                        existingBusNumber = busInfo;
-                                        debugPrint('✓✓✓ Student is assigned to different bus (string): $existingBusNumber');
+                                      // busInfo is a bus ID string - we need to fetch the bus to get bus_number
+                                      debugPrint('Bus info is string (ID): $busInfo, fetching bus details...');
+                                      try {
+                                        final busResponse = await _apiService.get('${Endpoints.buses}$busInfo/');
+                                        if (busResponse.success && busResponse.data is Map) {
+                                          final busData = busResponse.data as Map;
+                                          assignedBusNumber = busData['bus_number']?.toString() ??
+                                                             busData['id']?.toString() ??
+                                                             busInfo; // Fallback to ID if bus_number not found
+                                          debugPrint('Fetched bus_number from API: $assignedBusNumber');
+                                        } else {
+                                          // If we can't fetch bus details, use the ID as fallback
+                                          assignedBusNumber = busInfo;
+                                          debugPrint('Could not fetch bus details, using ID: $assignedBusNumber');
+                                        }
+                                      } catch (e) {
+                                        debugPrint('Error fetching bus details: $e');
+                                        // If fetch fails, treat as potential conflict if it's a new bus
+                                        if (currentBusNumber.isEmpty) {
+                                          assignedBusNumber = 'another bus';
+                                        } else {
+                                          assignedBusNumber = busInfo;
+                                        }
+                                      }
+                                    }
+                                    
+                                    // Also try to get bus_number directly from bus_stop if available
+                                    if (assignedBusNumber == null || assignedBusNumber.isEmpty) {
+                                      assignedBusNumber = busStopInfo['bus_number']?.toString() ??
+                                                         busStopInfo['bus_id']?.toString();
+                                      debugPrint('Tried bus_stop direct fields, got: $assignedBusNumber');
+                                    }
+                                    
+                                    debugPrint('Final assigned bus number: "$assignedBusNumber"');
+                                    debugPrint('Current bus number: "$currentBusNumber"');
+                                    
+                                    // If we found an assignment, check if it's a conflict
+                                    if (assignedBusNumber != null && assignedBusNumber.isNotEmpty) {
+                                      // If bus numbers don't match, it's a conflict
+                                      if (assignedBusNumber.trim().toLowerCase() != currentBusNumber.trim().toLowerCase()) {
+                                        existingBusNumber = assignedBusNumber;
+                                        debugPrint('✓✓✓ CONFLICT DETECTED - Student is assigned to different bus: $existingBusNumber');
+                                        break;
+                                      } 
+                                      // If they match, it's the same bus - no conflict
+                                      else {
+                                        debugPrint('Student is assigned to same bus, no conflict');
+                                      }
+                                    } 
+                                    // If we found an assignment but couldn't determine bus number,
+                                    // ALWAYS treat as conflict (student is assigned somewhere, we just don't know which bus)
+                                    else {
+                                      // Student is assigned somewhere but we can't determine which bus
+                                      // This is always a conflict - student shouldn't be in multiple places
+                                      existingBusNumber = 'another bus';
+                                      debugPrint('✓✓✓ CONFLICT DETECTED - Student is assigned but bus number unknown');
+                                      break;
+                                    }
+                                      } else {
+                                        debugPrint('Bus stop info is not a Map, type: ${busStopInfo.runtimeType}');
+                                        // If bus_stop is not a Map, we can't determine the bus - treat as conflict
+                                        existingBusNumber = 'another bus';
+                                        debugPrint('✓✓✓ CONFLICT DETECTED - Bus stop info is not a Map');
                                         break;
                                       }
                                     }
+                                  }
+                                  
+                                  // Final check: If we still don't have a bus number but found an assignment, treat as conflict
+                                  if (assignedBusNumber.isEmpty) {
+                                    // Student is assigned somewhere - this is always a conflict
+                                    existingBusNumber = 'another bus';
+                                    debugPrint('✓✓✓ CONFLICT DETECTED - Student assigned but bus number could not be determined');
+                                    break;
+                                  }
+                                  
+                                  // Final comparison check - we know assignedBusNumber is not null/empty here
+                                  debugPrint('Final assigned bus number: "$assignedBusNumber"');
+                                  debugPrint('Current bus number: "$currentBusNumber"');
+                                  
+                                  // If bus numbers don't match, it's a conflict
+                                  final assignedBus = assignedBusNumber.trim().toLowerCase();
+                                  final currentBus = currentBusNumber.trim().toLowerCase();
+                                  if (assignedBus != currentBus) {
+                                    existingBusNumber = assignedBusNumber;
+                                    debugPrint('✓✓✓ CONFLICT DETECTED - Student is assigned to different bus: $existingBusNumber');
+                                    break;
+                                  } 
+                                  // If they match, it's the same bus - no conflict
+                                  else {
+                                    debugPrint('Student is assigned to same bus, no conflict');
                                   }
                                 }
                               }
@@ -1188,7 +1280,12 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                           // If student is blocked, show popup and prevent adding
                           if (shouldBlockAdding && blockingBusNumber != null) {
                             debugPrint('✓✓✓ Showing popup for bus: $blockingBusNumber');
-                            setDialogState(() => isLoadingStudents = false);
+                            setDialogState(() {
+                              isLoadingStudents = false;
+                            });
+                            
+                            // Clear the input field
+                            studentIdController.clear();
                             
                             // Use a small delay to ensure state updates
                             await Future.delayed(const Duration(milliseconds: 100));
@@ -1207,7 +1304,7 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                                     ],
                                   ),
                                   content: Text(
-                                    'The student_id $studentIdString is already in Bus Number: $blockingBusNumber\n\n'
+                                    'The student with ID $studentIdString is already assigned to Bus Number: $blockingBusNumber\n\n'
                                     'Please remove the student from that bus first before assigning to this bus.',
                                   ),
                                   actions: [
@@ -1223,6 +1320,11 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                             return;
                           }
                           
+                          // Reset loading state if check passed
+                          setDialogState(() {
+                            isLoadingStudents = false;
+                          });
+                          
                           // Check if student is already assigned to any stop in current form
                           final allAssignedStudents = _getAllAssignedStudents();
                           if (allAssignedStudents.containsKey(studentIdString)) {
@@ -1234,9 +1336,21 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                             // Check if it's the same stop
                             if (stop.name == assignedStopName && 
                                 routeType == assignedRouteType) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Student already added to this stop'),
+                              setDialogState(() {
+                                isLoadingStudents = false;
+                              });
+                              // Use dialog instead of snackbar since we're in a dialog context
+                              showDialog(
+                                context: context,
+                                builder: (dialogContext) => AlertDialog(
+                                  title: const Text('Student Already Added'),
+                                  content: const Text('This student is already added to this stop.'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(dialogContext),
+                                      child: const Text('OK'),
+                                    ),
+                                  ],
                                 ),
                               );
                             } else {
@@ -1268,6 +1382,10 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                               'student_class': student['applying_class'] ?? '',
                             };
                             
+                            setDialogState(() {
+                              isLoadingStudents = false;
+                            });
+                            
                             setState(() {
                               stop.students.add(studentMap);
                               // If morning stop, sync to corresponding afternoon stop
@@ -1296,25 +1414,59 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                               }
                             });
                             studentIdController.clear();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Student added successfully'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
+                            // Student added successfully - no need to show message, field is cleared
                           }
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Student with ID $value not found'),
+                          setDialogState(() {
+                            isLoadingStudents = false;
+                          });
+                          setDialogState(() {
+                            isLoadingStudents = false;
+                          });
+                          // Use dialog instead of snackbar
+                          showDialog(
+                            context: context,
+                            builder: (dialogContext) => AlertDialog(
+                              title: const Text('Student Not Found'),
+                              content: Text('Student with ID $value not found. Please check the student ID and try again.'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(dialogContext),
+                                  child: const Text('OK'),
+                                ),
+                              ],
                             ),
                           );
                         }
                       }
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error: $e')),
-                      );
+                      // Check if mounted and if ScaffoldMessenger is available
+                      if (mounted) {
+                        try {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
+                          );
+                        } catch (scaffoldError) {
+                          // If ScaffoldMessenger is not available (e.g., in dialog), show dialog instead
+                          debugPrint('Error showing snackbar: $scaffoldError');
+                          debugPrint('Original error: $e');
+                          if (mounted) {
+                            showDialog(
+                              context: context,
+                              builder: (dialogContext) => AlertDialog(
+                                title: const Text('Error'),
+                                content: Text('Error: $e'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(dialogContext),
+                                    child: const Text('OK'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                        }
+                      }
                     } finally {
                       setDialogState(() => isLoadingStudents = false);
                     }
@@ -1372,6 +1524,166 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
       return;
     }
     
+    // Validate all students before submission - check if any are assigned to other buses
+    final currentBusNumber = widget.bus != null 
+        ? widget.bus!.id 
+        : _busNumberController.text.trim();
+    
+    if (currentBusNumber.isNotEmpty) {
+      setState(() => _isSubmitting = true);
+      
+      try {
+        await _apiService.initialize();
+        
+        // Get all students from all stops
+        final allStudents = _getAllAssignedStudents();
+        final List<Map<String, String>> validationErrors = [];
+        
+        // Check each student
+        for (var entry in allStudents.entries) {
+          final studentId = entry.key;
+          final studentInfo = entry.value;
+          
+          try {
+            // Check if student is assigned to another bus
+            var busStopStudentsResponse = await _apiService.get(
+              '${Endpoints.busStopStudents}?search=$studentId'
+            );
+            
+            if (!busStopStudentsResponse.success || 
+                busStopStudentsResponse.data == null ||
+                (busStopStudentsResponse.data is List && (busStopStudentsResponse.data as List).isEmpty) ||
+                (busStopStudentsResponse.data is Map && 
+                 (busStopStudentsResponse.data as Map)['results'] != null &&
+                 ((busStopStudentsResponse.data as Map)['results'] as List).isEmpty)) {
+              busStopStudentsResponse = await _apiService.get(Endpoints.busStopStudents);
+            }
+            
+            if (busStopStudentsResponse.success && busStopStudentsResponse.data != null) {
+              List<dynamic> assignments = [];
+              if (busStopStudentsResponse.data is List) {
+                assignments = busStopStudentsResponse.data as List;
+              } else if (busStopStudentsResponse.data is Map) {
+                final dataMap = busStopStudentsResponse.data as Map;
+                if (dataMap['results'] != null) {
+                  assignments = dataMap['results'] as List;
+                } else if (dataMap['data'] != null) {
+                  if (dataMap['data'] is List) {
+                    assignments = dataMap['data'] as List;
+                  } else {
+                    assignments = [dataMap['data']];
+                  }
+                }
+              }
+              
+              // Check if student is assigned to a different bus
+              for (var assignment in assignments) {
+                if (assignment is Map) {
+                  final assignmentStudentId = assignment['student_id_string']?.toString() ?? 
+                                             assignment['student_id']?.toString();
+                  
+                  String? nestedStudentId;
+                  if (assignment['student'] is Map) {
+                    final studentObj = assignment['student'] as Map;
+                    nestedStudentId = studentObj['student_id']?.toString() ?? 
+                                    studentObj['id']?.toString();
+                  } else if (assignment['student'] is String) {
+                    nestedStudentId = assignment['student'] as String;
+                  }
+                  
+                  final finalStudentId = assignmentStudentId ?? nestedStudentId;
+                  
+                  if (finalStudentId == studentId || 
+                      finalStudentId?.contains(studentId) == true ||
+                      studentId.contains(finalStudentId ?? '')) {
+                    final busStopInfo = assignment['bus_stop'];
+                    if (busStopInfo is Map) {
+                      final busInfo = busStopInfo['bus'];
+                      String? assignedBus;
+                      if (busInfo is Map) {
+                        assignedBus = busInfo['bus_number']?.toString() ?? 
+                                     busInfo['id']?.toString();
+                      } else if (busInfo is String) {
+                        assignedBus = busInfo;
+                      }
+                      
+                      if (assignedBus != null && 
+                          assignedBus.isNotEmpty && 
+                          assignedBus.trim() != currentBusNumber.trim()) {
+                        final stopName = studentInfo['stop_name'] as String? ?? 'Unknown Stop';
+                        validationErrors.add({
+                          'student_id': studentId,
+                          'student_name': studentInfo['student_name'] as String? ?? studentId,
+                          'stop_name': stopName,
+                          'assigned_bus': assignedBus,
+                        });
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            debugPrint('Error validating student $studentId: $e');
+          }
+        }
+        
+        // If there are validation errors, show them and prevent submission
+        if (validationErrors.isNotEmpty) {
+          setState(() => _isSubmitting = false);
+          
+          await showDialog(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.error, color: Colors.red, size: 28),
+                  SizedBox(width: 10),
+                  Text('Cannot Create Bus'),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'The following students are already assigned to other buses:\n',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 10),
+                    ...validationErrors.map((error) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Text(
+                        '• ${error['student_name']} (ID: ${error['student_id']}) at stop "${error['stop_name']}" is already in Bus ${error['assigned_bus']}',
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    )),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Please remove these students from the stops before creating the bus.',
+                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+          return; // Prevent form submission
+        }
+      } catch (e) {
+        debugPrint('Error during validation: $e');
+        // Continue with submission if validation check fails
+      }
+    }
+    
     setState(() => _isSubmitting = true);
     
     // Track if bus was saved successfully
@@ -1400,12 +1712,26 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
             'No school found. Please contact administrator to assign a school to your account.');
       }
       
+      // Validate capacity field
+      final capacityText = _capacityController.text.trim();
+      final capacity = int.tryParse(capacityText);
+      if (capacity == null || capacity <= 0) {
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Invalid capacity value. Please enter a valid positive number.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      
       // 1. Create/Update Bus
       final busData = {
         'school': schoolId,
         'bus_number': _busNumberController.text.trim(),
         'bus_type': _busType ?? 'Standard Bus',
-        'capacity': int.parse(_capacityController.text.trim()),
+        'capacity': capacity,
         'registration_number': _registrationNumberController.text.trim(),
         'driver_name': _driverNameController.text.trim(),
         'driver_phone': _driverPhoneController.text.trim(),
@@ -1573,10 +1899,17 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
               
               if (response.success) {
                 assignedStudentIds.add(studentId);
+              } else {
+                // During form submission, just log the error - don't show popup
+                // The popup should only show when user is actively adding a student to a stop
+                final errorMessage = response.error ?? 'Failed to assign student';
+                debugPrint('Error assigning student $studentId during form submission: $errorMessage');
+                // Note: Students that fail to assign will simply not be added to the stop
+                // User can add them later after resolving the conflict
               }
             } catch (e) {
-                debugPrint('Error assigning student: $e');
-              }
+              debugPrint('Error assigning student: $e');
+            }
             }
           }
         }

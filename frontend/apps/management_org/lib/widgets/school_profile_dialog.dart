@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
+import 'package:image_picker/image_picker.dart';
 
 /// Dialog to display school profile details
 class SchoolProfileDialog extends StatefulWidget {
@@ -21,6 +22,8 @@ class _SchoolProfileDialogState extends State<SchoolProfileDialog> {
   Map<String, dynamic>? _schoolData;
   bool _isLoading = true;
   String? _errorMessage;
+  final ImagePicker _picker = ImagePicker();
+  bool _isUploading = false;
 
   @override
   void initState() {
@@ -50,7 +53,7 @@ class _SchoolProfileDialogState extends State<SchoolProfileDialog> {
         }
       }
       
-      // If that fails, try the current school endpoint
+      
       final currentResponse = await widget.apiService.get('/management-admin/schools/current/');
       if (currentResponse.success && currentResponse.data != null) {
         final data = currentResponse.data;
@@ -74,6 +77,57 @@ class _SchoolProfileDialogState extends State<SchoolProfileDialog> {
       setState(() {
         _errorMessage = 'Error: $e';
         _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _pickAndUploadLogo() async {
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      if (image == null) return;
+
+      setState(() {
+        _isUploading = true;
+      });
+
+      final bytes = await image.readAsBytes();
+      final fileName = image.name;
+
+      final response = await widget.apiService.uploadFile(
+        '/management-admin/schools/upload-logo/',
+        fileBytes: bytes,
+        fileName: fileName,
+        fieldName: 'logo',
+      );
+
+      if (response.success && response.data != null) {
+        final data = response.data;
+        final schoolData = data['data'] ?? data;
+        
+        setState(() {
+           if (schoolData is Map) {
+             // Update the local data with the new logo info
+             _schoolData = schoolData as Map<String, dynamic>;
+           }
+           _isUploading = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Logo uploaded successfully')),
+          );
+        }
+      } else {
+        throw Exception(response.error ?? 'Upload failed');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error uploading logo: $e')),
+        );
+      }
+      setState(() {
+        _isUploading = false;
       });
     }
   }
@@ -159,33 +213,89 @@ class _SchoolProfileDialogState extends State<SchoolProfileDialog> {
 
   Widget _buildSchoolDetails() {
     if (_schoolData == null) return const SizedBox();
-
+    
     final school = _schoolData!;
+    final logoUrl = school['logo_url']?.toString();
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // School Logo/Initial
         Center(
-          child: Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-              ),
-            ),
-            child: Center(
-              child: Text(
-                (_getSchoolName(school) ?? 'S')[0].toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 40,
+          child: Stack(
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: logoUrl == null ? const LinearGradient(
+                    colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                  ) : null,
+                ),
+                child: ClipOval(
+                  child: logoUrl != null 
+                    ? Image.network(
+                        logoUrl,
+                        width: 100,
+                        height: 100,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stack) => Center(
+                          child: Text(
+                            (_getSchoolName(school) ?? 'S')[0].toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 40,
+                            ),
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Text(
+                          (_getSchoolName(school) ?? 'S')[0].toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 40,
+                          ),
+                        ),
+                      ),
                 ),
               ),
-            ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: InkWell(
+                  onTap: _pickAndUploadLogo,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: _isUploading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(
+                            Icons.camera_alt,
+                            color: Colors.grey,
+                            size: 20,
+                          ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 24),

@@ -4,9 +4,33 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const _base = 'http://localhost:8000/api/management-admin';
+  static const _base = 'http://127.0.0.1:8000/api/management-admin';
+  static const String baseUrl = 'http://127.0.0.1:8000/api';
   static const teachersEndpoint = '$_base/teachers/';
   static const studentsEndpoint = '$_base/students/';
+
+  static Future<http.Response> authenticatedRequest(String endpoint, {String method = 'GET', Map<String, dynamic>? body}) async {
+    final headers = await getAuthHeaders();
+    // Helper to ensure we don't double slashes or miss them
+    final cleanEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
+    final uri = Uri.parse('$baseUrl/$cleanEndpoint');
+    
+    debugPrint('AuthenticatedRequest: $method $uri');
+
+    if (method == 'GET') {
+      return await http.get(uri, headers: headers);
+    } else if (method == 'POST') {
+      return await http.post(uri, headers: headers, body: jsonEncode(body));
+    } else if (method == 'PUT') {
+      return await http.put(uri, headers: headers, body: jsonEncode(body));
+    } else if (method == 'PATCH') {
+       return await http.patch(uri, headers: headers, body: jsonEncode(body));
+    } else if (method == 'DELETE') {
+      return await http.delete(uri, headers: headers);
+    }
+    
+    throw UnimplementedError('Method $method not implemented');
+  }
 
   /// Get authentication headers with token (private)
   static Future<Map<String, String>> _getAuthHeaders() async {
@@ -97,7 +121,7 @@ class ApiService {
     try {
       final headers = await _getAuthHeaders();
       final resp = await http
-          .get(Uri.parse('http://localhost:8000/api/teacher/profile/'), headers: headers)
+          .get(Uri.parse('http://127.0.0.1:8000/api/teacher/profile/'), headers: headers)
           .timeout(const Duration(seconds: 10));
       if (resp.statusCode == 200) {
         return jsonDecode(resp.body) as Map<String, dynamic>;
@@ -115,7 +139,7 @@ class ApiService {
     try {
       final headers = await _getAuthHeaders();
       final resp = await http
-          .get(Uri.parse('http://localhost:8000/api/teacher/communications/'), headers: headers)
+          .get(Uri.parse('http://127.0.0.1:8000/api/teacher/communications/'), headers: headers)
           .timeout(const Duration(seconds: 10));
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
@@ -128,11 +152,42 @@ class ApiService {
     }
   }
 
+  /// Fetch chat messages between two users using ChatMessage API (new WhatsApp/Telegram-like chat)
+  /// Uses the new ChatMessage model endpoint for real-time chat history
+  static Future<List<Map<String, dynamic>>> fetchChatMessages(String senderUsername, String recipientUsername) async {
+    try {
+      final headers = await _getAuthHeaders();
+      final uri = Uri.parse('http://127.0.0.1:8000/api/student-parent/chat-messages/').replace(
+        queryParameters: {
+          'sender': senderUsername,
+          'recipient': recipientUsername,
+        },
+      );
+      final resp = await http.get(uri, headers: headers).timeout(const Duration(seconds: 10));
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
+        if (data is Map && data.containsKey('results')) {
+          return List<Map<String, dynamic>>.from(data['results'] as List);
+        }
+        return [];
+      }
+      debugPrint('Failed to fetch chat messages: ${resp.statusCode}');
+      return [];
+    } catch (e) {
+      debugPrint('Failed to fetch chat messages: $e');
+      return [];
+    }
+  }
+
   /// Fetch chat history with a specific user
+  /// @deprecated Use fetchChatMessages instead for real-time chat. This is kept for backward compatibility.
   static Future<List<dynamic>> fetchChatHistory(String userId) async {
     try {
       final headers = await _getAuthHeaders();
-      final uri = Uri.parse('http://localhost:8000/api/teacher/chat-history/').replace(
+      final uri = Uri.parse('http://127.0.0.1:8000/api/teacher/chat-history/').replace(
         queryParameters: {'user_id': userId},
       );
       final resp = await http.get(uri, headers: headers).timeout(const Duration(seconds: 10));
@@ -153,7 +208,7 @@ class ApiService {
     try {
       final headers = await _getAuthHeaders();
       final resp = await http
-          .get(Uri.parse('http://localhost:8000/api/teacher/class-students/'), headers: headers)
+          .get(Uri.parse('http://127.0.0.1:8000/api/teacher/class-students/'), headers: headers)
           .timeout(const Duration(seconds: 15));
       
       debugPrint('Fetch class-students status: ${resp.statusCode}');

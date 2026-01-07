@@ -220,6 +220,9 @@ class Teacher(models.Model):
     class_teacher_grade = models.CharField(max_length=10, null=True, blank=True, help_text='Grade level for class teacher assignment (e.g., A, B, C, D)')
     subject_specialization = models.TextField(null=True, blank=True, help_text='Subject specialization details')
     emergency_contact = models.CharField(max_length=20, null=True, blank=True, help_text='Emergency contact number')
+    emergency_contact_relation = models.CharField(max_length=50, null=True, blank=True, help_text='Relation with emergency contact')
+    salary = models.CharField(max_length=50, null=True, blank=True, help_text='Salary information')
+    experience = models.CharField(max_length=50, null=True, blank=True, help_text='Years of experience')
     
     profile_photo = models.CharField(
         max_length=100,
@@ -234,14 +237,24 @@ class Teacher(models.Model):
     
     def save(self, *args, **kwargs):
         """Auto-populate school_id and school_name from department's school and sync profile_photo_id"""
-        # Get school_id and school_name from department's school ForeignKey
-        if self.department and self.department.school:
-            department_school_id = self.department.school.school_id
-            department_school_name = self.department.school.school_name
-            if not self.school_id or self.school_id != department_school_id:
-                self.school_id = department_school_id
-            if not self.school_name or self.school_name != department_school_name:
-                self.school_name = department_school_name
+        # Get school_id and school_name from department's school ForeignKey (same pattern as Student)
+        # Try to access department.school - Django will lazy load if needed
+        if self.department_id:
+            try:
+                # Access department - Django will lazy load if not already loaded
+                department = self.department
+                if department and hasattr(department, 'school'):
+                    school = department.school
+                    if school:
+                        # Always update school_id if it's different
+                        if not self.school_id or self.school_id != school.school_id:
+                            self.school_id = school.school_id
+                        # Always update school_name if it's different or missing (same pattern as Student.save)
+                        if not self.school_name or self.school_name != school.school_name:
+                            self.school_name = school.school_name
+            except Exception:
+                # If accessing department fails, skip - will be handled in views or serializer
+                pass
         
         super().save(*args, **kwargs)
         
@@ -318,6 +331,7 @@ class Student(models.Model):
     grade = models.CharField(max_length=50, null=True, blank=True, help_text="Grade/Level of the student")
     address = models.TextField(default="Address not provided")
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default="General")
+    
 
     admission_number = models.CharField(
         max_length=50, 
@@ -346,6 +360,11 @@ class Student(models.Model):
         blank=True,
         help_text='Profile photo URL or file path'
     )
+    activities = models.TextField(null=True, blank=True, help_text="Extracurricular activities")
+    leadership = models.TextField(null=True, blank=True, help_text="Leadership roles")
+    achievements = models.TextField(null=True, blank=True, help_text="Other achievements")
+    participation = models.TextField(null=True, blank=True, help_text="Participation record")
+
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -839,6 +858,7 @@ class Fee(models.Model):
     paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text='Total amount paid so far (sum of all payments)')
     due_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text='Amount due (remaining to be paid)')
     last_paid_date = models.DateField(null=True, blank=True, help_text='Date of last payment')
+    upload_receipt = models.CharField(max_length=100, blank=True, null=True, help_text='Uploaded receipt file path or URL')
     
     def save(self, *args, **kwargs):
         """Auto-calculate fields when saving"""
@@ -902,6 +922,7 @@ class PaymentHistory(models.Model):
     payment_amount = models.DecimalField(max_digits=10, decimal_places=2, help_text='Amount paid in this transaction')
     payment_date = models.DateField(help_text='Date when payment was made')
     receipt_number = models.CharField(max_length=100, blank=True, help_text='Receipt number for this payment')
+    upload_receipt = models.CharField(max_length=100, blank=True, null=True, help_text='Uploaded receipt file path or URL')
     notes = models.TextField(blank=True, help_text='Additional notes for this payment')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1048,6 +1069,64 @@ class BusStopStudent(models.Model):
             if not self.school_name or self.school_name != self.bus_stop.bus.school.school_name:
                 self.school_name = self.bus_stop.bus.school.school_name
         
+        # Auto-set pickup_time and dropoff_time based on stop's route_type and stop_time
+        if self.bus_stop and self.bus_stop.stop_time:
+            if self.bus_stop.route_type == 'morning':
+                # For morning stops, set pickup_time from stop's stop_time
+                if not self.pickup_time:
+                    self.pickup_time = self.bus_stop.stop_time
+                
+                # Also check if there's a corresponding afternoon stop with same stop_name
+                # and update its dropoff_time if this student is assigned there
+                try:
+                    corresponding_afternoon_stop = BusStop.objects.filter(
+                        bus=self.bus_stop.bus,
+                        route_type='afternoon',
+                        stop_name=self.bus_stop.stop_name
+                    ).first()
+                    
+                    if corresponding_afternoon_stop:
+                        # Update dropoff_time for this student's afternoon stop assignment
+                        afternoon_assignment = BusStopStudent.objects.filter(
+                            bus_stop=corresponding_afternoon_stop,
+                            student=self.student
+                        ).first()
+                        
+                        if afternoon_assignment:
+                            afternoon_assignment.dropoff_time = self.bus_stop.stop_time
+                            afternoon_assignment.save(update_fields=['dropoff_time', 'updated_at'])
+                except Exception:
+                    # Silently fail if there's any issue finding/updating afternoon stop
+                    pass
+                    
+            elif self.bus_stop.route_type == 'afternoon':
+                # For afternoon stops, set dropoff_time from stop's stop_time
+                if not self.dropoff_time:
+                    self.dropoff_time = self.bus_stop.stop_time
+                
+                # Also check if there's a corresponding morning stop with same stop_name
+                # and update its pickup_time if this student is assigned there
+                try:
+                    corresponding_morning_stop = BusStop.objects.filter(
+                        bus=self.bus_stop.bus,
+                        route_type='morning',
+                        stop_name=self.bus_stop.stop_name
+                    ).first()
+                    
+                    if corresponding_morning_stop:
+                        # Update pickup_time for this student's morning stop assignment
+                        morning_assignment = BusStopStudent.objects.filter(
+                            bus_stop=corresponding_morning_stop,
+                            student=self.student
+                        ).first()
+                        
+                        if morning_assignment:
+                            morning_assignment.pickup_time = self.bus_stop.stop_time
+                            morning_assignment.save(update_fields=['pickup_time', 'updated_at'])
+                except Exception:
+                    # Silently fail if there's any issue finding/updating morning stop
+                    pass
+        
         super().save(*args, **kwargs)
     
     def __str__(self):
@@ -1102,8 +1181,16 @@ class Event(models.Model):
         default='Other',
         help_text='Event category'
     )
-    date = models.DateField(help_text='Event date')
-    time = models.CharField(max_length=100, blank=True, help_text='Event time (e.g., 09:00 AM - 12:00 PM)')
+    start_datetime = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Event start date and time'
+    )
+    end_datetime = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Event end date and time'
+    )
     location = models.CharField(max_length=255, blank=True, help_text='Event location')
     organizer = models.CharField(max_length=255, blank=True, help_text='Event organizer')
     participants = models.IntegerField(
@@ -1122,13 +1209,48 @@ class Event(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return f"{self.name} - {self.date}"
+        return f"{self.name}"
+    
+    @property
+    def computed_status(self):
+        """Automatically compute event status based on current time and datetime fields"""
+        from django.utils import timezone
+        now = timezone.now()
+        
+        # If no datetime fields are set, return the manual status
+        if not self.start_datetime and not self.end_datetime:
+            return self.status
+        
+        # If only start_datetime is set
+        if self.start_datetime and not self.end_datetime:
+            if now < self.start_datetime:
+                return 'Upcoming'
+            else:
+                return 'Ongoing'
+        
+        # If only end_datetime is set
+        if not self.start_datetime and self.end_datetime:
+            if now < self.end_datetime:
+                return 'Upcoming'
+            else:
+                return 'Completed'
+        
+        # If both are set
+        if self.start_datetime and self.end_datetime:
+            if now < self.start_datetime:
+                return 'Upcoming'
+            elif self.start_datetime <= now < self.end_datetime:
+                return 'Ongoing'
+            else:
+                return 'Completed'
+        
+        return self.status
     
     class Meta:
         db_table = 'events'
         verbose_name = 'Event'
         verbose_name_plural = 'Events'
-        ordering = ['-date', '-created_at']
+        ordering = ['-created_at']
 
 
 class Award(models.Model):
@@ -1149,6 +1271,9 @@ class Award(models.Model):
         ('Leadership', 'Leadership'),
         ('Innovation', 'Innovation'),
         ('Community', 'Community'),
+        ('Science Fair', 'Science Fair'),
+        ('NSS', 'NSS'),
+        ('NCC', 'NCC'),
         ('Other', 'Other'),
     ]
     
@@ -1193,6 +1318,12 @@ class Award(models.Model):
         blank=True, 
         help_text='Presented by (organization or person)'
     )
+    document = models.FileField(
+        upload_to='awards/certificates/', 
+        blank=True, 
+        null=True, 
+        help_text='Award document/certificate'
+    )
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1205,3 +1336,158 @@ class Award(models.Model):
         verbose_name = 'Award'
         verbose_name_plural = 'Awards'
         ordering = ['-date', '-created_at']
+
+
+class Activity(models.Model):
+    """Activity Model"""
+    CATEGORY_CHOICES = [
+        ('Sports', 'Sports'),
+        ('Academic', 'Academic'),
+        ('Arts', 'Arts'),
+        ('Games', 'Games'),
+        ('Cultural', 'Cultural'),
+        ('Technical', 'Technical'),
+    ]
+
+    STATUS_CHOICES = [
+        ('Active', 'Active'),
+        ('Inactive', 'Inactive'),
+        ('Suspended', 'Suspended'),
+        ('Completed', 'Completed'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    school = models.ForeignKey(
+        School,
+        on_delete=models.CASCADE,
+        related_name='school_activities',
+        db_column='school_id'
+    )
+    school_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        editable=False,
+        help_text='School name (read-only, auto-populated from schools table)'
+    )
+    name = models.CharField(max_length=255, help_text='Activity name')
+    category = models.CharField(
+        max_length=50,
+        choices=CATEGORY_CHOICES,
+        help_text='Activity category'
+    )
+    instructor = models.CharField(max_length=255, help_text='Instructor name')
+    max_participants = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1)],
+        help_text='Maximum number of participants'
+    )
+    schedule = models.CharField(
+        max_length=255,
+        help_text='Activity schedule (e.g., Monday, Wednesday 3:00 PM)'
+    )
+    location = models.CharField(max_length=255, help_text='Activity location')
+    status = models.CharField(
+        max_length=50,
+        choices=STATUS_CHOICES,
+        default='Active',
+        help_text='Activity status'
+    )
+    start_date = models.DateField(null=True, blank=True, help_text='Activity start date')
+    end_date = models.DateField(null=True, blank=True, help_text='Activity end date')
+    description = models.TextField(help_text='Detailed activity description')
+    requirements = models.TextField(blank=True, help_text='Requirements or prerequisites')
+    notes = models.TextField(blank=True, help_text='Additional notes or comments')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if self.school and not self.school_name:
+            self.school_name = self.school.school_name
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.name} - {self.category}"
+
+    class Meta:
+        db_table = 'school_activities'
+        verbose_name = 'School Activity'
+        verbose_name_plural = 'School Activities'
+        ordering = ['-created_at']
+
+
+class Gallery(models.Model):
+    """Gallery model for photo albums/events"""
+    
+    CATEGORY_CHOICES = [
+        ('Sports', 'Sports'),
+        ('Academic', 'Academic'),
+        ('Cultural', 'Cultural'),
+        ('Awards', 'Awards'),
+        ('Activities', 'Activities'),
+        ('Other', 'Other'),
+    ]
+
+    school_id = models.CharField(
+        max_length=100, 
+        db_index=True, 
+        null=True, 
+        blank=True, 
+        editable=False, 
+        help_text='School ID for filtering'
+    )
+    school_name = models.CharField(
+        max_length=255, 
+        null=True, 
+        blank=True, 
+        editable=False, 
+        help_text='School name'
+    )
+    
+    title = models.CharField(max_length=255, help_text='Gallery title')
+    category = models.CharField(
+        max_length=50, 
+        choices=CATEGORY_CHOICES, 
+        default='Other',
+        help_text='Event category'
+    )
+    description = models.TextField(blank=True, help_text='Description')
+    date = models.DateField(help_text='Event date')
+    photographer = models.CharField(max_length=255, blank=True, help_text='Photographer name')
+    location = models.CharField(max_length=255, blank=True, help_text='Location')
+    emoji = models.CharField(max_length=10, blank=True, default='📷', help_text='Emoji icon')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.title} - {self.date}"
+    
+    class Meta:
+        db_table = 'gallery'
+        verbose_name = 'Gallery'
+        verbose_name_plural = 'Galleries'
+        ordering = ['-date', '-created_at']
+
+
+class GalleryImage(models.Model):
+    """Images for a gallery event"""
+    gallery = models.ForeignKey(
+        Gallery, 
+        on_delete=models.CASCADE, 
+        related_name='images',
+        help_text='Parent gallery'
+    )
+    image = models.CharField(
+        max_length=255,
+        help_text='Image URL or path'
+    )
+    alt_text = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'gallery_images'
+        verbose_name = 'Gallery Image'
+        verbose_name_plural = 'Gallery Images'

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:main_login/main.dart' as main_login;
 import 'main.dart' as app;
@@ -6,6 +7,7 @@ import 'dashboard.dart';
 import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
 import 'widgets/school_profile_header.dart';
+import 'widgets/management_sidebar.dart';
 
 class Examination {
   final int id;
@@ -102,6 +104,49 @@ class _ExaminationManagementPageState
   String _searchQuery = '';
   String? _statusFilter;
   String? _classFilter;
+
+  // -- Helper Widgets --
+
+  Widget _buildUserInfo() {
+    return SchoolProfileHeader(apiService: ApiService());
+  }
+
+  Widget _buildBackButton() {
+    return InkWell(
+      onTap: () => Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => DashboardPage()),
+      ),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6C757D), Color(0xFF495057)],
+          ),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF495057).withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.arrow_back, size: 16, color: Colors.white),
+            SizedBox(width: 8),
+            Text(
+              'Back to Dashboard',
+              style: TextStyle(color: Colors.white, fontSize: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 
   @override
   void initState() {
@@ -560,12 +605,12 @@ class _ExaminationManagementPageState
               : Drawer(
                   child: SizedBox(
                     width: 280,
-                    child: _Sidebar(gradient: gradient),
+                    child: ManagementSidebar(gradient: gradient, activeRoute: '/examinations'),
                   ),
                 ),
           body: Row(
             children: [
-              if (showSidebar) _Sidebar(gradient: gradient),
+              if (showSidebar) ManagementSidebar(gradient: gradient, activeRoute: '/examinations'),
               Expanded(
                 child: Container(
                   color: const Color(0xFFF5F6FA),
@@ -575,43 +620,27 @@ class _ExaminationManagementPageState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _BackButton(
-                            onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardPage())),
-                          ),
-                          const SizedBox(height: 16),
-                          _Header(
-                            showMenuButton: !showSidebar,
-                            onMenuTap: () =>
-                                _scaffoldKey.currentState?.openDrawer(),
-                            onLogout: () {
-                              showDialog(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: const Text('Logout'),
-                                  content: const Text('Are you sure you want to logout?'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: const Text('Cancel'),
+                          // --- TOP HEADER ---
+                          GlassContainer(
+                            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
+                            margin: const EdgeInsets.only(bottom: 30),
+                            child: Row(
+                              children: [
+                                const Expanded(
+                                  child: Text(
+                                    'Examination Management',
+                                    style: TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF333333),
                                     ),
-                                    TextButton(
-                                      onPressed: () {
-                                        Navigator.pop(context);
-                                        // Navigate to main login page
-                                        Navigator.pushAndRemoveUntil(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => const main_login.LoginScreen(),
-                                          ),
-                                          (route) => false,
-                                        );
-                                      },
-                                      child: const Text('Logout', style: TextStyle(color: Colors.red)),
-                                    ),
-                                  ],
+                                  ),
                                 ),
-                              );
-                            },
+                                _buildUserInfo(),
+                                const SizedBox(width: 20),
+                                _buildBackButton(),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 24),
                           _StatsOverview(stats: stats),
@@ -696,278 +725,7 @@ class _ExaminationManagementPageState
   }
 }
 
-class _Sidebar extends StatelessWidget {
-  final LinearGradient gradient;
 
-  const _Sidebar({required this.gradient});
-
-  // Safe navigation helper for sidebar
-  void _navigateToRoute(BuildContext context, String route) {
-    final navigator = app.SchoolManagementApp.navigatorKey.currentState;
-    if (navigator != null) {
-      if (navigator.canPop() || route != '/dashboard') {
-        navigator.pushReplacementNamed(route);
-      } else {
-        navigator.pushNamed(route);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 280,
-      decoration: BoxDecoration(
-        gradient: gradient,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(2, 0),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  'packages/management_org/assets/Vidyarambh.png',
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      height: 120,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.school,
-                        size: 56,
-                        color: Color(0xFF667EEA),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _NavItem(
-                    icon: '📊',
-                    title: 'Overview',
-                    isActive: false,
-                    onTap: () => _navigateToRoute(context, '/dashboard'),
-                  ),
-                  _NavItem(
-                    icon: '👨‍🏫',
-                    title: 'Teachers',
-                    onTap: () => _navigateToRoute(context, '/teachers'),
-                  ),
-                  _NavItem(
-                    icon: '👥',
-                    title: 'Students',
-                    onTap: () => _navigateToRoute(context, '/students'),
-                  ),
-                  _NavItem(
-                    icon: '🚌',
-                    title: 'Buses',
-                    onTap: () => _navigateToRoute(context, '/buses'),
-                  ),
-                  _NavItem(
-                    icon: '🎯',
-                    title: 'Activities',
-                    onTap: () => _navigateToRoute(context, '/activities'),
-                  ),
-                  _NavItem(
-                    icon: '📅',
-                    title: 'Events',
-                    onTap: () => _navigateToRoute(context, '/events'),
-                  ),
-                  _NavItem(
-                    icon: '📆',
-                    title: 'Calendar',
-                    onTap: () => _navigateToRoute(context, '/calendar'),
-                  ),
-                  _NavItem(
-                    icon: '🔔',
-                    title: 'Notifications',
-                    onTap: () => _navigateToRoute(context, '/notifications'),
-                  ),
-                  _NavItem(
-                    icon: '🛣️',
-                    title: 'Bus Routes',
-                    onTap: () => _navigateToRoute(context, '/bus-routes'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  final String icon;
-  final String title;
-  final VoidCallback? onTap;
-  final bool isActive;
-
-  const _NavItem({
-    required this.icon,
-    required this.title,
-    this.onTap,
-    this.isActive = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: isActive
-            ? Colors.white.withValues(alpha: 0.3)
-            : Colors.white.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListTile(
-        leading: Text(
-          icon,
-          style: const TextStyle(fontSize: 18),
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            fontSize: 14,
-          ),
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        onTap: onTap,
-      ),
-    );
-  }
-}
-
-class _BackButton extends StatelessWidget {
-  final VoidCallback? onTap;
-
-  const _BackButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: onTap,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF6C757D),
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.arrow_back),
-          SizedBox(width: 8),
-          Text('Back to Dashboard'),
-        ],
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final bool showMenuButton;
-  final VoidCallback? onMenuTap;
-  final VoidCallback onLogout;
-
-  const _Header({
-    required this.showMenuButton,
-    this.onMenuTap,
-    required this.onLogout,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              if (showMenuButton)
-                IconButton(
-                  onPressed: onMenuTap,
-                  icon: const Icon(Icons.menu, color: Colors.black87),
-                ),
-              const Text(
-                '📝 Examination Management',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              SchoolProfileHeader(apiService: ApiService()),
-              const SizedBox(width: 15),
-              ElevatedButton(
-                onPressed: onLogout,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF6B6B),
-                  foregroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                ),
-                child: const Text('Logout'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _StatsOverview extends StatelessWidget {
   final Map<String, int> stats;
@@ -976,79 +734,98 @@ class _StatsOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 20,
-      runSpacing: 20,
-      children: [
-        _StatCard(icon: '📝', number: stats['total']!, label: 'Total Exams'),
-        _StatCard(icon: '⏰', number: stats['upcoming']!, label: 'Upcoming'),
-        _StatCard(icon: '✅', number: stats['completed']!, label: 'Completed'),
-        _StatCard(
-          icon: '📊',
-          number: stats['avg']!,
-          label: 'Avg Max Marks',
-          suffix: '%',
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 24),
+      child: GridView.count(
+        crossAxisCount: 4,
+        childAspectRatio: 1.35,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: 20,
+        mainAxisSpacing: 20,
+        children: [
+          _StatCard(
+            label: 'Total Exams',
+            value: '${stats['total']}',
+            icon: '📝',
+            color: const Color(0xFF667EEA),
+          ),
+          _StatCard(
+            label: 'Upcoming',
+            value: '${stats['upcoming']}',
+            icon: '📅',
+            color: Colors.orange,
+          ),
+          _StatCard(
+            label: 'Completed',
+            value: '${stats['completed']}',
+            icon: '✅',
+            color: Colors.green,
+          ),
+          _StatCard(
+            label: 'Avg Marks',
+            value: '${stats['avg']}%',
+            icon: '📈',
+            color: Colors.blue,
+          ),
+        ],
+      ),
     );
   }
 }
 
 class _StatCard extends StatelessWidget {
-  final String icon;
-  final int number;
   final String label;
-  final String suffix;
+  final String value;
+  final String icon;
+  final Color color;
 
   const _StatCard({
-    required this.icon,
-    required this.number,
     required this.label,
-    this.suffix = '',
+    required this.value,
+    required this.icon,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 220,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 5),
-          ),
-        ],
+    return Card(
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      elevation: 5,
+      shadowColor: Colors.black.withValues(alpha: 0.1),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(icon, style: TextStyle(fontSize: 40, color: color)),
+            const SizedBox(height: 10),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF333333),
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              label.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF666666),
+                fontSize: 12,
+                letterSpacing: 1,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            icon,
-            style: const TextStyle(fontSize: 32),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            '$number$suffix',
-            style: const TextStyle(
-              fontSize: 30,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF333333),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.grey,
-              letterSpacing: 1,
-              fontSize: 13,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1714,3 +1491,59 @@ List<DropdownMenuItem<String>> get _subjectOptions => const [
       DropdownMenuItem(value: 'biology', child: Text('Biology')),
     ];
 
+
+
+// Glass Container Widget
+class GlassContainer extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final bool drawRightBorder;
+  final double borderRadius;
+
+  const GlassContainer({
+    super.key,
+    required this.child,
+    this.padding,
+    this.margin,
+    this.drawRightBorder = false,
+    this.borderRadius = 12,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = drawRightBorder
+        ? BorderRadius.zero
+        : BorderRadius.circular(borderRadius);
+
+    return Container(
+      margin: margin,
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.95),
+              borderRadius: radius,
+              border: Border(
+                right: drawRightBorder
+                    ? BorderSide(color: Colors.white.withValues(alpha: 0.2))
+                    : BorderSide.none,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 24,
+                  offset: const Offset(2, 6),
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}

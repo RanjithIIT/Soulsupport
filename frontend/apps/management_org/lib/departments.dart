@@ -4,6 +4,8 @@ import 'main.dart' as app;
 import 'dashboard.dart';
 import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
+import 'dart:ui';
+import 'widgets/school_profile_header.dart';
 
 class Department {
   final int id;
@@ -350,6 +352,47 @@ class _DepartmentsManagementPageState extends State<DepartmentsManagementPage> {
     );
   }
 
+
+  Widget _buildUserInfo() {
+    return SchoolProfileHeader(apiService: ApiService());
+  }
+
+  Widget _buildBackButton() {
+    return InkWell(
+      onTap: () => Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => DashboardPage()),
+      ),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6C757D), Color(0xFF495057)],
+          ),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF495057).withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.arrow_back, size: 16, color: Colors.white),
+            SizedBox(width: 8),
+            Text(
+              'Back to Dashboard',
+              style: TextStyle(color: Colors.white, fontSize: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final stats = _getStats();
@@ -373,97 +416,63 @@ class _DepartmentsManagementPageState extends State<DepartmentsManagementPage> {
                   child: Column(
                     children: [
                       // Header
-                      Container(
-                      decoration: BoxDecoration(gradient: gradient),
-                      padding: const EdgeInsets.all(20),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                      Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: GlassContainer(
+                          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
+                          child: Row(
                             children: [
-                              Text(
-                                '🏢 Department Management',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
+                              const Expanded(
+                                child: Text(
+                                  'Department Management',
+                                  style: TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF333333),
+                                  ),
                                 ),
                               ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Manage academic departments, faculty, and courses',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                ),
-                              ),
+                              _buildUserInfo(),
+                              const SizedBox(width: 20),
+                              _buildBackButton(),
                             ],
                           ),
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.download,
-                                    color: Colors.white),
-                                onPressed: _exportData,
-                                tooltip: 'Export Data',
-                              ),
-                              ElevatedButton.icon(
-                                onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardPage())), 
-                                icon: const Icon(Icons.arrow_back, size: 16),
-                                label: const Text("Back to Dashboard"),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white.withValues(alpha: 0.2),
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 20, vertical: 12),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
                     // Stats Overview
                     Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Row(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                      child: GridView.count(
+                        crossAxisCount: 4,
+                        childAspectRatio: 1.35,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisSpacing: 20,
+                        mainAxisSpacing: 20,
                         children: [
-                          Expanded(
-                            child: _StatCard(
-                              icon: '🏢',
-                              number: stats['totalDepartments']!.toString(),
-                              label: 'Total Departments',
-                              color: const Color(0xFF667EEA),
-                            ),
+                          _StatCard(
+                            label: 'Total Departments',
+                            value: stats['totalDepartments']!.toString(),
+                            icon: '🏢',
+                            color: const Color(0xFF667EEA),
                           ),
-                          const SizedBox(width: 15),
-                          Expanded(
-                            child: _StatCard(
-                              icon: '👨‍🏫',
-                              number: stats['totalFaculty']!.toString(),
-                              label: 'Total Faculty',
-                              color: Colors.green,
-                            ),
+                          _StatCard(
+                            label: 'Total Faculty',
+                            value: stats['totalFaculty']!.toString(),
+                            icon: '👨‍🏫',
+                            color: Colors.green,
                           ),
-                          const SizedBox(width: 15),
-                          Expanded(
-                            child: _StatCard(
-                              icon: '📚',
-                              number: stats['totalCourses']!.toString(),
-                              label: 'Total Courses',
-                              color: Colors.orange,
-                            ),
+                          _StatCard(
+                            label: 'Total Courses',
+                            value: stats['totalCourses']!.toString(),
+                            icon: '📚',
+                            color: Colors.orange,
                           ),
-                          const SizedBox(width: 15),
-                          Expanded(
-                            child: _StatCard(
-                              icon: '👥',
-                              number: stats['totalStudents']!.toString(),
-                              label: 'Total Students',
-                              color: Colors.blue,
-                            ),
+                          _StatCard(
+                            label: 'Total Students',
+                            value: stats['totalStudents']!.toString(),
+                            icon: '👥',
+                            color: Colors.blue,
                           ),
                         ],
                       ),
@@ -997,59 +1006,57 @@ class _NavItem extends StatelessWidget {
 }
 
 class _StatCard extends StatelessWidget {
-  final String icon;
-  final String number;
   final String label;
+  final String value;
+  final String icon;
   final Color color;
 
   const _StatCard({
-    required this.icon,
-    required this.number,
     required this.label,
+    required this.value,
+    required this.icon,
     required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+    return Card(
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      elevation: 5,
+      shadowColor: Colors.black.withValues(alpha: 0.1),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(icon, style: TextStyle(fontSize: 40, color: color)),
+            const SizedBox(height: 10),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF333333),
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              label.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF666666),
+                fontSize: 12,
+                letterSpacing: 1,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            icon,
-            style: const TextStyle(fontSize: 40),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            number,
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1092,7 +1099,7 @@ class _DepartmentCard extends StatelessWidget {
                   ),
                   child: Center(
                     child: Text(
-                      department.code[0],
+                      department.code.isNotEmpty ? department.code[0] : '?',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -1315,38 +1322,44 @@ class _MiniStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Text(icon, style: const TextStyle(fontSize: 24)),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  number,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+    return Card(
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      elevation: 3,
+      shadowColor: Colors.black.withValues(alpha: 0.1),
+      child: Padding(
+        padding: const EdgeInsets.all(15.0),
+        child: Row(
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 24)),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    number,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF333333),
+                    ),
                   ),
-                ),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
+                  Text(
+                    label.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF666666),
+                      letterSpacing: 0.5,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1836,3 +1849,59 @@ class _DepartmentFormDialogState extends State<_DepartmentFormDialog> {
   }
 }
 
+
+
+// Glass Container Widget
+class GlassContainer extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final bool drawRightBorder;
+  final double borderRadius;
+
+  const GlassContainer({
+    super.key,
+    required this.child,
+    this.padding,
+    this.margin,
+    this.drawRightBorder = false,
+    this.borderRadius = 12,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = drawRightBorder
+        ? BorderRadius.zero
+        : BorderRadius.circular(borderRadius);
+
+    return Container(
+      margin: margin,
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.95),
+              borderRadius: radius,
+              border: Border(
+                right: drawRightBorder
+                    ? BorderSide(color: Colors.white.withValues(alpha: 0.2))
+                    : BorderSide.none,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 24,
+                  offset: const Offset(2, 6),
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
