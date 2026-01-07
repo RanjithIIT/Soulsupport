@@ -29,6 +29,7 @@ class CalendarEvent {
   final String? recurrencePattern;
   final int? participants;
   final String? status;
+  final bool isActivity;
 
   CalendarEvent({
     required this.id,
@@ -46,18 +47,39 @@ class CalendarEvent {
     this.recurrencePattern,
     this.participants,
     this.status,
+    this.isActivity = false,
   });
 
   factory CalendarEvent.fromJson(Map<String, dynamic> json) {
-    DateTime parsedDate;
+    DateTime parsedDate = DateTime.now();
+    TimeOfDay? parsedStartTime;
+    DateTime? parsedEndDate;
+    TimeOfDay? parsedEndTime;
+
     try {
-      if (json['date'] != null) {
+      // Prioritize start_datetime
+      if (json['start_datetime'] != null) {
+        final startDt = DateTime.parse(json['start_datetime']);
+        parsedDate = startDt;
+        parsedStartTime = TimeOfDay.fromDateTime(startDt);
+      } else if (json['date'] != null) {
         parsedDate = DateTime.parse(json['date']);
-      } else {
-        parsedDate = DateTime.now();
+        parsedStartTime = _parseTime(json['start_time'] ?? json['time']);
+      }
+
+      // Prioritize end_datetime
+      if (json['end_datetime'] != null) {
+        final endDt = DateTime.parse(json['end_datetime']);
+        parsedEndDate = endDt;
+        parsedEndTime = TimeOfDay.fromDateTime(endDt);
+      } else if (json['end_date'] != null) {
+        parsedEndDate = DateTime.parse(json['end_date']);
+        parsedEndTime = _parseTime(json['end_time']);
+      } else if (json['end_time'] != null) {
+        parsedEndTime = _parseTime(json['end_time']);
       }
     } catch (e) {
-      parsedDate = DateTime.now();
+      debugPrint('Error parsing event date: $e');
     }
 
     return CalendarEvent(
@@ -65,9 +87,9 @@ class CalendarEvent {
       title: json['name'] ?? json['title'] ?? 'Untitled Event',
       type: json['category'] ?? json['type'] ?? 'Academic',
       date: parsedDate,
-      endDate: json['end_date'] != null ? DateTime.parse(json['end_date']) : null,
-      startTime: _parseTime(json['start_time']),
-      endTime: _parseTime(json['end_time']),
+      endDate: parsedEndDate,
+      startTime: parsedStartTime,
+      endTime: parsedEndTime,
       timeString: json['time']?.toString(),
       description: json['description'] ?? '',
       location: json['location']?.toString(),
@@ -75,7 +97,46 @@ class CalendarEvent {
       isRecurring: json['is_recurring'] == true,
       recurrencePattern: json['recurrence_pattern']?.toString(),
       participants: json['participants'] is int ? json['participants'] : int.tryParse(json['participants']?.toString() ?? '0'),
+      // Use computed_status if available, otherwise fallback to status
+      status: json['computed_status']?.toString() ?? json['status']?.toString(),
+    );
+  }
+
+  factory CalendarEvent.fromActivityJson(Map<String, dynamic> json) {
+    DateTime parsedDate = DateTime.now();
+    TimeOfDay? parsedStartTime;
+    
+    // Parse schedule string: "yyyy-MM-dd hh:mm a"
+    if (json['schedule'] != null) {
+      try {
+        final format = DateFormat('yyyy-MM-dd hh:mm a');
+        final dt = format.parse(json['schedule']);
+        parsedDate = dt;
+        parsedStartTime = TimeOfDay.fromDateTime(dt);
+      } catch (e) {
+        debugPrint('Error parsing activity schedule: $e');
+      }
+    } else if (json['start_date'] != null) {
+       // Fallback to start_date if schedule is missing/invalid
+       try {
+         parsedDate = DateTime.parse(json['start_date']);
+       } catch (_) {}
+    }
+
+    return CalendarEvent(
+      id: json['id'] is int ? json['id'] : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      title: json['name'] ?? 'Untitled Activity',
+      type: json['category'] ?? 'Activity',
+      date: parsedDate,
+      startTime: parsedStartTime,
+      // Activities don't usually have end time in schedule string, unless parsed from duration
+      // For now, we leave endTime null or could set a default duration
+      description: json['description'] ?? '',
+      location: json['location']?.toString(),
+      organizer: json['instructor']?.toString(),
       status: json['status']?.toString(),
+      participants: json['max_participants'] is int ? json['max_participants'] : int.tryParse(json['max_participants']?.toString() ?? '0'),
+      isActivity: true,
     );
   }
 
@@ -196,14 +257,25 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
     try {
       final apiService = ApiService();
       await apiService.initialize();
-      final response = await apiService.get(Endpoints.events);
+      
+      // Fetch both Events and Activities in parallel
+      final results = await Future.wait([
+        apiService.get(Endpoints.events),
+        apiService.get(Endpoints.activities),
+      ]);
+      
+      final eventsResponse = results[0];
+      final activitiesResponse = results[1];
 
-      if (response.success && response.data != null) {
+      List<CalendarEvent> loadedEvents = [];
+
+      // Process Events
+      if (eventsResponse.success && eventsResponse.data != null) {
         List<dynamic> eventsJson = [];
-        if (response.data is List) {
-          eventsJson = response.data as List<dynamic>;
-        } else if (response.data is Map) {
-          final dataMap = response.data as Map<String, dynamic>;
+        if (eventsResponse.data is List) {
+          eventsJson = eventsResponse.data as List<dynamic>;
+        } else if (eventsResponse.data is Map) {
+          final dataMap = eventsResponse.data as Map<String, dynamic>;
           if (dataMap.containsKey('results')) {
             eventsJson = dataMap['results'] as List<dynamic>;
           } else if (dataMap.containsKey('data')) {
@@ -212,27 +284,44 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
             eventsJson = [dataMap];
           }
         }
-
-        if (mounted) {
-          setState(() {
-            _allEvents = eventsJson
-                .map((json) => CalendarEvent.fromJson(json as Map<String, dynamic>))
-                .toList();
-            _isLoading = false;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _errorMessage = response.error ?? 'Failed to load events';
-            _isLoading = false;
-          });
-        }
+        
+        loadedEvents.addAll(
+          eventsJson.map((json) => CalendarEvent.fromJson(json as Map<String, dynamic>))
+        );
       }
+
+      // Process Activities
+      if (activitiesResponse.success && activitiesResponse.data != null) {
+        List<dynamic> activitiesJson = [];
+         if (activitiesResponse.data is List) {
+          activitiesJson = activitiesResponse.data as List<dynamic>;
+        } else if (activitiesResponse.data is Map) {
+          final dataMap = activitiesResponse.data as Map<String, dynamic>;
+          if (dataMap.containsKey('results')) {
+            activitiesJson = dataMap['results'] as List<dynamic>;
+          } else if (dataMap.containsKey('data')) {
+            activitiesJson = dataMap['data'] as List<dynamic>;
+          } else {
+            activitiesJson = [dataMap];
+          }
+        }
+        
+        loadedEvents.addAll(
+          activitiesJson.map((json) => CalendarEvent.fromActivityJson(json as Map<String, dynamic>))
+        );
+      }
+
+      if (mounted) {
+        setState(() {
+          _allEvents = loadedEvents;
+          _isLoading = false;
+        });
+      }
+      
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Error loading events: $e';
+          _errorMessage = 'Error loading calendar data: $e';
           _isLoading = false;
         });
       }
@@ -469,24 +558,84 @@ class _CalendarManagementPageState extends State<CalendarManagementPage> {
       );
     }
 
+    final events = _filteredEvents.where((e) => !e.isActivity).toList();
+    final activities = _filteredEvents.where((e) => e.isActivity).toList();
+
     return _buildSectionContainer(
       title: _selectedDate == null 
-          ? "All Events" 
-          : "Events for ${DateFormat('MMM dd, yyyy').format(_selectedDate!)}",
+          ? "All Items" 
+          : "Schedule for ${DateFormat('MMM dd, yyyy').format(_selectedDate!)}",
       icon: const DynamicCalendarIcon(),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisExtent: 280, 
-          crossAxisSpacing: 20,
-          mainAxisSpacing: 20,
-        ),
-        itemCount: _filteredEvents.length,
-        itemBuilder: (context, index) {
-          return _buildEventCard(_filteredEvents[index]);
-        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // EVENTS SECTION
+          if (events.isNotEmpty) ...[
+             const Padding(
+              padding: EdgeInsets.only(bottom: 15),
+              child: Text(
+                "Events",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF333333),
+                ),
+              ),
+            ),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisExtent: 280, 
+                crossAxisSpacing: 20,
+                mainAxisSpacing: 20,
+              ),
+              itemCount: events.length,
+              itemBuilder: (context, index) {
+                return _buildEventCard(events[index]);
+              },
+            ),
+          ],
+          
+          if (events.isNotEmpty && activities.isNotEmpty)
+            const SizedBox(height: 30),
+
+          // ACTIVITIES SECTION
+          if (activities.isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.only(bottom: 15),
+              child: Text(
+                "Activities",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF333333),
+                ),
+              ),
+            ),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisExtent: 280, 
+                crossAxisSpacing: 20,
+                mainAxisSpacing: 20,
+              ),
+              itemCount: activities.length,
+              itemBuilder: (context, index) {
+                return _buildEventCard(activities[index]);
+              },
+            ),
+          ],
+
+          if (events.isEmpty && activities.isEmpty)
+             const SizedBox(
+              height: 100,
+              child: Center(child: Text("No events or activities found for this date.", style: TextStyle(color: Colors.grey))),
+            ),
+        ],
       ),
     );
   }

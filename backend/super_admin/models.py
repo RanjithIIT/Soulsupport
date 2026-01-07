@@ -4,6 +4,10 @@ Models for super_admin app - API layer for App 1
 import uuid
 from django.db import models
 from main_login.models import User
+from PIL import Image
+import io
+from django.core.files.base import ContentFile
+import os
 
 
 class School(models.Model):
@@ -85,6 +89,43 @@ class School(models.Model):
                     old_instance.districtcode != self.districtcode or 
                     old_instance.registration_number != self.registration_number):
                     raise ValueError("Cannot change statecode, districtcode, or registration_number after school creation. This would change the school_id and break data relationships.")
+        
+        # Image Resizing Logic
+        if self.logo:
+            try:
+                # Open image using Pillow
+                img = Image.open(self.logo)
+                
+                # Convert to RGB if necessary (e.g. for PNGs with transparency)
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                
+                # Check if image needs resizing (e.g. max width 800px)
+                max_width = 800
+                if img.width > max_width:
+                    # Calculate new height to maintain aspect ratio
+                    ratio = max_width / float(img.width)
+                    new_height = int((float(img.height) * float(ratio)))
+                    img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
+                    
+                    # Save resized image to BytesIO object
+                    img_io = io.BytesIO()
+                    img.save(img_io, format='JPEG', quality=85)
+                    
+                    # Create a new Django ContentFile
+                    new_image = ContentFile(img_io.getvalue())
+                    
+                    # Update the file field
+                    # Use original filename but ensure .jpg extension
+                    original_name = os.path.basename(self.logo.name)
+                    name_base, _ = os.path.splitext(original_name)
+                    new_filename = f"{name_base}.jpg"
+                    
+                    self.logo.save(new_filename, new_image, save=False)
+            except Exception as e:
+                # Log error but don't stop save? Or print for now.
+                print(f"Error resizing image: {e}")
+
         super().save(*args, **kwargs)
     
     def __str__(self):

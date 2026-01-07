@@ -19,11 +19,13 @@ class _AddEventPageState extends State<AddEventPage> {
   final _organizerController = TextEditingController();
   final _participantsController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _timeController = TextEditingController();
 
   String? _selectedCategory;
-  String _selectedStatus = 'Upcoming';
-  DateTime? _selectedDate;
+
+  
+  // New DateTime variables
+  DateTime? _startDatetime;
+  DateTime? _endDatetime;
 
   final List<String> _categories = [
     'Academic',
@@ -34,12 +36,7 @@ class _AddEventPageState extends State<AddEventPage> {
     'Other',
   ];
 
-  final List<String> _statuses = [
-    'Upcoming',
-    'Completed',
-    'Cancelled',
-    'Postponed',
-  ];
+
 
   bool _isSubmitting = false;
   bool _showSuccess = false;
@@ -49,12 +46,13 @@ class _AddEventPageState extends State<AddEventPage> {
   EventPreviewData get _previewData => EventPreviewData(
         name: _nameController.text,
         category: _selectedCategory,
-        date: _selectedDate != null ? DateFormat('yyyy-MM-dd').format(_selectedDate!) : null,
-        time: _timeController.text,
+        // Adapt preview data to use formatted start datetime
+        date: _startDatetime != null ? DateFormat('yyyy-MM-dd').format(_startDatetime!) : null,
+        time: _startDatetime != null ? DateFormat('HH:mm').format(_startDatetime!) : '',
         location: _locationController.text,
         organizer: _organizerController.text,
         participants: _participantsController.text,
-        status: _selectedStatus,
+
         description: _descriptionController.text,
       );
 
@@ -65,18 +63,79 @@ class _AddEventPageState extends State<AddEventPage> {
     _organizerController.dispose();
     _participantsController.dispose();
     _descriptionController.dispose();
-    _timeController.dispose();
     super.dispose();
+  }
+
+  Future<void> _selectDateTime(bool isStart) async {
+    final now = DateTime.now();
+    final initialDate = isStart
+        ? (_startDatetime ?? now)
+        : (_endDatetime ?? _startDatetime ?? now);
+
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: now.subtract(const Duration(days: 365)),
+      lastDate: now.add(const Duration(days: 365 * 2)),
+    );
+
+    if (date == null) return;
+
+    if (!mounted) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initialDate),
+    );
+
+    if (time == null) return;
+
+    final dateTime = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+
+    setState(() {
+      if (isStart) {
+        _startDatetime = dateTime;
+        // Auto-set end time to 1 hour later if not set or if before new start time
+        if (_endDatetime == null || _endDatetime!.isBefore(dateTime)) {
+          _endDatetime = dateTime.add(const Duration(hours: 1));
+        }
+      } else {
+        _endDatetime = dateTime;
+      }
+    });
   }
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedDate == null) {
+    
+    // Validate datetimes
+    if (_startDatetime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a date')),
+        const SnackBar(content: Text('Please select a start date and time')),
       );
       return;
     }
+    
+    if (_endDatetime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select an end date and time')),
+      );
+      return;
+    }
+
+    if (_endDatetime!.isBefore(_startDatetime!)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('End time cannot be before start time')),
+      );
+      return;
+    }
+
     if (_selectedCategory == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a category')),
@@ -94,12 +153,12 @@ class _AddEventPageState extends State<AddEventPage> {
       final eventData = {
         'name': _nameController.text.trim(),
         'category': _selectedCategory,
-        'date': DateFormat('yyyy-MM-dd').format(_selectedDate!),
-        'time': _timeController.text.trim(),
+        'start_datetime': _startDatetime?.toIso8601String(),
+        'end_datetime': _endDatetime?.toIso8601String(),
         'location': _locationController.text.trim(),
         'organizer': _organizerController.text.trim(),
         'participants': int.tryParse(_participantsController.text) ?? 0,
-        'status': _selectedStatus,
+
         'description': _descriptionController.text.trim(),
       };
 
@@ -161,12 +220,18 @@ class _AddEventPageState extends State<AddEventPage> {
                     const SizedBox(height: 20),
                     _PreviewRow(label: 'Name', value: data.name),
                     _PreviewRow(label: 'Category', value: data.category),
-                    _PreviewRow(label: 'Date', value: data.date),
-                    _PreviewRow(label: 'Time', value: data.time),
+                    _PreviewRow(
+                      label: 'Start (Preview)', 
+                      value: _startDatetime != null ? DateFormat('yyyy-MM-dd HH:mm').format(_startDatetime!) : '-'
+                    ),
+                     _PreviewRow(
+                      label: 'End (Preview)', 
+                      value: _endDatetime != null ? DateFormat('yyyy-MM-dd HH:mm').format(_endDatetime!) : '-'
+                    ),
                     _PreviewRow(label: 'Location', value: data.location),
                     _PreviewRow(label: 'Organizer', value: data.organizer),
                     _PreviewRow(label: 'Participants', value: data.participants),
-                    _PreviewRow(label: 'Status', value: data.status),
+
                     _PreviewRow(label: 'Description', value: data.description),
                     const SizedBox(height: 20),
                     Align(
@@ -335,23 +400,23 @@ class _AddEventPageState extends State<AddEventPage> {
             child: Container(
               color: const Color(0xFFF5F6FA),
               child: SafeArea(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 820),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.95),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 40,
-                            offset: const Offset(0, 20),
-                          ),
-                        ],
-                      ),
-                      child: Column(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 820),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.95),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 40,
+                          offset: const Offset(0, 20),
+                        ),
+                      ],
+                    ),
+                    child: Column( // Start of Main Content Column
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _buildHeader(),
@@ -417,49 +482,49 @@ class _AddEventPageState extends State<AddEventPage> {
                                               ),
                                             ),
                                           ),
-                                          // DATE
+                                          // START DATETIME
                                           SizedBox(
                                             width: isTwoColumns
                                                 ? (constraints.maxWidth - 30) / 2
                                                 : constraints.maxWidth,
                                             child: _LabeledField(
-                                              label: 'Date *',
+                                              label: 'Start Date & Time *',
                                               child: InkWell(
-                                                onTap: () async {
-                                                  final date = await showDatePicker(
-                                                    context: context,
-                                                    initialDate: DateTime.now(),
-                                                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                                                    lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
-                                                  );
-                                                  if (date != null) {
-                                                    setState(() => _selectedDate = date);
-                                                  }
-                                                },
+                                                onTap: () => _selectDateTime(true),
                                                 child: InputDecorator(
-                                                  decoration: _inputDecoration(hint: 'Select Date'),
+                                                  decoration: _inputDecoration(hint: 'Select Start Time'),
                                                   child: Text(
-                                                    _selectedDate != null
-                                                        ? DateFormat('yyyy-MM-dd').format(_selectedDate!)
-                                                        : 'Select Date',
+                                                    _startDatetime != null
+                                                        ? DateFormat('yyyy-MM-dd HH:mm').format(_startDatetime!)
+                                                        : 'Select Start DateTime',
                                                     style: TextStyle(
-                                                      color: _selectedDate != null ? const Color(0xFF333333) : const Color(0xFF555555),
+                                                      color: _startDatetime != null ? const Color(0xFF333333) : const Color(0xFF555555),
                                                     ),
                                                   ),
                                                 ),
                                               ),
                                             ),
                                           ),
-                                          // TIME
+                                          // END DATETIME
                                           SizedBox(
                                             width: isTwoColumns
                                                 ? (constraints.maxWidth - 30) / 2
                                                 : constraints.maxWidth,
                                             child: _LabeledField(
-                                              label: 'Time',
-                                              child: TextFormField(
-                                                controller: _timeController,
-                                                decoration: _inputDecoration(hint: 'e.g., 09:00 AM - 12:00 PM'),
+                                              label: 'End Date & Time *',
+                                              child: InkWell(
+                                                onTap: () => _selectDateTime(false),
+                                                child: InputDecorator(
+                                                  decoration: _inputDecoration(hint: 'Select End Time'),
+                                                  child: Text(
+                                                    _endDatetime != null
+                                                        ? DateFormat('yyyy-MM-dd HH:mm').format(_endDatetime!)
+                                                        : 'Select End DateTime',
+                                                    style: TextStyle(
+                                                      color: _endDatetime != null ? const Color(0xFF333333) : const Color(0xFF555555),
+                                                    ),
+                                                  ),
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -503,23 +568,7 @@ class _AddEventPageState extends State<AddEventPage> {
                                               ),
                                             ),
                                           ),
-                                          // STATUS
-                                          SizedBox(
-                                            width: isTwoColumns
-                                                ? (constraints.maxWidth - 30) / 2
-                                                : constraints.maxWidth,
-                                            child: _LabeledField(
-                                              label: 'Status',
-                                              child: DropdownButtonFormField<String>(
-                                                value: _selectedStatus,
-                                                items: _statuses
-                                                    .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                                                    .toList(),
-                                                onChanged: (v) => setState(() => _selectedStatus = v!),
-                                                decoration: _inputDecoration(hint: 'Select Status'),
-                                              ),
-                                            ),
-                                          ),
+
                                           // DESCRIPTION
                                           SizedBox(
                                             width: constraints.maxWidth,
@@ -574,11 +623,11 @@ class _AddEventPageState extends State<AddEventPage> {
                           ),
                         ],
                       ),
-                    ),
                   ),
                 ),
               ),
             ),
+          ),
           ),
         ],
       ),
@@ -844,7 +893,7 @@ class EventPreviewData {
   final String? location;
   final String? organizer;
   final String? participants;
-  final String? status;
+
   final String? description;
 
   const EventPreviewData({
@@ -855,7 +904,7 @@ class EventPreviewData {
     required this.location,
     required this.organizer,
     required this.participants,
-    required this.status,
+
     required this.description,
   });
 }

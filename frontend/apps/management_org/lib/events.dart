@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
@@ -14,25 +15,36 @@ class Event {
   final int id;
   final String name;
   final String category;
-  final String date;
-  final String time;
+  final String? startDatetime;
+  final String? endDatetime;
   final String location;
   final String organizer;
   final int participants;
   final String status;
+  final String? computedStatus;
   final String description;
+
+  final String? schoolId;
+  final String? schoolName;
+  final String? createdAt;
+  final String? updatedAt;
 
   const Event({
     required this.id,
     required this.name,
     required this.category,
-    required this.date,
-    required this.time,
+    this.startDatetime,
+    this.endDatetime,
     required this.location,
     required this.organizer,
     required this.participants,
     required this.status,
+    this.computedStatus,
     required this.description,
+    this.schoolId,
+    this.schoolName,
+    this.createdAt,
+    this.updatedAt,
   });
 
   factory Event.fromJson(Map<String, dynamic> json) {
@@ -40,13 +52,18 @@ class Event {
       id: json['id'] ?? 0,
       name: json['name'] ?? '',
       category: json['category'] ?? 'Other',
-      date: json['date'] ?? '',
-      time: json['time'] ?? '',
+      startDatetime: json['start_datetime'],
+      endDatetime: json['end_datetime'],
       location: json['location'] ?? '',
       organizer: json['organizer'] ?? '',
       participants: json['participants'] ?? 0,
       status: json['status'] ?? 'Upcoming',
+      computedStatus: json['computed_status'],
       description: json['description'] ?? '',
+      schoolId: json['school_id'],
+      schoolName: json['school_name'],
+      createdAt: json['created_at'],
+      updatedAt: json['updated_at'],
     );
   }
 }
@@ -60,6 +77,7 @@ class EventsManagementPage extends StatefulWidget {
 
 class _EventsManagementPageState extends State<EventsManagementPage> {
   List<Event> _events = [];
+  Timer? _statusUpdateTimer;
   bool _isLoading = true;
   String _errorMessage = '';
 
@@ -106,28 +124,22 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
           eventsJson = [];
         }
         
-        if (mounted) {
-          setState(() {
-            _events = eventsJson.map((json) => Event.fromJson(json as Map<String, dynamic>)).toList();
-            _visibleEvents = List<Event>.from(_events);
-            _isLoading = false;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _errorMessage = response.error ?? 'Failed to load events';
-            _isLoading = false;
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted) {
         setState(() {
-          _errorMessage = 'Error loading events: $e';
+          _events = eventsJson.map((json) => Event.fromJson(json as Map<String, dynamic>)).toList();
+          _visibleEvents = List<Event>.from(_events);
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _errorMessage = response.error ?? 'Failed to load events';
           _isLoading = false;
         });
       }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error loading events: $e';
+        _isLoading = false;
+      });
     }
   }
 
@@ -152,8 +164,7 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
         final lower = query.toLowerCase();
         _visibleEvents = _events.where((event) {
           return event.name.toLowerCase().contains(lower) ||
-              event.category.toLowerCase().contains(lower) ||
-              event.date.toLowerCase().contains(lower);
+              event.category.toLowerCase().contains(lower);
         }).toList();
       }
     });
@@ -172,17 +183,29 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
               children: [
                 Text('Description: ${event.description}'),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.calendar_today, size: 16),
-                    const SizedBox(width: 8),
-                    Text('Date: ${event.date}'),
-                  ],
-                ),
-                Text('Time: ${event.time}'),
+                if (event.startDatetime != null)
+                  Text('Start: ${_formatDateTime(event.startDatetime!)}'),
+                if (event.endDatetime != null)
+                  Text('End: ${_formatDateTime(event.endDatetime!)}'),
                 Text('Location: ${event.location}'),
                 Text('Organizer: ${event.organizer}'),
                 Text('Participants: ${event.participants}'),
+                if (event.createdAt != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      'Created: ${_formatDateTime(event.createdAt!)}',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ),
+                if (event.updatedAt != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text(
+                      'Last Updated: ${_formatDateTime(event.updatedAt!)}',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -195,6 +218,72 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
         );
       },
     );
+  }
+
+  String getDisplayStatus(Event event) {
+    // Use computed_status from API if available, otherwise use manual status
+    if (event.computedStatus != null && event.computedStatus!.isNotEmpty) {
+      return event.computedStatus!;
+    }
+    return event.status;
+  }
+
+  Color getStatusColor(String status) {
+    switch (status) {
+      case 'Upcoming':
+        return Colors.blue;
+      case 'Ongoing':
+        return Colors.green;
+      case 'Completed':
+        return Colors.grey;
+      case 'Cancelled':
+        return Colors.red;
+      case 'Postponed':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _computeEventStatus(Event event) {
+    if (event.startDatetime == null && event.endDatetime == null) {
+      return event.status;
+    }
+
+    final now = DateTime.now();
+    
+    try {
+      final start = event.startDatetime != null ? DateTime.parse(event.startDatetime!) : null;
+      final end = event.endDatetime != null ? DateTime.parse(event.endDatetime!) : null;
+
+      if (start != null && end != null) {
+        if (now.isBefore(start)) {
+          return 'Upcoming';
+        } else if (now.isAfter(start) && now.isBefore(end)) {
+          return 'Ongoing';
+        } else {
+          return 'Completed';
+        }
+      } else if (start != null) {
+        return now.isBefore(start) ? 'Upcoming' : 'Ongoing';
+      } else if (end != null) {
+        return now.isBefore(end) ? 'Upcoming' : 'Completed';
+      }
+    } catch (e) {
+      // If parsing fails, return the manual status
+      return event.status;
+    }
+
+    return event.status;
+  }
+
+  String _formatDateTime(String datetime) {
+    try {
+      final dt = DateTime.parse(datetime);
+      return '${dt.day}/${dt.month}/${dt.year} at ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return datetime;
+    }
   }
 
   void _editEvent(Event event) async {
@@ -442,7 +531,7 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
                       onChanged: _filterEvents,
                       decoration: const InputDecoration(
                         border: InputBorder.none,
-                        hintText: 'Search events by name, category, or date...',
+                        hintText: 'Search events by name or category...',
                         prefixIcon: Icon(Icons.search),
                         contentPadding: EdgeInsets.symmetric(
                           horizontal: 16,
@@ -706,13 +795,22 @@ class _EventCardWithHoverState extends State<_EventCardWithHover> {
                     spacing: 10,
                     runSpacing: 10,
                     children: [
-                      SizedBox(
-                        width: itemWidth,
-                        child: _DetailItem(
-                          title: 'Time',
-                          value: widget.event.time,
+                      if (widget.event.startDatetime != null)
+                        SizedBox(
+                          width: constraints.maxWidth,
+                          child: _DetailItem(
+                            title: 'Start',
+                            value: _formatDateTime(widget.event.startDatetime!),
+                          ),
                         ),
-                      ),
+                      if (widget.event.endDatetime != null)
+                        SizedBox(
+                          width: constraints.maxWidth,
+                          child: _DetailItem(
+                            title: 'End',
+                            value: _formatDateTime(widget.event.endDatetime!),
+                          ),
+                        ),
                       SizedBox(
                         width: itemWidth,
                         child: _DetailItem(
@@ -772,6 +870,65 @@ class _EventCardWithHoverState extends State<_EventCardWithHover> {
         ),
       ),
     );
+  }
+
+
+  Color getStatusColor(String status) {
+    switch (status) {
+      case 'Upcoming':
+        return Colors.blue;
+      case 'Ongoing':
+        return Colors.green;
+      case 'Completed':
+        return Colors.grey;
+      case 'Cancelled':
+        return Colors.red;
+      case 'Postponed':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _computeEventStatus(Event event) {
+    if (event.startDatetime == null && event.endDatetime == null) {
+      return event.status;
+    }
+
+    final now = DateTime.now();
+    
+    try {
+      final start = event.startDatetime != null ? DateTime.parse(event.startDatetime!) : null;
+      final end = event.endDatetime != null ? DateTime.parse(event.endDatetime!) : null;
+
+      if (start != null && end != null) {
+        if (now.isBefore(start)) {
+          return 'Upcoming';
+        } else if (now.isAfter(start) && now.isBefore(end)) {
+          return 'Ongoing';
+        } else {
+          return 'Completed';
+        }
+      } else if (start != null) {
+        return now.isBefore(start) ? 'Upcoming' : 'Ongoing';
+      } else if (end != null) {
+        return now.isBefore(end) ? 'Upcoming' : 'Completed';
+      }
+    } catch (e) {
+      // If parsing fails, return the manual status
+      return event.status;
+    }
+
+    return event.status;
+  }
+
+  String _formatDateTime(String datetime) {
+    try {
+      final dt = DateTime.parse(datetime);
+      return '${dt.day}/${dt.month}/${dt.year} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return datetime;
+    }
   }
 }
 
@@ -896,14 +1053,13 @@ class _StatCard extends StatelessWidget {
       elevation: 5,
       shadowColor: Colors.black.withValues(alpha: 0.1),
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Column(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             icon,
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
               value,
               style: const TextStyle(
@@ -912,20 +1068,23 @@ class _StatCard extends StatelessWidget {
                 color: Color(0xFF333333),
               ),
             ),
-            const SizedBox(height: 5),
-            Text(
-              label.toUpperCase(),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF666666),
-                fontSize: 12,
-                letterSpacing: 1,
-                fontWeight: FontWeight.w600,
+            const SizedBox(height: 4),
+            Flexible(
+              child: Text(
+                label.toUpperCase(),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF666666),
+                  fontSize: 11,
+                  letterSpacing: 0.5,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
         ),
-      ),
       ),
     );
   }
@@ -1012,4 +1171,3 @@ class _GradientButton extends StatelessWidget {
     );
   }
 }
-

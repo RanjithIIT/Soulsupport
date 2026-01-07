@@ -23,6 +23,42 @@ MaterialColor createMaterialColor(Color color) {
 // 1. DATA MODELS & MOCK DATA DEFINITIONS (ORIGINAL CONTENT RESTORED)
 // -------------------------------------------------------------------------
 
+class Event {
+  final int id;
+  final String name;
+  final String status;
+  final DateTime? startDatetime;
+  final String location;
+  final String organizer;
+
+  const Event({
+    required this.id,
+    required this.name,
+    required this.status,
+    required this.startDatetime,
+    required this.location,
+    required this.organizer,
+  });
+
+  factory Event.fromJson(Map<String, dynamic> json) {
+    DateTime? start;
+    if (json['start_datetime'] != null) {
+      start = DateTime.tryParse(json['start_datetime']);
+    } else if (json['date'] != null) {
+      start = DateTime.tryParse(json['date']); // Legacy
+    }
+
+    return Event(
+      id: json['id'] is int ? json['id'] : 0,
+      name: json['name'] ?? 'Unnamed Event',
+      status: json['status'] ?? 'Upcoming',
+      startDatetime: start,
+      location: json['location'] ?? 'TBD',
+      organizer: json['organizer'] ?? 'School',
+    );
+  }
+}
+
 class Activity {
   final int id;
   final String name;
@@ -246,6 +282,7 @@ class ActivityScreen extends StatefulWidget {
 
 class _ActivityScreenState extends State<ActivityScreen> {
   List<Activity> _activities = [];
+  List<Event> _events = [];
   bool _isLoading = true;
   String _errorMessage = '';
 
@@ -258,31 +295,65 @@ class _ActivityScreenState extends State<ActivityScreen> {
   Future<void> _fetchActivities() async {
     try {
       final apiService = ApiService();
-      final response = await apiService.get(Endpoints.activities);
+      // Fetch both activities and events
+      final results = await Future.wait([
+        apiService.get(Endpoints.activities),
+        apiService.get(Endpoints.events),
+      ]);
 
-      if (response.success && response.data != null) {
+      final activityResponse = results[0];
+      final eventResponse = results[1];
+
+      List<Activity> loadedActivities = [];
+      List<Event> loadedEvents = [];
+
+      // Process Activities
+      if (activityResponse.success && activityResponse.data != null) {
         List<dynamic> data = [];
-        if (response.data is Map && response.data.containsKey('results')) {
-          data = response.data['results'];
-        } else if (response.data is List) {
-          data = response.data;
+        if (activityResponse.data is Map && activityResponse.data.containsKey('results')) {
+          data = activityResponse.data['results'];
+        } else if (activityResponse.data is List) {
+          data = activityResponse.data;
+        } else if (activityResponse.data is Map && activityResponse.data.containsKey('data')) {
+          data = activityResponse.data['data'];
         }
+        loadedActivities = data.map((json) => Activity.fromJson(json)).toList();
+      }
 
-        setState(() {
-          _activities = data.map((json) => Activity.fromJson(json)).toList();
-          _isLoading = false;
+      // Process Events
+      if (eventResponse.success && eventResponse.data != null) {
+        List<dynamic> data = [];
+         if (eventResponse.data is Map && eventResponse.data.containsKey('results')) {
+          data = eventResponse.data['results'];
+        } else if (eventResponse.data is List) {
+          data = eventResponse.data;
+        } else if (eventResponse.data is Map && eventResponse.data.containsKey('data')) {
+           data = eventResponse.data['data'];
+        }
+        
+        loadedEvents = data.map((json) => Event.fromJson(json)).toList();
+        // Filter out past events if desired, or sort by date
+        loadedEvents.sort((a, b) {
+           if (a.startDatetime == null) return 1;
+           if (b.startDatetime == null) return -1;
+           return a.startDatetime!.compareTo(b.startDatetime!);
         });
-      } else {
+      }
+
+      if (mounted) {
         setState(() {
-          _errorMessage = 'Failed to load activities';
+          _activities = loadedActivities;
+          _events = loadedEvents;
           _isLoading = false;
         });
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Error: $e';
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Error: $e';
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -337,7 +408,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
   AppBar _buildAppBar(BuildContext context) {
     return AppBar(
       title: const Text(
-        'Extracurricular Dashboard',
+        'Activities Dashboard',
         style: TextStyle(color: Colors.white),
       ),
       leading: IconButton(
@@ -486,6 +557,18 @@ class _ActivityScreenState extends State<ActivityScreen> {
                   )
                   .toList(),
             ),
+            const SizedBox(height: 35),
+            
+             // Current Events Section (New)
+            _SectionHeader(title: 'Upcoming Events 📅'),
+            _events.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text('No upcoming events found.'),
+                  )
+                : _SectionContainer(
+                    children: _events.take(5).map((e) => _EventListTile(event: e)).toList(),
+                  ),
             const SizedBox(height: 35),
 
             // Achievements Section with Activity Schedule Tab
@@ -1443,6 +1526,52 @@ class ActivityScheduleScreen extends StatelessWidget {
               const Divider(height: 1, indent: 16, endIndent: 16),
         ),
       ),
+    );
+  }
+}
+
+// Event Tile for list
+class _EventListTile extends StatelessWidget {
+  final Event event;
+
+  const _EventListTile({required this.event});
+
+  @override
+  Widget build(BuildContext context) {
+    // Format date: "Mon, Jan 1"
+    final dateStr = event.startDatetime != null 
+        ? DateFormat('EEE, MMM d').format(event.startDatetime!)
+        : 'Date TBD';
+    final timeStr = event.startDatetime != null
+        ? DateFormat('h:mm a').format(event.startDatetime!)
+        : '';
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              event.startDatetime != null ? DateFormat('MMM').format(event.startDatetime!) : '',
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue.shade800),
+            ),
+             Text(
+              event.startDatetime != null ? DateFormat('dd').format(event.startDatetime!) : '',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue.shade800),
+            ),
+          ],
+        ),
+      ),
+      title: Text(event.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text('$dateStr • $timeStr\n${event.location}', style: const TextStyle(fontSize: 12)),
+      isThreeLine: true,
     );
   }
 }

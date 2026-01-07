@@ -73,16 +73,8 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
     try {
       final apiService = ApiService();
       
-      // Fetch all data concurrently
-      final results = await Future.wait([
-        apiService.get('/management-admin/galleries/'),
-        apiService.get(Endpoints.events),
-        apiService.get(Endpoints.activities),
-      ]);
-
-      final galleryResponse = results[0];
-      final eventResponse = results[1];
-      final activityResponse = results[2];
+      // Fetch galleries
+      final galleryResponse = await apiService.get('/management-admin/galleries/');
       
       final List<GalleryPhoto> fetchedItems = [];
       
@@ -121,55 +113,7 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
         }
       }
 
-      // 2. Process Events
-      if (eventResponse.success && eventResponse.data != null) {
-        List<dynamic> eventsJson = _parseResponseList(eventResponse.data);
-        
-        for (var eventJson in eventsJson) {
-          // Filter: Show only Upcoming or Ongoing events (exclude Completed/Cancelled)
-          String status = (eventJson['status'] ?? 'Upcoming').toString();
-          if (status == 'Completed' || status == 'Cancelled') continue;
-          
-          fetchedItems.add(GalleryPhoto(
-            id:  10000 + (eventJson['id'] as int? ?? 0), // Offset ID to avoid collision
-            photoId: 'evt_${eventJson['id']}',
-            title: eventJson['name'] ?? 'Event',
-            category: 'events', // Force category to 'events'
-            description: eventJson['description'] ?? '',
-            date: eventJson['date'] != null 
-                ? DateTime.parse(eventJson['date']) 
-                : DateTime.now(),
-            photographer: eventJson['organizer'] ?? 'School Event', // Map organizer to photographer field
-            location: eventJson['location'] ?? '',
-            emoji: '📅',
-            isFavorite: false,
-            imageUrls: [], // No images for events yet
-          ));
-        }
-      }
 
-      // 3. Process Activities
-      if (activityResponse.success && activityResponse.data != null) {
-        List<dynamic> activitiesJson = _parseResponseList(activityResponse.data);
-        
-        for (var activityJson in activitiesJson) {
-
-
-          fetchedItems.add(GalleryPhoto(
-            id: 20000 + (activityJson['id'] as int? ?? 0), // Offset ID
-            photoId: 'act_${activityJson['id']}',
-            title: activityJson['name'] ?? 'Activity',
-            category: 'activities', // Force category to 'activities'
-            description: '${activityJson['description'] ?? ''}\nInstructor: ${activityJson['instructor'] ?? 'N/A'}\nSchedule: ${activityJson['schedule'] ?? 'N/A'}',
-            date: _parseActivityDate(activityJson['schedule']),
-            photographer: activityJson['instructor'] ?? 'Activity Instructor',
-            location: activityJson['location'] ?? '',
-            emoji: '⚽',
-            isFavorite: false,
-            imageUrls: [], // No images for activities yet
-          ));
-        }
-      }
       
       setState(() {
         photos = fetchedItems;
@@ -247,15 +191,11 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
 
   Widget _buildStatCards(
     int totalPhotos,
-    int totalEvents,
-    int totalActivities,
     int thisMonth,
   ) {
     // Consolidated stats into a horizontal list view for mobile
     final stats = [
       {'emoji': '📸', 'number': totalPhotos, 'label': 'Total Photos'},
-      {'emoji': '🎉', 'number': totalEvents, 'label': 'Events'},
-      {'emoji': '🏆', 'number': totalActivities, 'label': 'Activities'},
       {'emoji': '📅', 'number': thisMonth, 'label': 'This Month'},
     ];
 
@@ -265,7 +205,7 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: SizedBox(
-        height: 120, // Define height for horizontal scroll
+        height: 140, // Expanded height to prevent overflow
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
           itemCount: stats.length,
@@ -435,27 +375,23 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
       return _buildFilteredGrid(allItems, 'Search Results');
     }
 
-    // Mixed View: Galleries (Grid), Events (List), Activities (List)
+    // Simplified View: Just Galleries (Grid)
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (eventItems.isNotEmpty) ...[
-          _buildSectionTitle('📅 Upcoming Events'),
-          _buildListSection(eventItems, null),
-          const SizedBox(height: 24),
-        ],
-        
-        if (activityItems.isNotEmpty) ...[
-          _buildSectionTitle('🏆 School Activities'),
-          _buildListSection(activityItems, null),
-          const SizedBox(height: 24),
-        ],
-
         if (galleryItems.isNotEmpty) ...[
-          _buildSectionTitle('📸 Photo Galleries'),
           _buildFilteredGrid(galleryItems, null),
           const SizedBox(height: 24),
-        ],
+        ] else ...[
+           const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32.0),
+              child: Text(
+                "No photos found.",
+              ),
+            ),
+          ),
+        ]
       ],
     );
   }
@@ -765,13 +701,8 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
   // Full-screen image viewer with horizontal swipe
   void _showImageModal(GalleryPhoto photo) {
     // If it's an event or activity, show a dedicated detail dialog
-    if (photo.category == 'events' || photo.category == 'activities') {
-      showDialog(
-        context: context,
-        builder: (context) => _EventDetailDialog(photo: photo),
-      );
-      return;
-    }
+    // Removed EventDetailDialog trigger since events/activities are gone
+
 
     // Otherwise show the full-screen image viewer for photos
     showDialog(
@@ -787,10 +718,6 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
   Widget build(BuildContext context) {
     // Stat calculations re-used
     final totalPhotos = photos.length;
-    final totalEvents = photos.where((p) => p.category == 'events').length;
-    final totalActivities = photos
-        .where((p) => p.category == 'activities')
-        .length;
     final thisMonth = photos
         .where(
           (p) =>
@@ -822,8 +749,6 @@ class _SchoolGalleryPageState extends State<SchoolGalleryPage> {
             const SizedBox(height: 10), // Top buffer
             _buildStatCards(
               totalPhotos,
-              totalEvents,
-              totalActivities,
               thisMonth,
             ),
 

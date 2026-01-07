@@ -519,15 +519,19 @@ class BusSerializer(SchoolIdMixin, serializers.ModelSerializer):
 
 class EventSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Event model"""
+    computed_status = serializers.SerializerMethodField()
     
     class Meta:
         model = Event
         fields = [
-            'id', 'school_id', 'school_name', 'name', 'category', 'date',
-            'time', 'location', 'organizer', 'participants', 'status',
-            'description', 'created_at', 'updated_at'
+            'id', 'school_id', 'school_name', 'name', 'category', 'start_datetime',
+            'end_datetime', 'location', 'organizer', 'participants', 'status',
+            'computed_status', 'description', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'school_id', 'school_name', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'school_id', 'school_name', 'created_at', 'updated_at', 'computed_status']
+    
+    def get_computed_status(self, obj):
+        return obj.computed_status
     
     def update(self, instance, validated_data):
         """Update event instance"""
@@ -597,6 +601,38 @@ class AwardSerializer(SchoolIdMixin, serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         return instance
+
+    def validate_student_ids(self, value):
+        """
+        Validate that all provided student IDs exist and belong to the user's school.
+        """
+        if not value:
+            # If blank is allowed (blank=True in model), just return
+            return value
+            
+        request = self.context.get('request')
+        if not request:
+            return value
+            
+        school_id = get_user_school_id(request.user)
+        # If no school_id and not super_admin, we can't strictly validate scope, 
+        # but usually permissions handle that. We'll proceed if school_id checks out.
+        
+        ids = [s.strip() for s in value.split(',') if s.strip()]
+        
+        for student_id in ids:
+            # Check existence and school scope combined
+            query = Student.objects.filter(student_id=student_id)
+            
+            if school_id:
+                query = query.filter(school__school_id=school_id)
+            
+            if not query.exists():
+                # Provide the specific error message requested
+                raise serializers.ValidationError(f"There is no student on this id: {student_id}")
+                
+        return value
+
 
 
 class ActivitySerializer(SchoolIdMixin, serializers.ModelSerializer):

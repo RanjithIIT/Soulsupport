@@ -1453,7 +1453,7 @@ class SchoolViewSet(viewsets.ViewSet):
                     status=status.HTTP_404_NOT_FOUND
                 )
             
-            serializer = SchoolSerializer(school)
+            serializer = SchoolSerializer(school, context={'request': request})
             return Response(
                 {
                     'success': True,
@@ -1471,6 +1471,59 @@ class SchoolViewSet(viewsets.ViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @action(detail=False, methods=['post'], url_path='upload-logo')
+    def upload_logo(self, request):
+        """Upload school logo"""
+        from super_admin.models import School
+        from super_admin.serializers import SchoolSerializer
+        
+        try:
+            # Get school from user's school_account relationship
+            school = School.objects.filter(user=request.user).first()
+            
+            if not school:
+                return Response(
+                    {
+                        'success': False,
+                        'message': 'No school found for this user. Please contact administrator.',
+                        'error': 'School not found'
+                    },
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            logo = request.FILES.get('logo')
+            if not logo:
+                return Response(
+                    {
+                        'success': False,
+                        'message': 'No logo file provided.',
+                        'error': 'Missing file'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            school.logo = logo
+            school.save()
+            
+            serializer = SchoolSerializer(school, context={'request': request})
+            return Response(
+                {
+                    'success': True,
+                    'message': 'Logo uploaded successfully',
+                    'data': serializer.data
+                },
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return Response(
+                {
+                    'success': False,
+                    'message': str(e),
+                    'error': 'Failed to upload logo'
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 class EventViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Event management"""
@@ -1478,10 +1531,10 @@ class EventViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     serializer_class = EventSerializer
     permission_classes = [IsAuthenticated, IsManagementAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['category', 'status', 'date']
+    filterset_fields = ['category', 'status', 'start_datetime', 'end_datetime']
     search_fields = ['name', 'location', 'organizer', 'description']
-    ordering_fields = ['date', 'created_at', 'name']
-    ordering = ['-date', '-created_at']
+    ordering_fields = ['start_datetime', 'created_at', 'name']
+    ordering = ['-start_datetime', '-created_at']
     
     def get_permissions(self):
         """Allow read/create/update/delete without auth for development - can be adjusted"""
@@ -1748,6 +1801,69 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                 Award.objects.filter(pk=award.pk).update(school_name=school.school_name)
             except School.DoesNotExist:
                 pass
+
+    @action(detail=False, methods=['get'], url_path='validate-student')
+    def validate_student(self, request):
+        """
+        Validate student ID and return student details if found in the user's school.
+        """
+        student_id = request.query_params.get('student_id')
+        if not student_id:
+            return Response(
+                {'error': 'Student ID is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Get school_id from authenticated user
+        school_id = self.get_school_id()
+        if not school_id:
+             if request.user.role.name == 'super_admin':
+                 pass 
+             else:
+                return Response(
+                    {'error': 'User is not associated with any school'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        try:
+            # Filter by student_id
+            query = Student.objects.filter(student_id=student_id)
+            
+            # If school_id is available, enforce school scoping
+            if school_id:
+                query = query.filter(school__school_id=school_id)
+                
+            student = query.first()
+            
+            if not student:
+                # Check if student exists in another school for specific error message
+                if Student.objects.filter(student_id=student_id).exists():
+                     return Response(
+                        {'error': 'There is no student on this id in your school'},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+                return Response(
+                    {'error': 'There is no student on this id'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+                
+            return Response({
+                'valid': True,
+                'student_id': student.student_id,
+                'student_name': student.student_name,
+                'class': student.applying_class,
+                'grade': student.grade,
+                'school_id': student.school.school_id,
+                'school_name': student.school.school_name
+            })
+            
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
     
     def perform_update(self, serializer):
         """Update award - school_id should already be set"""

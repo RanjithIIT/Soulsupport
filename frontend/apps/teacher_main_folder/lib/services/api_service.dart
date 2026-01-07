@@ -5,8 +5,32 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   static const _base = 'http://127.0.0.1:8000/api/management-admin';
+  static const String baseUrl = 'http://127.0.0.1:8000/api';
   static const teachersEndpoint = '$_base/teachers/';
   static const studentsEndpoint = '$_base/students/';
+
+  static Future<http.Response> authenticatedRequest(String endpoint, {String method = 'GET', Map<String, dynamic>? body}) async {
+    final headers = await getAuthHeaders();
+    // Helper to ensure we don't double slashes or miss them
+    final cleanEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
+    final uri = Uri.parse('$baseUrl/$cleanEndpoint');
+    
+    debugPrint('AuthenticatedRequest: $method $uri');
+
+    if (method == 'GET') {
+      return await http.get(uri, headers: headers);
+    } else if (method == 'POST') {
+      return await http.post(uri, headers: headers, body: jsonEncode(body));
+    } else if (method == 'PUT') {
+      return await http.put(uri, headers: headers, body: jsonEncode(body));
+    } else if (method == 'PATCH') {
+       return await http.patch(uri, headers: headers, body: jsonEncode(body));
+    } else if (method == 'DELETE') {
+      return await http.delete(uri, headers: headers);
+    }
+    
+    throw UnimplementedError('Method $method not implemented');
+  }
 
   /// Get authentication headers with token (private)
   static Future<Map<String, String>> _getAuthHeaders() async {
