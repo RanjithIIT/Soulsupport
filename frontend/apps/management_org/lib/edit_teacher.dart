@@ -43,12 +43,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
   final _nationalityController = TextEditingController();
   final _subjectSpecializationController = TextEditingController();
   final _emergencyContactController = TextEditingController();
-<<<<<<< HEAD
-
   bool _isLoadingDepartments = false;
-=======
-  final _departmentController = TextEditingController();
->>>>>>> origin/praneeth
   String? _gender;
   String? _bloodGroup;
   bool _isClassTeacher = false;
@@ -90,9 +85,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
       _firstNameController.text = data['first_name'] as String? ?? '';
       _lastNameController.text = data['last_name'] as String? ?? '';
       _qualificationController.text = data['qualification'] as String? ?? '';
-<<<<<<< HEAD
-      _departmentController.text = data['department_name'] as String? ?? data['department']?['name'] as String? ?? '';
-=======
       // Set department - prioritize department_name if available, else try department object/string
       if (data['department_name'] != null && data['department_name'].toString().isNotEmpty) {
         _departmentController.text = data['department_name'].toString();
@@ -103,7 +95,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
           _departmentController.text = data['department'].toString();
         }
       }
->>>>>>> origin/praneeth
       _gender = data['gender'] as String?;
       _mobileNoController.text = data['mobile_no'] as String? ?? '';
       _emailController.text = data['email'] as String? ?? '';
@@ -139,7 +130,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
     _firstNameController.dispose();
     _lastNameController.dispose();
     _qualificationController.dispose();
-    _departmentController.dispose();
+
     _mobileNoController.dispose();
     _emailController.dispose();
       _addressController.dispose();
@@ -263,11 +254,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
             children: [
               _PreviewItem('Employee No', _employeeNoController.text),
               _PreviewItem('Name', '${_firstNameController.text} ${_lastNameController.text}'.trim()),
-<<<<<<< HEAD
-              _PreviewItem('Department', _departmentController.text.isNotEmpty ? _departmentController.text : 'Not provided'),
-=======
               _PreviewItem('Department', _departmentController.text),
->>>>>>> origin/praneeth
               _PreviewItem('Gender', _gender ?? 'Not provided'),
               _PreviewItem('Mobile No', _mobileNoController.text),
               _PreviewItem('Email', _emailController.text),
@@ -322,10 +309,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
                         lastNameController: _lastNameController,
                         qualificationController: _qualificationController,
                         departmentController: _departmentController,
-<<<<<<< HEAD
-=======
 
->>>>>>> origin/praneeth
                         gender: _gender,
                         onGenderChanged: (value) {
                           setState(() {
@@ -772,10 +756,7 @@ class _FormCard extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             // Department
-<<<<<<< HEAD
-=======
             // Department
->>>>>>> origin/praneeth
             TextFormField(
               controller: departmentController,
               decoration: InputDecoration(

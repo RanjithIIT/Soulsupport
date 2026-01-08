@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('main_login', '0005_add_school_id_to_user'),
+        ('main_login', '0001_initial'),
     ]
 
     operations = [
