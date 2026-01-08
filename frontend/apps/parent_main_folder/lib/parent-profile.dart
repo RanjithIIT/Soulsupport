@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:main_login/main.dart' as main_login;
 import 'services/api_service.dart' as api;
+import 'services/download_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 // --- UTILITY FUNCTION TO CREATE CUSTOM MATERIAL COLOR ---
@@ -742,7 +743,7 @@ void _showCertificateDialog(BuildContext context, Map<String, dynamic> award) {
     if (!path.startsWith('/media/') && !path.startsWith('media/')) {
       path = '/media/${path.startsWith('/') ? path.substring(1) : path}';
     }
-    fullUrl = 'http://localhost:8000${path.startsWith('/') ? '' : '/'}$path';
+    fullUrl = 'http://127.0.0.1:8000${path.startsWith('/') ? '' : '/'}$path';
   }
 
   showDialog(
@@ -822,6 +823,24 @@ void _showCertificateDialog(BuildContext context, Map<String, dynamic> award) {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.download, color: Colors.white),
+                      label: const Text("Download Certificate", style: TextStyle(color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF28A745), // Green for download
+                      ),
+                      onPressed: () async {
+                        try {
+                          _showSnackbar(context, "Starting download...");
+                          final fileName = "Certificate_${award['title']}.png".replaceAll(' ', '_');
+                          await DownloadService.downloadCertificate(fullUrl, fileName);
+                          _showSnackbar(context, "Download successful!");
+                        } catch (e) {
+                          _showSnackbar(context, "Download failed: $e");
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 10),
                     TextButton.icon(
                       icon: const Icon(Icons.open_in_new),
                       label: const Text("Open in Browser"),

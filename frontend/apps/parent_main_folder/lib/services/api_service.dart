@@ -8,7 +8,7 @@ class ApiService {
     static Future<Map<String, dynamic>?> fetchStudentBusDetails(String studentId) async {
       final headers = await _getAuthHeaders();
       final resp = await http.get(
-        Uri.parse('http://localhost:8000/api/management-admin/student/$studentId/bus-details/'),
+        Uri.parse('http://127.0.0.1:8000/api/management-admin/student/$studentId/bus-details/'),
         headers: headers,
       );
       if (resp.statusCode == 200) {
@@ -16,12 +16,12 @@ class ApiService {
       }
       return null;
     }
-  static const _base = 'http://localhost:8000/api/management-admin';
+  static const _base = 'http://127.0.0.1:8000/api/management-admin';
   static const teachersEndpoint = '$_base/teachers/';
   static const studentsEndpoint = '$_base/students/';
-  static const communicationsEndpoint = 'http://localhost:8000/api/student-parent/communications/';
-  static const chatMessagesEndpoint = 'http://localhost:8000/api/student-parent/chat-messages/';
-  static const parentBase = 'http://localhost:8000/api/student-parent';
+  static const communicationsEndpoint = 'http://127.0.0.1:8000/api/student-parent/communications/';
+  static const chatMessagesEndpoint = 'http://127.0.0.1:8000/api/student-parent/chat-messages/';
+  static const parentBase = 'http://127.0.0.1:8000/api/student-parent';
   static const parentEndpoint = '$parentBase/parent/';
 
   /// Get authentication headers with token (private)

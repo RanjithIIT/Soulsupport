@@ -8,7 +8,11 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, Activity, Gallery, GalleryImage
+import openpyxl
+from io import BytesIO
+from django.http import HttpResponse
+from django.core.files.base import ContentFile
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, AwardCertificate, CampusFeature, Activity, Gallery, GalleryImage
 from super_admin.models import School
 from .serializers import (
     FileSerializer,
@@ -1780,6 +1784,470 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
             },
             status=status.HTTP_400_BAD_REQUEST
         )
+
+    @action(detail=False, methods=['get'])
+    def download_template(self, request):
+        """Generate Excel template for bulk award import"""
+        wb = openpyxl.Workbook()
+        
+        # Template Sheet
+        ws = wb.active
+        ws.title = "Template"
+        headers = [
+            'Team Number', 'Award Title', 'Category', 'Student ID', 
+            'Date (YYYY-MM-DD)', 'Description', 'Level', 'Presented By', 
+            'Recipient Name', 'Award Document'
+        ]
+        ws.append(headers)
+        
+        # Removed sample data as requested
+        
+        # Instructions Sheet
+        ws_inst = wb.create_sheet("Instructions")
+        ws_inst.append(['Column', 'Description', 'Mandatory'])
+        ws_inst.append(['Team Number', 'Group rows with the same number to create a single Award card for a team (use 1, 2, 3...)', 'No'])
+        ws_inst.append(['Award Title', 'Official title of the award (First row of team is used)', 'Yes'])
+        ws_inst.append(['Category', 'Academic, Sports, Arts, etc. (First row of team is used)', 'Yes'])
+        ws_inst.append(['Student ID', 'Valid Student ID from school records', 'Yes'])
+        ws_inst.append(['Date', 'Date of award in YYYY-MM-DD format (First row of team is used)', 'Yes'])
+        ws_inst.append(['Description', 'Brief details about the achievement', 'No'])
+        ws_inst.append(['Level', 'School, District, State, etc. (First row of team is used)', 'Yes'])
+        ws_inst.append(['Presented By', 'Name of the person or organization', 'No'])
+        ws_inst.append(['Recipient Name', 'Team Name or Student Name (Optional)', 'No'])
+        ws_inst.append(['Award Document', 'Place/Paste the certificate image for THIS student in this row', 'No'])
+        
+        # Instructions for Images
+        ws_inst.append([])
+        ws_inst.append(['Note on Documents:', 'Place/Paste the award photo or certificate directly into the "Award Document" column. Each image will be automatically linked to the student in that row.'])
+        
+        # Set column widths
+        for ws_iterator in [ws, ws_inst]:
+            for column_cells in ws_iterator.columns:
+                try:
+                    length = max(len(str(cell.value)) for cell in column_cells if cell.value)
+                    ws_iterator.column_dimensions[column_cells[0].column_letter].width = length + 2
+                except:
+                    pass
+
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        response = HttpResponse(
+            output.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename=awards_import_template.xlsx'
+        return response
+
+    @action(detail=False, methods=['post'])
+    def import_excel(self, request):
+        """Import awards from Excel with optional images"""
+        excel_file = request.FILES.get('excel_file')
+        if not excel_file:
+            return Response({'success': False, 'message': 'No Excel file uploaded'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get school_id
+        school_id = get_user_school_id(request.user)
+        if not school_id:
+             # Development fallback
+             school = School.objects.first()
+             if school: school_id = school.school_id
+        
+        if not school_id:
+            return Response({'success': False, 'message': 'Could not determine school ID'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        school_name = ""
+        try:
+            from super_admin.models import School
+            school_obj = School.objects.get(school_id=school_id)
+            school_name = school_obj.school_name
+        except:
+            pass
+
+        from datetime import datetime
+        print(f"\n--- IMPORT_EXCEL: [{datetime.now().strftime('%H:%M:%S')}] Starting Import Process ---", flush=True)
+        print(f"User: {request.user}, School ID: {school_id}", flush=True)
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(excel_file)
+            if "Template" not in wb.sheetnames:
+                return Response({'success': False, 'message': 'Invalid Excel format. Could not find "Template" sheet.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            ws = wb["Template"]
+            print(f"DEBUG: [v3] Import Request - File: {excel_file.name}, Sheet: Template. Images in ws._images: {len(ws._images)}", flush=True)
+            
+            # Map images to rows
+            image_map = {}
+            
+            # Helper to extract bytes from openpyxl image
+            def get_img_bytes(img):
+                try:
+                    # Method 1: Get from p_img (PIL Image if available)
+                    if hasattr(img, 'p_img'):
+                        from io import BytesIO
+                        out = BytesIO()
+                        img.p_img.save(out, format=img.p_img.format or 'PNG')
+                        return out.getvalue()
+                    
+                    # Method 2: Get from _data property
+                    if hasattr(img, '_data'):
+                        return img._data()
+
+                    # Method 3: Get from image or ref
+                    img_src = getattr(img, 'ref', None) or getattr(img, 'image', None)
+                    if img_src and hasattr(img_src, 'tobytes'):
+                        return img_src.tobytes()
+                    elif img_src and hasattr(img_src, 'read'):
+                        img_src.seek(0)
+                        return img_src.read()
+                except Exception as ex:
+                    print(f"DEBUG: Error extracting bytes: {str(ex)}", flush=True)
+                return None
+
+            # 1. Try standard openpyxl images
+            if ws._images:
+                for img_idx, img in enumerate(ws._images):
+                    row = None
+                    try:
+                        if hasattr(img.anchor, '_from'):
+                            row = img.anchor._from.row
+                        elif hasattr(img.anchor, 'row'):
+                            row = img.anchor.row
+                    except:
+                        pass
+                    
+                    if row is not None:
+                        img_bytes = get_img_bytes(img)
+                        if img_bytes:
+                            image_map[row] = img_bytes
+                            print(f"DEBUG: Mapped Image {img_idx} to Row index {row} via ws._images", flush=True)
+
+            # 2. Fallback: Manually extract from ZIP if no images found or as extra check
+            if not image_map:
+                print(f"DEBUG: [v3] Starting ZIP extraction flow...", flush=True)
+                try:
+                    import zipfile
+                    import xml.etree.ElementTree as ET
+                    import os
+                    
+                    excel_file.seek(0)
+                    with zipfile.ZipFile(excel_file, 'r') as z:
+                        all_files = z.namelist()
+                        
+                        # Namespaces
+                        ns = {
+                            'main': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
+                            'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+                            'rd': 'http://schemas.microsoft.com/office/spreadsheetml/2017/richdata',
+                            'rdr': 'http://schemas.microsoft.com/office/spreadsheetml/2022/richvaluerel'
+                        }
+
+                        # -- PART A: Find drawing-based images (Standard Excel) --
+                        drawing_files = [f for f in all_files if 'xl/drawings/drawing' in f and f.endswith('.xml')]
+                        for drawing_path in drawing_files:
+                            try:
+                                drawing_xml = z.read(drawing_path)
+                                draw_root = ET.fromstring(drawing_xml)
+                                draw_rel_path = f"xl/drawings/_rels/{drawing_path.split('/')[-1]}.rels"
+                                if draw_rel_path not in all_files: continue
+                                
+                                dr_rels_root = ET.fromstring(z.read(draw_rel_path))
+                                draw_rels_map = {}
+                                for rel in dr_rels_root:
+                                    target = rel.get('Target')
+                                    if target:
+                                        if target.startswith('../media/'):
+                                            full_media_path = 'xl/media/' + target.split('/')[-1]
+                                        elif target.startswith('media/'):
+                                            full_media_path = 'xl/drawings/' + target
+                                        else:
+                                            full_media_path = 'xl/' + target.replace('../', '')
+                                        draw_rels_map[rel.get('Id')] = full_media_path
+
+                                for anchor in draw_root:
+                                    from_elem = anchor.find('.//{*}from')
+                                    if from_elem is not None:
+                                        row_elem = from_elem.find('{*}row')
+                                        if row_elem is not None:
+                                            row_idx = int(row_elem.text)
+                                            blip = anchor.find('.//{*}blip')
+                                            if blip is not None:
+                                                blip_rId = None
+                                                for attr in blip.attrib:
+                                                    if 'embed' in attr.lower():
+                                                        blip_rId = blip.get(attr)
+                                                        break
+                                                if blip_rId and blip_rId in draw_rels_map:
+                                                    media_path = draw_rels_map[blip_rId]
+                                                    if media_path in all_files:
+                                                        image_map[row_idx] = z.read(media_path)
+                                                        print(f"DEBUG: Mapped standard image for row {row_idx}", flush=True)
+                            except Exception as de:
+                                print(f"DEBUG: Error in drawing fallback: {str(de)}", flush=True)
+
+                        # -- PART B: Find Rich Data images (Image in Cell) --
+                        if not image_map:
+                            print(f"DEBUG: [v3] No standard images found. Attempting Rich Data (Image-in-cell) extraction...", flush=True)
+                            try:
+                                # 1. Find the "Template" sheet file
+                                wb_xml = ET.fromstring(z.read('xl/workbook.xml'))
+                                target_rid = None
+                                for s in wb_xml.findall('.//main:sheet', ns):
+                                    if s.attrib.get('name') == 'Template':
+                                        target_rid = s.attrib.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
+                                        break
+                                
+                                if target_rid:
+                                    wb_rels = ET.fromstring(z.read('xl/_rels/workbook.xml.rels'))
+                                    sheet_path = None
+                                    for r in wb_rels.findall('{http://schemas.openxmlformats.org/package/2006/relationships}Relationship'):
+                                        if r.attrib.get('Id') == target_rid:
+                                            sheet_path = 'xl/' + r.attrib.get('Target')
+                                            break
+                                    
+                                    if sheet_path and sheet_path in all_files:
+                                        # 2. Parse sheet to map Row -> vm index
+                                        sheet_xml = ET.fromstring(z.read(sheet_path))
+                                        vm_map = {} # row_idx -> vm_index
+                                        for row_node in sheet_xml.findall('.//main:row', ns):
+                                            r = int(row_node.attrib.get('r', '0')) - 1
+                                            for c in row_node.findall('main:c', ns):
+                                                vm = c.attrib.get('vm')
+                                                if vm:
+                                                    vm_map[r] = int(vm)
+                                        
+                                        if vm_map and 'xl/metadata.xml' in all_files:
+                                            # 3. Resolve vm index -> rv index (metadata.xml)
+                                            meta_xml = ET.fromstring(z.read('xl/metadata.xml'))
+                                            rv_indices = {} # vm_idx -> rv_idx
+                                            # valueMetadata/bk is index-based (vm="1" is first [0])
+                                            for i, bk in enumerate(meta_xml.findall('.//main:valueMetadata/main:bk', ns)):
+                                                rc = bk.find('main:rc', ns)
+                                                if rc is not None and rc.attrib.get('t') == '1': # XLRICHVALUE
+                                                    rv_indices[i + 1] = int(rc.attrib.get('v', '0'))
+                                            
+                                            if rv_indices and 'xl/richData/rdrichvalue.xml' in all_files:
+                                                # 4. Resolve rv index -> rel index (rdrichvalue.xml)
+                                                rdv_xml = ET.fromstring(z.read('xl/richData/rdrichvalue.xml'))
+                                                rel_indices = {} # rv_idx -> rel_idx
+                                                for i, rv in enumerate(rdv_xml.findall('rd:rv', ns)):
+                                                    v_tags = rv.findall('rd:v', ns)
+                                                    if v_tags:
+                                                        # First v tag is usually the rel index
+                                                        rel_indices[i] = int(v_tags[0].text)
+                                                
+                                                if rel_indices and 'xl/richData/richValueRel.xml' in all_files:
+                                                    # 5. Resolve rel index -> rId (richValueRel.xml)
+                                                    rdrel_xml = ET.fromstring(z.read('xl/richData/richValueRel.xml'))
+                                                    rid_indices = {} # rel_idx -> rId
+                                                    for i, rel in enumerate(rdrel_xml.findall('rdr:rel', ns)):
+                                                        rid_indices[i] = rel.attrib.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
+                                                    
+                                                    # 6. Resolve rId -> media path
+                                                    rdrel_rels_path = 'xl/richData/_rels/richValueRel.xml.rels'
+                                                    if rid_indices and rdrel_rels_path in all_files:
+                                                        rdrels_root = ET.fromstring(z.read(rdrel_rels_path))
+                                                        media_map = {}
+                                                        for r in rdrels_root.findall('{http://schemas.openxmlformats.org/package/2006/relationships}Relationship'):
+                                                            target = r.attrib.get('Target')
+                                                            if target:
+                                                                # Target is relative to xl/richData/
+                                                                m_path = os.path.normpath(os.path.join('xl/richData', target)).replace('\\', '/')
+                                                                media_map[r.attrib.get('Id')] = m_path
+                                                        
+                                                        # Final Assembly
+                                                        for row_idx, vm_idx in vm_map.items():
+                                                            rv_idx = rv_indices.get(vm_idx)
+                                                            if rv_idx is not None:
+                                                                rel_idx = rel_indices.get(rv_idx)
+                                                                if rel_idx is not None:
+                                                                    rid = rid_indices.get(rel_idx)
+                                                                    if rid:
+                                                                        img_path = media_map.get(rid)
+                                                                        if img_path and img_path in all_files:
+                                                                            image_map[row_idx] = z.read(img_path)
+                                                                            print(f"DEBUG: Mapped Rich Data Image for Row {row_idx}", flush=True)
+
+                            except Exception as re:
+                                print(f"DEBUG: Error in Rich Data extraction: {str(re)}", flush=True)
+
+                except Exception as ze:
+                    print(f"DEBUG: [v3] ZIP Fallback failed: {str(ze)}", flush=True)
+
+            print(f"DEBUG: [v3] Image Mapping Complete. Entries: {len(image_map)}. Keys: {list(image_map.keys())}", flush=True)
+
+            # iter_rows(min_row=2) means we start from the second row (index 1)
+
+            from django.utils import timezone
+            awards_to_create = []
+            errors = []
+            
+            # iter_rows(min_row=2) means we start from the second row (index 1)
+            # openpyxl row index for headers is 0. Data starts at 1.
+            rows = list(ws.iter_rows(min_row=2, values_only=True))
+            
+            # Group rows by Team Number
+            # If Team Number is blank, treat each row as its own team (single award)
+            groups = []
+            import uuid
+            
+            for i, row in enumerate(rows):
+                if not any(row): continue
+                
+                team_val = str(row[0]).strip() if row[0] is not None else ""
+                
+                # If no team number, use a unique ID to treat it as a single award
+                actual_team_id = team_val if team_val else f"single_{uuid.uuid4().hex[:8]}"
+                
+                # Metadata for the award (from the first row of a group)
+                # Team Number (0), Award Title (1), Category (2), Student ID (3), Date (4), 
+                # Description (5), Level (6), Presented By (7), Recipient Name (8), Award Document (Legacy 9)
+                
+                row_data = {
+                    'row_idx': i + 1, # abs_row_idx
+                    'team_id': actual_team_id,
+                    'title': row[1],
+                    'category': row[2],
+                    'student_id': str(row[3]).strip() if row[3] else "",
+                    'date_val': row[4],
+                    'desc': row[5],
+                    'level': row[6],
+                    'presented_by': row[7],
+                    'recipient': row[8],
+                }
+                
+                # Find if group already exists
+                group = next((g for g in groups if g['team_id'] == actual_team_id and actual_team_id and not actual_team_id.startswith('single_')), None)
+                
+                if group:
+                    group['rows'].append(row_data)
+                else:
+                    groups.append({
+                        'team_id': actual_team_id,
+                        'rows': [row_data]
+                    })
+
+            from django.utils import timezone
+            from django.db import transaction
+            
+            success_count = 0
+            errors = []
+
+            with transaction.atomic():
+                for group in groups:
+                    first_row = group['rows'][0]
+                    
+                    # Validate all students in group
+                    valid_students = []
+                    group_errors = []
+                    
+                    for r_data in group['rows']:
+                        sid = r_data['student_id']
+                        if not sid:
+                            group_errors.append(f"Row {r_data['row_idx'] + 1}: Student ID is mandatory")
+                            continue
+                            
+                        # Split IDs if comma-separated in a single cell (legacy support)
+                        id_strings = [s.strip() for s in sid.split(',') if s.strip()]
+                        for s_id in id_strings:
+                            student = Student.objects.filter(student_id=s_id, school_id=school_id).first()
+                            if not student:
+                                student = Student.objects.filter(student_id__iexact=s_id, school_id=school_id).first()
+                                if not student:
+                                    group_errors.append(f"Row {r_data['row_idx'] + 1}: Student ID {s_id} not found")
+                                    continue
+                            valid_students.append(student)
+                    
+                    if group_errors:
+                        errors.extend(group_errors)
+                        continue
+                    
+                    if not valid_students:
+                        continue
+                        
+                    # Parse date from first row
+                    date_val = first_row['date_val']
+                    try:
+                        if isinstance(date_val, str):
+                            from django.utils.dateparse import parse_date
+                            date_obj = parse_date(date_val)
+                        elif hasattr(date_val, 'date'):
+                            date_obj = date_val.date()
+                        else:
+                            date_obj = date_val
+                        if not date_obj: date_obj = timezone.now().date()
+                    except:
+                        date_obj = timezone.now().date()
+
+                    # Final recipient logic
+                    final_recipient = first_row['recipient']
+                    if not final_recipient:
+                        # If multiple students and no team name, use comma list
+                        final_recipient = ", ".join([s.student_name for s in valid_students[:3]])
+                        if len(valid_students) > 3:
+                            final_recipient += f" and {len(valid_students)-3} others"
+                    
+                    final_student_ids = ",".join(list(set([s.student_id for s in valid_students])))
+
+                    # Create Award
+                    save_award = Award(
+                        school_id=school_id,
+                        school_name=school_name,
+                        title=first_row['title'] or "Award",
+                        category=first_row['category'] or "Other",
+                        recipient=final_recipient,
+                        student_ids=final_student_ids,
+                        date=date_obj,
+                        description=first_row['desc'] or "",
+                        level=first_row['level'] or "School",
+                        presented_by=first_row['presented_by'] or "",
+                        team_id=group['team_id'] if not group['team_id'].startswith('single_') else ""
+                    )
+                    save_award.save()
+                    award = save_award
+                    
+                    # Create Certificates for each row in group
+                    for r_data in group['rows']:
+                        abs_row_idx = r_data['row_idx']
+                        if abs_row_idx in image_map:
+                            image_content = image_map[abs_row_idx]
+                            import time
+                            ts = int(time.time() * 1000)
+                            # Create Certificate object
+                            cert = AwardCertificate(
+                                award=award,
+                                student_id=r_data['student_id'],
+                            )
+                            # Save file
+                            file_name = f"{r_data['student_id']}_{ts}_cert.png"
+                            cert.document.save(file_name, ContentFile(image_content), save=True)
+                            
+                            # Also set as main document if it's the first row
+                            if r_data == first_row:
+                                award.document.save(file_name, ContentFile(image_content), save=False)
+                                award.save()
+                    
+                    success_count += 1
+            
+            if errors:
+                print(f"DEBUG: Import failed with {len(errors)} errors: {errors}", flush=True)
+                return Response({'success': False, 'message': 'Import failed due to errors', 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
+            
+            if success_count > 0:
+                print(f"DEBUG: Successfully imported {success_count} awards (grouped)", flush=True)
+                return Response({'success': True, 'message': f'Successfully imported {success_count} awards'})
+            
+            return Response({'success': False, 'message': 'No valid award data found in Excel'})
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc() # Print to console for real-time debugging
+            return Response({
+                'success': False, 
+                'message': f'Error processing Excel: {str(e)}', 
+                'trace': traceback.format_exc()
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def perform_create(self, serializer):
         """Set school reference when creating award"""

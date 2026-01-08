@@ -4,6 +4,12 @@ import 'package:intl/intl.dart';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:path/path.dart' as p;
+// For web downloads
+import 'dart:html' as html; 
 import 'main.dart' as app;
 import 'dashboard.dart';
 import 'package:core/api/api_service.dart';
@@ -26,6 +32,9 @@ class Award {
   final String level;
   final String presentedBy;
 
+  final String? documentUrl;
+  final List<String> certificateUrls;
+
   Award({
     required this.id,
     required this.title,
@@ -37,9 +46,8 @@ class Award {
     required this.level,
     required this.presentedBy,
     this.documentUrl,
+    required this.certificateUrls,
   });
-
-  final String? documentUrl;
 
   factory Award.fromJson(Map<String, dynamic> json) {
     return Award(
@@ -53,6 +61,10 @@ class Award {
       level: json['level'] ?? '',
       presentedBy: json['presented_by'] ?? '',
       documentUrl: json['document_url'] as String?,
+      certificateUrls: (json['certificates'] as List? ?? [])
+          .map((c) => c['document_url'] as String)
+          .where((url) => url != null)
+          .toList(),
     );
   }
 }
@@ -433,17 +445,284 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
     }
   }
 
-  void _showCertificateDialog(String url, String title) {
-    // Ensure full URL
-    String fullUrl = url;
-    if (!fullUrl.startsWith('http')) {
-      // If it doesn't start with http, it's a relative path.
-      // Try to determine if it needs the /media/ prefix.
-      String path = fullUrl;
-      if (!path.startsWith('/media/') && !path.startsWith('media/')) {
-        path = '/media/${path.startsWith('/') ? path.substring(1) : path}';
+  void _showCertificateDialog({int? initialIndex, String? url, Uint8List? bytes, required String title}) {
+    // If initialIndex is provided, we use the paginated browser
+    if (initialIndex != null) {
+      final award = _filteredAwards[initialIndex];
+      List<String> urls = award.certificateUrls;
+      if (urls.isEmpty && award.documentUrl != null) {
+        urls = [award.documentUrl!];
       }
-      fullUrl = 'http://localhost:8000${path.startsWith('/') ? '' : '/'}$path';
+      
+      if (urls.isNotEmpty) {
+        _showPaginatedCertificateBrowser(urls, award.title, award.recipient);
+        return;
+      }
+    }
+
+    // Fallback for single view if needed
+    _showSingleCertificateView(url: url, bytes: bytes, title: title);
+  }
+
+  void _showPaginatedCertificateBrowser(List<String> urls, String title, String recipient) {
+    if (urls.isEmpty) return;
+    int currentIndex = 0;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          
+          String fullUrl = urls[currentIndex];
+          if (!fullUrl.startsWith('http')) {
+            String path = fullUrl;
+            if (!path.startsWith('/media/') && !path.startsWith('media/')) {
+              path = '/media/${path.startsWith('/') ? path.substring(1) : path}';
+            }
+            // Use window.location.origin in production, but here we can assume a base URL if needed
+            // Or just use the relative path if the browser handles it.
+            // For now, keeping the logic but more generic
+            if (!fullUrl.startsWith('/')) fullUrl = '/$fullUrl';
+          }
+
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            child: Container(
+              width: 900,
+              height: 700,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  )
+                ],
+              ),
+              child: Column(
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                    decoration: const BoxDecoration(
+                      border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                title,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF333333),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                "Recipient: $recipient",
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            Text(
+                              "Certificate ${currentIndex + 1} of ${urls.length}",
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF666666)),
+                            ),
+                            const SizedBox(width: 10),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => Navigator.pop(context),
+                              color: Colors.grey,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Content (Main Image View)
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          color: const Color(0xFFF8F9FA),
+                          child: InteractiveViewer(
+                            panEnabled: true,
+                            minScale: 0.5,
+                            maxScale: 4.0,
+                            child: Center(
+                              key: ValueKey(fullUrl), // Force rebuild on change
+                              child: Image.network(
+                                fullUrl.startsWith('http') ? fullUrl : Endpoints.buildUrl(fullUrl),
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return Center(
+                                    child: CircularProgressIndicator(
+                                      value: loadingProgress.expectedTotalBytes != null
+                                          ? loadingProgress.cumulativeBytesLoaded /
+                                              loadingProgress.expectedTotalBytes!
+                                          : null,
+                                    ),
+                                  );
+                                },
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.broken_image, size: 64, color: Colors.grey),
+                                      const SizedBox(height: 10),
+                                      const Text("Could not load certificate image",
+                                          style: TextStyle(color: Colors.red)),
+                                      TextButton(
+                                        onPressed: () async {
+                                          final uri = Uri.parse(fullUrl!);
+                                          if (await canLaunchUrl(uri)) {
+                                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                          }
+                                        },
+                                        child: const Text("Open in Browser"),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Navigation Buttons Overlaid
+                        if (currentIndex > 0)
+                          Positioned(
+                            left: 10,
+                            top: 0,
+                            bottom: 0,
+                            child: Center(
+                              child: IconButton(
+                                icon: const Icon(Icons.arrow_back_ios_new, size: 36, color: Color(0xFF667EEA)),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Colors.white.withValues(alpha: 0.7),
+                                  padding: const EdgeInsets.all(12),
+                                ),
+                                onPressed: () {
+                                  setDialogState(() => currentIndex--);
+                                },
+                              ),
+                            ),
+                          ),
+                        if (currentIndex < urls.length - 1)
+                          Positioned(
+                            right: 10,
+                            top: 0,
+                            bottom: 0,
+                            child: Center(
+                              child: IconButton(
+                                icon: const Icon(Icons.arrow_forward_ios, size: 36, color: Color(0xFF667EEA)),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Colors.white.withValues(alpha: 0.7),
+                                  padding: const EdgeInsets.all(12),
+                                ),
+                                onPressed: () {
+                                  setDialogState(() => currentIndex++);
+                                },
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  // Footer
+                  Container(
+                    padding: const EdgeInsets.all(15),
+                    decoration: const BoxDecoration(
+                      border: Border(top: BorderSide(color: Color(0xFFEEEEEE))),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                             ElevatedButton.icon(
+                              onPressed: currentIndex > 0 ? () => setDialogState(() => currentIndex--) : null,
+                              icon: const Icon(Icons.chevron_left, size: 18),
+                              label: const Text("Previous"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFE9ECEF),
+                                foregroundColor: const Color(0xFF495057),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            ElevatedButton.icon(
+                              onPressed: currentIndex < urls.length - 1 ? () => setDialogState(() => currentIndex++) : null,
+                              icon: const Icon(Icons.chevron_right, size: 18),
+                              label: const Text("Next"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFE9ECEF),
+                                foregroundColor: const Color(0xFF495057),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text("Close"),
+                            ),
+                            if (fullUrl != null) ...[
+                              const SizedBox(width: 10),
+                              ElevatedButton.icon(
+                                onPressed: () async {
+                                  final uri = Uri.parse(fullUrl!);
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                  }
+                                },
+                                icon: const Icon(Icons.open_in_new, size: 16),
+                                label: const Text("Open in Browser"),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF667EEA),
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+      ),
+    );
+  }
+
+  void _showSingleCertificateView({String? url, Uint8List? bytes, required String title}) {
+    // Ensure full URL if it's a string
+    String? fullUrl;
+    if (url != null) {
+      fullUrl = url;
+      if (!fullUrl.startsWith('http')) {
+        String path = fullUrl;
+        if (!path.startsWith('/media/') && !path.startsWith('media/')) {
+          path = '/media/${path.startsWith('/') ? path.substring(1) : path}';
+        }
+        fullUrl = 'http://localhost:8000${path.startsWith('/') ? '' : '/'}$path';
+      }
     }
 
     showDialog(
@@ -505,40 +784,42 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
                     minScale: 0.5,
                     maxScale: 4.0,
                     child: Center(
-                      child: Image.network(
-                        fullUrl,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Center(
-                            child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
-                                  : null,
-                            ),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          return Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.broken_image, size: 64, color: Colors.grey),
-                              const SizedBox(height: 10),
-                              const Text("Could not load certificate image",
-                                  style: TextStyle(color: Colors.red)),
-                              TextButton(
-                                onPressed: () async {
-                                  final uri = Uri.parse(fullUrl);
-                                  if (await canLaunchUrl(uri)) {
-                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                                  }
-                                },
-                                child: const Text("Open in Browser"),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
+                      child: bytes != null 
+                        ? Image.memory(bytes)
+                        : (fullUrl != null ? Image.network(
+                            fullUrl,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  value: loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                      : null,
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.broken_image, size: 64, color: Colors.grey),
+                                  const SizedBox(height: 10),
+                                  const Text("Could not load certificate image",
+                                      style: TextStyle(color: Colors.red)),
+                                  TextButton(
+                                    onPressed: () async {
+                                      final uri = Uri.parse(fullUrl!);
+                                      if (await canLaunchUrl(uri)) {
+                                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                      }
+                                    },
+                                    child: const Text("Open in Browser"),
+                                  ),
+                                ],
+                              );
+                            },
+                          ) : const Text("No image available")),
                     ),
                   ),
                 ),
@@ -556,21 +837,23 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
                       onPressed: () => Navigator.pop(context),
                       child: const Text("Close"),
                     ),
-                    const SizedBox(width: 10),
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        final uri = Uri.parse(fullUrl);
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(uri, mode: LaunchMode.externalApplication);
-                        }
-                      },
-                      icon: const Icon(Icons.open_in_new, size: 16),
-                      label: const Text("Open in Browser"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF667EEA),
-                        foregroundColor: Colors.white,
+                    if (fullUrl != null) ...[
+                      const SizedBox(width: 10),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          final uri = Uri.parse(fullUrl!);
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        icon: const Icon(Icons.open_in_new, size: 16),
+                        label: const Text("Open in Browser"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF667EEA),
+                          foregroundColor: Colors.white,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -830,7 +1113,7 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -906,46 +1189,74 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
               Colors.green,
             ),
           ),
+          if (_documentBytes != null) ...[
+            const SizedBox(width: 20),
+            Expanded(
+              child: _buildStatCard(
+                "Selected File",
+                _documentName ?? "Document",
+                "🖼️",
+                const Color(0xFF764BA2),
+                onView: () => _showCertificateDialog(bytes: _documentBytes, title: _titleController.text.isEmpty ? "Preview" : _titleController.text),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildStatCard(String label, String value, String icon, Color color) {
+  Widget _buildStatCard(String label, String value, String icon, Color color, {VoidCallback? onView}) {
     return Card(
       margin: EdgeInsets.zero,
       color: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       elevation: 5,
       shadowColor: Colors.black.withValues(alpha: 0.1),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(icon, style: TextStyle(fontSize: 40, color: color)),
-            const SizedBox(height: 10),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF333333),
+      child: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(icon, style: TextStyle(fontSize: 40, color: color)),
+                const SizedBox(height: 10),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: value.length > 20 ? 14 : 32,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF333333),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  label.toUpperCase(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF666666),
+                    fontSize: 12,
+                    letterSpacing: 1,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (onView != null)
+            Positioned(
+              top: 10,
+              right: 10,
+              child: IconButton(
+                icon: const Icon(Icons.visibility, color: Color(0xFF667EEA)),
+                onPressed: onView,
+                tooltip: "View Certificate",
               ),
             ),
-            const SizedBox(height: 5),
-            Text(
-              label.toUpperCase(),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF666666),
-                fontSize: 12,
-                letterSpacing: 1,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -1024,6 +1335,41 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
                   ),
                   const SizedBox(height: 15),
 
+                  if (_awardType == 'team') ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _downloadExcelTemplate,
+                            icon: const Icon(Icons.download, size: 18, color: Color(0xFF667EEA)),
+                            label: const Text("Download Template", style: TextStyle(color: Color(0xFF667EEA), fontWeight: FontWeight.w600)),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFF667EEA), width: 1.5),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 15),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _importExcelWithImages,
+                            icon: const Icon(Icons.upload_file, size: 18, color: Color(0xFF764BA2)),
+                            label: const Text("Import Excel", style: TextStyle(color: Color(0xFF764BA2), fontWeight: FontWeight.w600)),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFF764BA2), width: 1.5),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    const Divider(),
+                    const SizedBox(height: 20),
+                  ],
+
                   _buildFormRow([
                     _buildTextField("Award Title", _titleController),
                     _buildDropdownField("Category", ["Academic", "Sports", "Arts", "Leadership", "Innovation", "Community", "Science Fair", "NSS", "NCC", "Other"], _selectedCategory, (val) => setState(() => _selectedCategory = val)),
@@ -1066,25 +1412,50 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
                            children: [
                              const Text("Award Document", style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF333333))),
                              const SizedBox(height: 8),
-                             InkWell(
-                               onTap: _pickDocument,
-                               child: Container(
-                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                 decoration: BoxDecoration(
-                                   border: Border.all(color: const Color(0xFFE0E0E0)),
-                                   borderRadius: BorderRadius.circular(8),
-                                   color: Colors.white,
+                             Row(
+                               children: [
+                                 Expanded(
+                                   child: InkWell(
+                                     onTap: _pickDocument,
+                                     child: Container(
+                                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                       decoration: BoxDecoration(
+                                         border: Border.all(color: const Color(0xFFE0E0E0)),
+                                         borderRadius: BorderRadius.circular(8),
+                                         color: Colors.white,
+                                       ),
+                                       child: Row(
+                                         children: [
+                                           Icon(_documentBytes != null ? Icons.check_circle : Icons.cloud_upload_outlined, 
+                                                color: _documentBytes != null ? Colors.green : Colors.grey),
+                                           const SizedBox(width: 10),
+                                           Expanded(
+                                             child: Text(_documentName ?? "Upload Certificate/Image", 
+                                                  style: TextStyle(color: _documentBytes != null ? Colors.black87 : Colors.grey),
+                                                  overflow: TextOverflow.ellipsis),
+                                           ),
+                                         ],
+                                       ),
+                                     ),
+                                   ),
                                  ),
-                                 child: Row(
-                                   children: [
-                                     Icon(_documentBytes != null ? Icons.check_circle : Icons.cloud_upload_outlined, 
-                                          color: _documentBytes != null ? Colors.green : Colors.grey),
-                                     const SizedBox(width: 10),
-                                     Text(_documentName ?? "Upload Certificate/Image", 
-                                          style: TextStyle(color: _documentBytes != null ? Colors.black87 : Colors.grey)),
-                                   ],
-                                 ),
-                               ),
+                                 if (_documentBytes != null) ...[
+                                   const SizedBox(width: 10),
+                                   SizedBox(
+                                     height: 45,
+                                     child: OutlinedButton.icon(
+                                       onPressed: () => _showCertificateDialog(bytes: _documentBytes, title: _titleController.text.isEmpty ? "Preview" : _titleController.text),
+                                       icon: const Icon(Icons.visibility),
+                                       label: const Text("View"),
+                                       style: OutlinedButton.styleFrom(
+                                         foregroundColor: const Color(0xFF667EEA),
+                                         side: const BorderSide(color: Color(0xFF667EEA)),
+                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                       ),
+                                     ),
+                                   ),
+                                 ],
+                               ],
                              ),
                            ],
                          ),
@@ -1259,14 +1630,14 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
           ),
           itemCount: _filteredAwards.length,
           itemBuilder: (context, index) {
-            return _buildAwardCard(_filteredAwards[index]);
+            return _buildAwardCard(_filteredAwards[index], index);
           },
         );
       },
     );
   }
 
-  Widget _buildAwardCard(Award award) {
+  Widget _buildAwardCard(Award award, int index) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1327,17 +1698,37 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
           if (award.studentId != null && award.studentId!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                "🆔 ${award.studentId}",
-                style: const TextStyle(fontSize: 12, color: Color(0xFF667EEA), fontWeight: FontWeight.bold),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("🎓 Student IDs", style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 2),
+                  Wrap(
+                    spacing: 4,
+                    children: award.studentId!.split(',').map((id) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F3F9),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        id.trim(),
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF667EEA), fontWeight: FontWeight.bold),
+                      ),
+                    )).toList(),
+                  ),
+                ],
               ),
             ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                "👤 ${award.recipient}",
-                style: const TextStyle(fontSize: 13, color: Color(0xFF888888), fontStyle: FontStyle.italic),
+              Expanded(
+                child: Text(
+                  "👤 ${award.recipient}",
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF888888), fontStyle: FontStyle.italic),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               Text(
                 "📅 ${DateFormat('MMM dd, yyyy').format(award.date)}",
@@ -1360,14 +1751,19 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
               ),
             ],
           ),
-          if (award.documentUrl != null && award.documentUrl!.isNotEmpty) ...[
+          if (award.documentUrl != null || award.certificateUrls.isNotEmpty) ...[
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: () => _showCertificateDialog(award.documentUrl!, award.title),
+                onPressed: () => _showCertificateDialog(initialIndex: index, title: award.title),
                 icon: const Icon(Icons.card_membership, size: 16),
-                label: const Text("View Certificate", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                label: Text(
+                  award.certificateUrls.length > 1 
+                    ? "View ${award.certificateUrls.length} Certificates" 
+                    : "View Certificate", 
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)
+                ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF667EEA),
                   side: const BorderSide(color: Color(0xFF667EEA)),
@@ -1533,7 +1929,7 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Row(
-              children: const [
+              children: [
                 Icon(Icons.warning, size: 14, color: Colors.red),
                 SizedBox(width: 4),
                 Expanded(
@@ -1565,6 +1961,182 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
             ),
         ],
       ],
+    );
+  }
+
+  Future<void> _downloadExcelTemplate() async {
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final String url = Endpoints.buildUrl("${Endpoints.awards}download_template/");
+      final String? token = apiService.authToken;
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        // Handle web download
+        final blob = html.Blob([response.bodyBytes], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        final downloadUrl = html.Url.createObjectUrlFromBlob(blob);
+        final anchor = html.AnchorElement(href: downloadUrl)
+          ..setAttribute("download", "awards_import_template.xlsx")
+          ..click();
+        html.Url.revokeObjectUrl(downloadUrl);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Template download started'), backgroundColor: Colors.green),
+        );
+      } else {
+        throw Exception('Failed to download template: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _importExcelWithImages() async {
+    try {
+      // 1. Pick Excel File
+      FilePickerResult? excelResult = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['xlsx'],
+        withData: true,
+      );
+
+      if (excelResult == null || excelResult.files.single.bytes == null) return;
+
+      // 2. Pick Images (Optional fallback)
+      bool? pickExtra = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text("Additional Documents?"),
+          content: const Text("You can embed images in the Excel file directly. Do you want to pick additional separate images?"),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("No, Excel only")),
+            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("Yes, pick more")),
+          ],
+        ),
+      );
+
+      List<XFile> images = [];
+      if (pickExtra == true) {
+        final ImagePicker _picker = ImagePicker();
+        images = await _picker.pickMultiImage();
+      }
+
+      // 3. Upload
+      setState(() => _isLoading = true);
+      
+      final apiService = ApiService();
+      await apiService.initialize();
+      final String url = Endpoints.buildUrl("${Endpoints.awards}import_excel/");
+      final String? token = apiService.authToken;
+
+      var request = http.MultipartRequest('POST', Uri.parse(url));
+      if (token != null) request.headers['Authorization'] = 'Bearer $token';
+
+      // Add Excel
+      request.files.add(http.MultipartFile.fromBytes(
+        'excel_file',
+        excelResult.files.single.bytes!,
+        filename: excelResult.files.single.name,
+      ));
+
+      // Add Images
+      for (int i = 0; i < images.length; i++) {
+        final bytes = await images[i].readAsBytes();
+        request.files.add(http.MultipartFile.fromBytes(
+          'image_$i',
+          bytes,
+          filename: images[i].name,
+        ));
+      }
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      setState(() => _isLoading = false);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['message'] ?? 'Import successful'), backgroundColor: Colors.green),
+        );
+        _loadAwards(); // Refresh list
+      } else {
+        String msg = 'Import failed';
+        List<String> rowErrors = [];
+        try {
+          final data = json.decode(response.body);
+          msg = data['message'] ?? msg;
+          if (data['errors'] != null && data['errors'] is List) {
+             rowErrors = List<String>.from(data['errors']);
+          }
+        } catch (_) {}
+        
+        if (rowErrors.isNotEmpty) {
+          _showErrorDialog("Validation Failed", msg, rowErrors);
+        } else {
+          throw Exception(msg);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  void _showErrorDialog(String title, String message, List<String> errors) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red),
+            const SizedBox(width: 10),
+            Text(title, style: const TextStyle(color: Colors.red)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(message, style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+            const Text("Please fix the following rows in your Excel sheet and try again:"),
+            const SizedBox(height: 10),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: errors.map((e) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text("• $e", style: const TextStyle(fontSize: 13)),
+                  )).toList(),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Close"),
+          ),
+        ],
+      ),
     );
   }
 }

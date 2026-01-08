@@ -2,7 +2,11 @@
 Admin configuration for management_admin app
 """
 from django.contrib import admin
-from .models import Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee
+from .models import (
+    Department, Teacher, Student, DashboardStats, NewAdmission, 
+    Examination_management, Fee, Award, AwardCertificate, 
+    Activity, Event, Gallery, GalleryImage
+)
 
 
 @admin.register(Department)
@@ -60,3 +64,41 @@ class FeeAdmin(admin.ModelAdmin):
     readonly_fields = ['created_at', 'updated_at']
     date_hierarchy = 'due_date'
 
+@admin.register(Award)
+class AwardAdmin(admin.ModelAdmin):
+    list_display = ['title', 'recipient', 'category', 'date', 'level', 'team_id']
+    list_filter = ['category', 'level', 'date']
+    search_fields = ['title', 'recipient', 'student_ids', 'team_id']
+    
+    class AwardCertificateInline(admin.TabularInline):
+        model = AwardCertificate
+        extra = 0
+    
+    inlines = [AwardCertificateInline]
+
+@admin.register(AwardCertificate)
+class AwardCertificateAdmin(admin.ModelAdmin):
+    list_display = ['award', 'student_id', 'created_at']
+    search_fields = ['student_id', 'award__title']
+
+@admin.register(Activity)
+class ActivityAdmin(admin.ModelAdmin):
+    list_display = ['title', 'status', 'created_at']
+    list_filter = ['status']
+    search_fields = ['title']
+
+@admin.register(Event)
+class EventAdmin(admin.ModelAdmin):
+    list_display = ['title', 'date', 'time', 'location']
+    list_filter = ['date']
+    search_fields = ['title', 'location']
+
+@admin.register(Gallery)
+class GalleryAdmin(admin.ModelAdmin):
+    list_display = ['title', 'category', 'date']
+    
+    class GalleryImageInline(admin.TabularInline):
+        model = GalleryImage
+        extra = 0
+    
+    inlines = [GalleryImageInline]

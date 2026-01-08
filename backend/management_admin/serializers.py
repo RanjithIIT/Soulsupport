@@ -2,7 +2,7 @@
 Serializers for management_admin app
 """
 from rest_framework import serializers
-from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, Activity, Gallery, GalleryImage
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, AwardCertificate, CampusFeature, Activity, Gallery, GalleryImage
 
 from main_login.serializers import UserSerializer
 from main_login.serializer_mixins import SchoolIdMixin
@@ -549,29 +549,46 @@ class CampusFeatureSerializer(serializers.ModelSerializer):
         return instance
 
 
-class AwardSerializer(SchoolIdMixin, serializers.ModelSerializer):
-    """Serializer for Award model"""
+class AwardCertificateSerializer(serializers.ModelSerializer):
+    """Serializer for AwardCertificate model"""
     document_url = serializers.SerializerMethodField()
     
     class Meta:
-        model = Award
-        fields = [
-            'id', 'school_id', 'school_name', 'title', 'category', 'recipient', 
-            'student_ids', 'date', 'description', 'level', 'presented_by', 'document',
-            'document_url', 'created_at', 'updated_at'
-        ]
-        read_only_fields = ['id', 'school_id', 'school_name', 'created_at', 'updated_at']
+        model = AwardCertificate
+        fields = ['id', 'document', 'document_url', 'student_id', 'created_at']
+        read_only_fields = ['id', 'created_at']
 
     def get_document_url(self, obj):
-        """Get the URL to access the document"""
         if obj.document:
             request = self.context.get('request')
             if request:
                 return request.build_absolute_uri(obj.document.url)
             return obj.document.url
         return None
-        read_only_fields = ['id', 'school_id', 'school_name', 'created_at', 'updated_at']
+
+
+class AwardSerializer(SchoolIdMixin, serializers.ModelSerializer):
+    """Serializer for Award model"""
+    document_url = serializers.SerializerMethodField()
+    certificates = AwardCertificateSerializer(many=True, read_only=True)
     
+    class Meta:
+        model = Award
+        fields = [
+            'id', 'school_id', 'school_name', 'title', 'category', 'recipient', 
+            'student_ids', 'date', 'description', 'level', 'presented_by', 'document',
+            'document_url', 'certificates', 'team_id', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'school_id', 'school_name', 'created_at', 'updated_at']
+
+    def get_document_url(self, obj):
+        if obj.document:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.document.url)
+            return obj.document.url
+        return None
+
     def update(self, instance, validated_data):
         """Update award instance"""
         for attr, value in validated_data.items():

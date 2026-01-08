@@ -1279,7 +1279,13 @@ class Award(models.Model):
         upload_to='awards/certificates/', 
         blank=True, 
         null=True, 
-        help_text='Award document/certificate'
+        help_text='Direct award document/certificate (legacy or single)'
+    )
+    team_id = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text='Import-time grouping ID'
     )
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1293,6 +1299,32 @@ class Award(models.Model):
         verbose_name = 'Award'
         verbose_name_plural = 'Awards'
         ordering = ['-date', '-created_at']
+
+
+class AwardCertificate(models.Model):
+    """Specific certificate for a student in a team or single award"""
+    award = models.ForeignKey(
+        Award,
+        on_delete=models.CASCADE,
+        related_name='certificates',
+        help_text='Parent award'
+    )
+    document = models.FileField(
+        upload_to='awards/certificates/',
+        help_text='Certificate image/document'
+    )
+    student_id = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text='Student ID this certificate belongs to'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'award_certificates'
+        verbose_name = 'Award Certificate'
+        verbose_name_plural = 'Award Certificates'
 
 
 class Activity(models.Model):

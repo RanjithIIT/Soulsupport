@@ -38,6 +38,8 @@ dependencies:
   intl: ^0.20.2
   google_fonts: ^6.1.0
   url_launcher: ^6.2.1
+  excel: ^4.0.0
+  file_picker: ^8.0.0
   
   # Main login package for navigation
   main_login:

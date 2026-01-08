@@ -494,14 +494,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
               icon: Icons.emoji_events,
               label: "Awards",
               count: student.awards.length.toString(),
-              color: const Color(0xFFFFD700), // Gold
-            ),
-            const SizedBox(width: 12),
-            _buildStatBadge(
-              icon: Icons.stars,
-              label: "Achievements",
-              count: _getAchievementCount(student),
-              color: const Color(0xFF667EEA),
+              color: const Color(0xFFF2994A), // Richer Gold/Orange for visibility
             ),
           ],
         ),
@@ -509,14 +502,6 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
     );
   }
 
-  String _getAchievementCount(Student student) {
-    // Achievements in Extracurricular is a string. 
-    // We can count items if they are comma separated or just return a mock if empty.
-    if (student.extracurricular.achievements.isEmpty || student.extracurricular.achievements == 'None') {
-      return "0";
-    }
-    return student.extracurricular.achievements.split(',').length.toString();
-  }
 
   Widget _buildStatBadge({
     required IconData icon,
@@ -543,7 +528,7 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: color,
+                  color: color.withValues(alpha: 1.0), // Darker text for visibility
                 ),
               ),
             ],
@@ -563,82 +548,115 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
   }
 
   Widget _buildProfileDetails(Student student) {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 16,
-      mainAxisSpacing: 16,
-      childAspectRatio: 0.85,
-      children: [
-        _DetailCard(
-          title: 'Academic Information',
-          items: [
-            'Class: ${student.studentClass}',
-            if (student.grade.isNotEmpty) 'Grade: ${student.grade}',
-            'Student ID: ${student.studentId.isNotEmpty ? student.studentId : "N/A"}',
-            if (student.admissionDate.isNotEmpty) 'Admission Date: ${student.admissionDate}',
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 600;
+        final spacing = 16.0;
+        final columnCount = isCompact ? 1 : 2;
+        final itemWidth = (constraints.maxWidth - (spacing * (columnCount - 1))) / columnCount;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            SizedBox(
+              width: itemWidth,
+              child: _DetailCard(
+                title: 'Academic Information',
+                items: [
+                  'Class: ${student.studentClass}',
+                  if (student.grade.isNotEmpty) 'Grade: ${student.grade}',
+                  'Student ID: ${student.studentId.isNotEmpty ? student.studentId : "N/A"}',
+                  if (student.admissionDate.isNotEmpty) 'Admission Date: ${student.admissionDate}',
+                ],
+              ),
+            ),
+            SizedBox(
+              width: itemWidth,
+              child: _DetailCard(
+                title: 'Contact Information',
+                items: [
+                  'Email: ${student.email}',
+                  'Phone: ${student.contact}',
+                  'Address: ${student.address}',
+                ],
+              ),
+            ),
+            SizedBox(
+              width: itemWidth,
+              child: _DetailCard(
+                title: 'Parent Information',
+                items: [
+                  'Parents: ${student.parentsName}',
+                  'Emergency Contact: ${student.emergencyContact}',
+                ],
+              ),
+            ),
+            SizedBox(
+              width: itemWidth,
+              child: _DetailCard(
+                title: 'Additional Details',
+                items: [
+                  'Blood Group: ${student.bloodGroup}',
+                  'Bus Route: ${student.busRoute}',
+                  'Attendance: ${student.attendance}%',
+                ],
+              ),
+            ),
+            SizedBox(
+              width: itemWidth,
+              child: _DetailCard(title: 'Medical Information', items: [student.medicalInfo]),
+            ),
+            SizedBox(
+              width: itemWidth,
+              child: _DetailCard(
+                title: 'Academics',
+                items: [
+                  'Overall Score: ${student.academics.overallScore}',
+                  'Subjects: ${student.academics.subjects}',
+                  'Performance: ${student.academics.performance}',
+                  'Last Exam: ${student.academics.lastExam}',
+                ],
+              ),
+            ),
+            SizedBox(
+              width: itemWidth,
+              child: _DetailCard(
+                title: 'Extracurricular Activities',
+                items: [
+                  'Activities: ${student.extracurricular.activities}',
+                  'Leadership: ${student.extracurricular.leadership}',
+                  'Achievements: ${student.extracurricular.achievements}',
+                  'Participation: ${student.extracurricular.participation}',
+                ],
+              ),
+            ),
+            SizedBox(
+              width: itemWidth,
+              child: _DetailCard(
+                title: 'Fees Information',
+                items: [
+                  'Total Fees: ${student.fees.total}',
+                  'Paid Amount: ${student.fees.paid}',
+                  'Due Amount: ${student.fees.due}',
+                  'Payment Status: ${student.fees.status}',
+                ],
+              ),
+            ),
+            if (student.awards.isNotEmpty)
+              SizedBox(
+                width: itemWidth,
+                child: _DetailCard(
+                  title: 'Awards & Achievements',
+                  showNumbers: true,
+                  items: student.awards.map((award) =>
+                    '${award['title']} (${award['level']})\n${award['category']} • ${award['date'] != null ? award['date'].toString().split(' ')[0] : ''}'
+                  ).toList(),
+                ),
+              ),
           ],
-        ),
-        _DetailCard(
-          title: 'Contact Information',
-          items: [
-            'Email: ${student.email}',
-            'Phone: ${student.contact}',
-            'Address: ${student.address}',
-          ],
-        ),
-        _DetailCard(
-          title: 'Parent Information',
-          items: [
-            'Parents: ${student.parentsName}',
-            'Emergency Contact: ${student.emergencyContact}',
-          ],
-        ),
-        _DetailCard(
-          title: 'Additional Details',
-          items: [
-            'Blood Group: ${student.bloodGroup}',
-            'Bus Route: ${student.busRoute}',
-            'Attendance: ${student.attendance}%',
-          ],
-        ),
-        _DetailCard(title: 'Medical Information', items: [student.medicalInfo]),
-        _DetailCard(
-          title: 'Academics',
-          items: [
-            'Overall Score: ${student.academics.overallScore}',
-            'Subjects: ${student.academics.subjects}',
-            'Performance: ${student.academics.performance}',
-            'Last Exam: ${student.academics.lastExam}',
-          ],
-        ),
-        _DetailCard(
-          title: 'Extracurricular Activities',
-          items: [
-            'Activities: ${student.extracurricular.activities}',
-            'Leadership: ${student.extracurricular.leadership}',
-            'Achievements: ${student.extracurricular.achievements}',
-            'Participation: ${student.extracurricular.participation}',
-          ],
-        ),
-        _DetailCard(
-          title: 'Fees Information',
-          items: [
-            'Total Fees: ${student.fees.total}',
-            'Paid Amount: ${student.fees.paid}',
-            'Due Amount: ${student.fees.due}',
-            'Payment Status: ${student.fees.status}',
-          ],
-        ),
-        if (student.awards.isNotEmpty)
-          _DetailCard(
-            title: 'Awards & Achievements',
-            items: student.awards.map((award) =>
-              '${award['title']} (${award['level']})\n${award['category']} • ${award['date'] != null ? award['date'].toString().split(' ')[0] : ''}'
-            ).toList(),
-          ),
-      ],
+        );
+      },
     );
   }
 
@@ -1510,8 +1528,13 @@ class _GradientButton extends StatelessWidget {
 class _DetailCard extends StatelessWidget {
   final String title;
   final List<String> items;
+  final bool showNumbers;
 
-  const _DetailCard({required this.title, required this.items});
+  const _DetailCard({
+    required this.title, 
+    required this.items,
+    this.showNumbers = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1533,21 +1556,48 @@ class _DetailCard extends StatelessWidget {
               letterSpacing: 1,
             ),
           ),
-          const SizedBox(height: 6),
-          ...items.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 3),
-              child: Text(
-                item,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF333333),
+          const SizedBox(height: 10),
+          ...items.asMap().entries.map(
+            (entry) {
+              final idx = entry.key;
+              final item = entry.value;
+              return Padding(
+                padding: EdgeInsets.only(bottom: showNumbers ? 12 : 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (showNumbers) ...[
+                      Container(
+                        width: 22,
+                        margin: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          '${idx + 1}.',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF667EEA),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Expanded(
+                      child: Text(
+                        item,
+                        maxLines: 5,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: showNumbers ? 15 : 16,
+                          fontWeight: showNumbers ? FontWeight.w500 : FontWeight.w600,
+                          color: const Color(0xFF333333),
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ],
       ),
