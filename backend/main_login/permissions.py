@@ -63,3 +63,22 @@ class IsAdminOrTeacher(permissions.BasePermission):
             return False
         return request.user.role.name in ['super_admin', 'management_admin', 'teacher']
 
+
+class IsFinancial(permissions.BasePermission):
+    """Permission check for Financial role"""
+    def has_permission(self, request, view):
+        return (
+            request.user and
+            request.user.is_authenticated and
+            request.user.role and
+            request.user.role.name == 'financial'
+        )
+
+
+class IsReadOnly(permissions.BasePermission):
+    """
+    The request is a read-only request.
+    """
+    def has_permission(self, request, view):
+        return request.method in permissions.SAFE_METHODS
+

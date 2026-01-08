@@ -25,6 +25,7 @@ urlpatterns = [
     path('profile/update/', views.update_profile, name='update_profile'),
     path('change-password/', views.change_password, name='change_password'),
     path('create-password/', views.create_password, name='create_password'),
+    path('create-financial-user/', views.create_financial_user, name='create_financial_user'),
     
     # Roles
     path('roles/', views.RoleListView.as_view(), name='roles_list'),

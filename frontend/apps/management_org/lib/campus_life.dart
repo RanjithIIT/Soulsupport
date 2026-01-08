@@ -782,8 +782,10 @@ class _CampusLifeManagementPageState extends State<CampusLifeManagementPage> {
                           const SizedBox(height: 30),
 
                           // Add New Feature Form
-                          _buildAddFeatureSection(),
-                          const SizedBox(height: 30),
+                          if (ApiService().userRole != 'financial')
+                            _buildAddFeatureSection(),
+                          if (ApiService().userRole != 'financial')
+                            const SizedBox(height: 30),
 
                           // Search & Filter Bar
                           _FilterBar(
@@ -1803,29 +1805,31 @@ class _CampusFeatureCard extends StatelessWidget {
                             ],
                           ),
                         ),
-                        const PopupMenuItem(
-                          value: 'edit',
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit, size: 16),
-                              SizedBox(width: 8),
-                              Text('Edit'),
-                            ],
+                        if (ApiService().userRole != 'financial') ...[
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit, size: 16),
+                                SizedBox(width: 8),
+                                Text('Edit'),
+                              ],
+                            ),
                           ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete, size: 16, color: Colors.red),
-                              SizedBox(width: 8),
-                              Text(
-                                'Delete',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ],
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, size: 16, color: Colors.red),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Delete',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ],

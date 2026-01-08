@@ -640,7 +640,8 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
                     // Content Grid (Form + Search)
                     Column(
                       children: [
-                        _buildAddAwardSection(),
+                        if (ApiService().userRole != 'financial')
+                          _buildAddAwardSection(),
                         const SizedBox(height: 30),
                         _buildFilterSection(),
                       ],
@@ -1305,13 +1306,14 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                    onPressed: () => _deleteAward(award),
-                    tooltip: "Delete Award",
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
+                  if (ApiService().userRole != 'financial')
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                      onPressed: () => _deleteAward(award),
+                      tooltip: "Delete Award",
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
                 ],
               ),
             ],

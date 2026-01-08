@@ -598,6 +598,38 @@ class AwardSerializer(SchoolIdMixin, serializers.ModelSerializer):
         instance.save()
         return instance
 
+    def validate_student_ids(self, value):
+        """
+        Validate that all provided student IDs exist and belong to the user's school.
+        """
+        if not value:
+            # If blank is allowed (blank=True in model), just return
+            return value
+            
+        request = self.context.get('request')
+        if not request:
+            return value
+            
+        school_id = get_user_school_id(request.user)
+        # If no school_id and not super_admin, we can't strictly validate scope, 
+        # but usually permissions handle that. We'll proceed if school_id checks out.
+        
+        ids = [s.strip() for s in value.split(',') if s.strip()]
+        
+        for student_id in ids:
+            # Check existence and school scope combined
+            query = Student.objects.filter(student_id=student_id)
+            
+            if school_id:
+                query = query.filter(school__school_id=school_id)
+            
+            if not query.exists():
+                # Provide the specific error message requested
+                raise serializers.ValidationError(f"There is no student on this id: {student_id}")
+                
+        return value
+
+
 
 class ActivitySerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Activity model"""

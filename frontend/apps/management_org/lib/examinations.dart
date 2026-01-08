@@ -654,9 +654,10 @@ class _ExaminationManagementPageState
                                     stacked ? Axis.vertical : Axis.horizontal,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                              Flexible(
-                                fit: FlexFit.loose,
-                                    child: _AddExamSection(
+                              if (ApiService().userRole != 'financial')
+                                Flexible(
+                                  fit: FlexFit.loose,
+                                      child: _AddExamSection(
                                       formKey: _formKey,
                                       titleController: _titleController,
                                       typeValue: _newType,

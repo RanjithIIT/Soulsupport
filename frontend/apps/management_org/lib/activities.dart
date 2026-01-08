@@ -61,6 +61,9 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
   late List<Activity> _visibleActivities;
   bool _isLoading = true;
 
+  // Check if user has edit permissions
+  bool get _canEdit => ApiService().userRole != 'financial';
+
   @override
   void initState() {
     super.initState();
@@ -425,8 +428,9 @@ class _ActivitiesManagementPageState extends State<ActivitiesManagementPage> {
                   width: isMobile ? 0 : 20,
                   height: isMobile ? 15 : 0,
                 ),
-                InkWell(
-                  onTap: _addActivity,
+                if (_canEdit)
+                  InkWell(
+                    onTap: _addActivity,
                   borderRadius: BorderRadius.circular(10),
                   child: Container(
                     width: isMobile ? double.infinity : null,
@@ -693,24 +697,26 @@ class _ActivityCardWithHoverState extends State<_ActivityCardWithHover> {
                       onTap: widget.onView,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _CardButton(
-                      label: 'Edit',
-                      colors: const [Color(0xFFFFD93D), Color(0xFFFCC419)],
-                      textColor: const Color(0xFF333333),
-                      onTap: widget.onEdit,
+                  if (ApiService().userRole != 'financial') ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _CardButton(
+                        label: 'Edit',
+                        colors: const [Color(0xFFFFD93D), Color(0xFFFCC419)],
+                        textColor: const Color(0xFF333333),
+                        onTap: widget.onEdit,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _CardButton(
-                      label: 'Delete',
-                      colors: const [Color(0xFFFF6B6B), Color(0xFFEE5A52)],
-                      textColor: Colors.white,
-                      onTap: widget.onDelete,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _CardButton(
+                        label: 'Delete',
+                        colors: const [Color(0xFFFF6B6B), Color(0xFFEE5A52)],
+                        textColor: Colors.white,
+                        onTap: widget.onDelete,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ],

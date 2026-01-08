@@ -23,6 +23,7 @@ router.register(r'events', views.EventViewSet, basename='event')
 router.register(r'awards', views.AwardViewSet, basename='award')
 router.register(r'campus-features', views.CampusFeatureViewSet, basename='campusfeature')
 router.register(r'activities', views.ActivityViewSet, basename='activity')
+router.register(r'financial-users', views.FinancialUserViewSet, basename='financial_user')
 
 urlpatterns = [
     path('', include(router.urls)),

@@ -16,7 +16,9 @@ void main() async {
 }
 
 class SchoolManagementApp extends StatelessWidget {
-  const SchoolManagementApp({super.key});
+  final String? initialRoute;
+  
+  const SchoolManagementApp({super.key, this.initialRoute});
 
   // Global navigator key to ensure routes work even when nested
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -40,7 +42,7 @@ class SchoolManagementApp extends StatelessWidget {
            primarySwatch: Colors.indigo,
            useMaterial3: true,
          ),
-      initialRoute: ManagementRoutes.dashboard,
+      initialRoute: initialRoute ?? ManagementRoutes.dashboard,
       home: const DashboardPage(),
       routes: ManagementRoutePages.routes,
       onUnknownRoute: (settings) {

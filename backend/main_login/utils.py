@@ -71,6 +71,15 @@ def get_user_school_id(user):
                     return first_student.school.school_id
     except Exception:
         pass
+
+    # Check if user is financial staff
+    try:
+        from main_login.models import FinancialDetails
+        fin_details = FinancialDetails.objects.filter(email=user.email).first()
+        if fin_details and fin_details.school_id:
+            return fin_details.school_id
+    except Exception:
+        pass
     
     return None
 

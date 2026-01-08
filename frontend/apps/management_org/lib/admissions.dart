@@ -147,6 +147,10 @@ class _AdmissionsManagementPageState extends State<AdmissionsManagementPage> {
   bool _isSubmitting = false;
   bool _isLoading = false;
   final ApiService _apiService = ApiService();
+
+  // Check if user has edit permissions (Financial users are read-only)
+  bool get _canEdit => ApiService().userRole != 'financial';
+
   // -- Helper Widgets --
 
   Widget _buildUserInfo() {
@@ -866,11 +870,12 @@ class _AdmissionsManagementPageState extends State<AdmissionsManagementPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Add Application Form (Embedded)
-                          _buildSectionTitle("➕", "New Admission Application"),
-                          const SizedBox(height: 15),
-                          _buildFormSection(),
-                          
-                          const SizedBox(height: 30),
+                          if (_canEdit) ...[
+                            _buildSectionTitle("➕", "New Admission Application"),
+                            const SizedBox(height: 15),
+                            _buildFormSection(),
+                            const SizedBox(height: 30),
+                          ],
                           
                           // Search and Filter
                           _buildSectionTitle("🔍", "Search & Filter"),
@@ -1977,36 +1982,37 @@ class _AdmissionCard extends StatelessWidget {
                   style: TextStyle(color: _getStatusColor(admission.status), fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ),
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert, color: Colors.grey),
-                onSelected: (value) {
-                  if (value == 'edit') {
-                    onEdit();
-                  } else if (value == 'delete') {
-                     showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Delete Application'),
-                        content: const Text('Are you sure you want to delete this application?'),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-                          TextButton(onPressed: () { onDelete(); Navigator.pop(context); }, child: const Text('Delete', style: TextStyle(color: Colors.red))),
-                        ],
-                      ),
-                    );
-                  } else if (value.startsWith('status_')) {
-                    onChangeStatus(value.replaceFirst('status_', ''));
-                  }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text('Edit')])),
-                  const PopupMenuItem(value: 'status_Approved', child: Row(children: [Icon(Icons.check_circle, size: 18, color: Colors.green), SizedBox(width: 8), Text('Approve')])),
-                  const PopupMenuItem(value: 'status_Rejected', child: Row(children: [Icon(Icons.cancel, size: 18, color: Colors.red), SizedBox(width: 8), Text('Reject')])),
-                  const PopupMenuItem(value: 'status_Enrolled', child: Row(children: [Icon(Icons.school, size: 18, color: Colors.blue), SizedBox(width: 8), Text('Enroll')])),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 18, color: Colors.red), SizedBox(width: 8), Text('Delete')])),
-                ],
-              ),
+              if (ApiService().userRole != 'financial')
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, color: Colors.grey),
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      onEdit();
+                    } else if (value == 'delete') {
+                       showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Delete Application'),
+                          content: const Text('Are you sure you want to delete this application?'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                            TextButton(onPressed: () { onDelete(); Navigator.pop(context); }, child: const Text('Delete', style: TextStyle(color: Colors.red))),
+                          ],
+                        ),
+                      );
+                    } else if (value.startsWith('status_')) {
+                      onChangeStatus(value.replaceFirst('status_', ''));
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text('Edit')])),
+                    const PopupMenuItem(value: 'status_Approved', child: Row(children: [Icon(Icons.check_circle, size: 18, color: Colors.green), SizedBox(width: 8), Text('Approve')])),
+                    const PopupMenuItem(value: 'status_Rejected', child: Row(children: [Icon(Icons.cancel, size: 18, color: Colors.red), SizedBox(width: 8), Text('Reject')])),
+                    const PopupMenuItem(value: 'status_Enrolled', child: Row(children: [Icon(Icons.school, size: 18, color: Colors.blue), SizedBox(width: 8), Text('Enroll')])),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 18, color: Colors.red), SizedBox(width: 8), Text('Delete')])),
+                  ],
+                ),
             ],
           ),
           const Divider(height: 20, color: Color(0xFFEEEEEE)),

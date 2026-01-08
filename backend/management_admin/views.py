@@ -29,7 +29,7 @@ from .serializers import (
 )
 
 
-from main_login.permissions import IsManagementAdmin
+from main_login.permissions import IsManagementAdmin, IsFinancial, IsReadOnly
 from main_login.mixins import SchoolFilterMixin
 from main_login.utils import get_user_school_id
 from django.conf import settings
@@ -75,9 +75,8 @@ class TeacherViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         # Changed: Require authentication for list/retrieve to enable school filtering
         if self.action in ['list', 'retrieve']:
             return [IsAuthenticated()]  # Changed from AllowAny() to ensure school filtering
-        if self.action in ['create', 'destroy']:
-            return [AllowAny()]  # Keep AllowAny for create/destroy if needed
-        return [IsAuthenticated(), IsManagementAdmin()]
+        # Default: IsAuthenticated and (IsManagementAdmin or IsFinancial+ReadOnly)
+        return [IsAuthenticated(), (IsManagementAdmin | (IsFinancial & IsReadOnly))()]
     
     def perform_create(self, serializer):
         """Override to ensure school_id is set correctly when creating teachers"""
@@ -264,9 +263,8 @@ class StudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         # Changed: Require authentication for list/retrieve to enable school filtering
         if self.action in ['list', 'retrieve']:
             return [IsAuthenticated()]  # Changed from AllowAny() to ensure school filtering
-        if self.action in ['create', 'destroy']:
-            return [AllowAny()]  # Keep AllowAny for create/destroy if needed
-        return [IsAuthenticated(), IsManagementAdmin()]
+        # Default: IsAuthenticated and (IsManagementAdmin or IsFinancial+ReadOnly)
+        return [IsAuthenticated(), (IsManagementAdmin | (IsFinancial & IsReadOnly))()]
     
     def get_queryset(self):
         """
@@ -369,7 +367,7 @@ class NewAdmissionViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for New Admission management"""
     queryset = NewAdmission.objects.all()
     serializer_class = NewAdmissionSerializer
-    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    permission_classes = [IsAuthenticated, IsManagementAdmin | (IsFinancial & IsReadOnly)]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'applying_class', 'category', 'gender', 'student_id']
     search_fields = ['student_name', 'parent_name', 'parent_phone', 'email', 'admission_number', 'student_id']
@@ -619,7 +617,7 @@ class NewAdmissionViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
 
 class DashboardViewSet(viewsets.ViewSet):
     """ViewSet for Dashboard data"""
-    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    permission_classes = [IsAuthenticated, IsManagementAdmin | IsFinancial]
     
     @action(detail=False, methods=['get'])
     def stats(self, request):
@@ -639,11 +637,42 @@ class DashboardViewSet(viewsets.ViewSet):
         })
 
 
+from main_login.models import User
+from main_login.serializers import UserSerializer
+
+class FinancialUserViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
+    """ViewSet to list financial users"""
+    queryset = User.objects.filter(role__name='financial', is_active=True)
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+    
+    def get_queryset(self):
+        """Override to ensure fresh data and filter by school"""
+        queryset = User.objects.filter(role__name='financial', is_active=True)
+        
+        if not self.request.user.is_authenticated:
+            return queryset.none()
+            
+        # Check if user is super admin
+        if hasattr(self.request.user, 'role') and self.request.user.role:
+            if self.request.user.role.name == 'super_admin':
+                return queryset
+        
+        # Get school_id from mixin
+        school_id = self.get_school_id()
+        if school_id:
+            return queryset.filter(school_id=school_id)
+            
+        return queryset.none()
+
+
+
 class ExaminationManagementViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Examination Management"""
     queryset = Examination_management.objects.all()
     serializer_class = ExaminationManagementSerializer
-    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    permission_classes = [IsAuthenticated, IsManagementAdmin | (IsFinancial & IsReadOnly)]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['Exam_Type', 'Exam_Status']
     search_fields = ['Exam_Title', 'Exam_Description', 'Exam_Location']
@@ -651,28 +680,26 @@ class ExaminationManagementViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     ordering = ['-Exam_Created_At']
     
     def get_permissions(self):
-        """Allow read/create/update/delete without auth for development - can be adjusted"""
-        if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
-            return [AllowAny()]
-        return [IsAuthenticated(), IsManagementAdmin()]
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+             return [IsAuthenticated(), (IsManagementAdmin | (IsFinancial & IsReadOnly))()]
+        return [IsAuthenticated(), (IsManagementAdmin | (IsFinancial & IsReadOnly))()]
 
 
 class FeeViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Fee Management"""
     queryset = Fee.objects.select_related('student').prefetch_related('payment_history').all()
     serializer_class = FeeSerializer
-    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    permission_classes = [IsAuthenticated, IsManagementAdmin | IsFinancial]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['fee_type', 'status', 'frequency', 'grade', 'student']
     search_fields = ['student__student_name', 'description', 'fee_type']
     ordering_fields = ['due_date', 'created_at', 'total_amount']
     ordering = ['-due_date']
     
+    # permission_classes defined above is sufficient: [IsAuthenticated, IsManagementAdmin | IsFinancial]
+
     def get_permissions(self):
-        """Allow read/create/update/delete without auth for development - can be adjusted"""
-        if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
-            return [AllowAny()]
-        return [IsAuthenticated(), IsManagementAdmin()]
+        return [IsAuthenticated(), (IsManagementAdmin | IsFinancial)()]
     
     def get_queryset(self):
         """Override to ensure school_id filtering is applied"""
@@ -1158,7 +1185,7 @@ class BusViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Bus management"""
     queryset = Bus.objects.all()
     serializer_class = BusSerializer
-    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    permission_classes = [IsAuthenticated, IsManagementAdmin | (IsFinancial & IsReadOnly)]
     lookup_field = 'bus_number'  # Use bus_number as primary key for lookups
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['school', 'bus_type', 'is_active']
@@ -1219,7 +1246,7 @@ class BusStopViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for BusStop management"""
     queryset = BusStop.objects.all()
     serializer_class = BusStopSerializer
-    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    permission_classes = [IsAuthenticated, IsManagementAdmin | (IsFinancial & IsReadOnly)]
     lookup_field = 'stop_id'  # Explicitly set lookup field to stop_id (CharField: busnumber_stopnumber)
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['route_type']  # Removed 'bus' from here, will handle manually
@@ -1309,7 +1336,7 @@ class BusStopStudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for BusStopStudent management"""
     queryset = BusStopStudent.objects.all()
     serializer_class = BusStopStudentSerializer
-    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    permission_classes = [IsAuthenticated, IsManagementAdmin | (IsFinancial & IsReadOnly)]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['bus_stop', 'student']
     search_fields = ['student_name', 'student_id_string', 'student__student_id', 'student__student_name']
@@ -1431,7 +1458,7 @@ class BusStopStudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
 
 class SchoolViewSet(viewsets.ViewSet):
     """ViewSet for getting current user's school"""
-    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    permission_classes = [IsAuthenticated, IsManagementAdmin | (IsFinancial & IsReadOnly)]
     
     @action(detail=False, methods=['get'], url_path='current')
     def current(self, request):
@@ -1453,7 +1480,7 @@ class SchoolViewSet(viewsets.ViewSet):
                     status=status.HTTP_404_NOT_FOUND
                 )
             
-            serializer = SchoolSerializer(school)
+            serializer = SchoolSerializer(school, context={'request': request})
             return Response(
                 {
                     'success': True,
@@ -1471,12 +1498,65 @@ class SchoolViewSet(viewsets.ViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @action(detail=False, methods=['post'], url_path='upload-logo')
+    def upload_logo(self, request):
+        """Upload school logo"""
+        from super_admin.models import School
+        from super_admin.serializers import SchoolSerializer
+        
+        try:
+            # Get school from user's school_account relationship
+            school = School.objects.filter(user=request.user).first()
+            
+            if not school:
+                return Response(
+                    {
+                        'success': False,
+                        'message': 'No school found for this user. Please contact administrator.',
+                        'error': 'School not found'
+                    },
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            logo = request.FILES.get('logo')
+            if not logo:
+                return Response(
+                    {
+                        'success': False,
+                        'message': 'No logo file provided.',
+                        'error': 'Missing file'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            school.logo = logo
+            school.save()
+            
+            serializer = SchoolSerializer(school, context={'request': request})
+            return Response(
+                {
+                    'success': True,
+                    'message': 'Logo uploaded successfully',
+                    'data': serializer.data
+                },
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return Response(
+                {
+                    'success': False,
+                    'message': str(e),
+                    'error': 'Failed to upload logo'
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 class EventViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Event management"""
     queryset = Event.objects.all()
     serializer_class = EventSerializer
-    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    permission_classes = [IsAuthenticated, IsManagementAdmin | (IsFinancial & IsReadOnly)]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category', 'status', 'date']
     search_fields = ['name', 'location', 'organizer', 'description']
@@ -1487,7 +1567,7 @@ class EventViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         """Allow read/create/update/delete without auth for development - can be adjusted"""
         if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
             return [AllowAny()]
-        return [IsAuthenticated(), IsManagementAdmin()]
+        return [IsAuthenticated(), IsManagementAdmin | (IsFinancial & IsReadOnly)]
     
     def create(self, request, *args, **kwargs):
         """Override create to automatically get school from logged-in user if not provided"""
@@ -1655,7 +1735,7 @@ class DepartmentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Department management"""
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
-    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    permission_classes = [IsAuthenticated, IsManagementAdmin | (IsFinancial & IsReadOnly)]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['name', 'code']
     search_fields = ['name', 'code', 'head_name', 'email']
@@ -1665,7 +1745,7 @@ class DepartmentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
             return [AllowAny()]
-        return [IsAuthenticated(), IsManagementAdmin()]
+        return [IsAuthenticated(), IsManagementAdmin | (IsFinancial & IsReadOnly)]
 
     def perform_create(self, serializer):
         """Set school reference when creating department"""
@@ -1688,7 +1768,7 @@ class CampusFeatureViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for CampusFeature management"""
     queryset = CampusFeature.objects.all()
     serializer_class = CampusFeatureSerializer
-    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    permission_classes = [IsAuthenticated, IsManagementAdmin | (IsFinancial & IsReadOnly)]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category', 'status']
     search_fields = ['name', 'description', 'location']
@@ -1698,7 +1778,7 @@ class CampusFeatureViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
             return [AllowAny()]
-        return [IsAuthenticated(), IsManagementAdmin()]
+        return [IsAuthenticated(), IsManagementAdmin | (IsFinancial & IsReadOnly)]
 
     def perform_create(self, serializer):
         """Set school reference when creating campus feature"""
@@ -1721,7 +1801,7 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Award management"""
     queryset = Award.objects.all()
     serializer_class = AwardSerializer
-    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    permission_classes = [IsAuthenticated, IsManagementAdmin | (IsFinancial & IsReadOnly)]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category', 'level', 'date']
     search_fields = ['title', 'recipient', 'description']
@@ -1732,7 +1812,7 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         """Allow read/create/update/delete without auth for development - can be adjusted"""
         if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
             return [AllowAny()]
-        return [IsAuthenticated(), IsManagementAdmin()]
+        return [IsAuthenticated(), IsManagementAdmin | (IsFinancial & IsReadOnly)]
     
     def perform_create(self, serializer):
         """Set school_id when creating award"""
@@ -1748,6 +1828,69 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                 Award.objects.filter(pk=award.pk).update(school_name=school.school_name)
             except School.DoesNotExist:
                 pass
+
+    @action(detail=False, methods=['get'], url_path='validate-student')
+    def validate_student(self, request):
+        """
+        Validate student ID and return student details if found in the user's school.
+        """
+        student_id = request.query_params.get('student_id')
+        if not student_id:
+            return Response(
+                {'error': 'Student ID is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Get school_id from authenticated user
+        school_id = self.get_school_id()
+        if not school_id:
+             if request.user.role.name == 'super_admin':
+                 pass 
+             else:
+                return Response(
+                    {'error': 'User is not associated with any school'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        try:
+            # Filter by student_id
+            query = Student.objects.filter(student_id=student_id)
+            
+            # If school_id is available, enforce school scoping
+            if school_id:
+                query = query.filter(school__school_id=school_id)
+                
+            student = query.first()
+            
+            if not student:
+                # Check if student exists in another school for specific error message
+                if Student.objects.filter(student_id=student_id).exists():
+                     return Response(
+                        {'error': 'There is no student on this id in your school'},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+                return Response(
+                    {'error': 'There is no student on this id'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+                
+            return Response({
+                'valid': True,
+                'student_id': student.student_id,
+                'student_name': student.student_name,
+                'class': student.applying_class,
+                'grade': student.grade,
+                'school_id': student.school.school_id,
+                'school_name': student.school.school_name
+            })
+            
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
     
     def perform_update(self, serializer):
         """Update award - school_id should already be set"""
@@ -1758,7 +1901,7 @@ class ActivityViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Activity management"""
     queryset = Activity.objects.all()
     serializer_class = ActivitySerializer
-    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    permission_classes = [IsAuthenticated, IsManagementAdmin | (IsFinancial & IsReadOnly)]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category', 'status', 'start_date', 'end_date']
     search_fields = ['name', 'instructor', 'location', 'description']
@@ -1769,7 +1912,7 @@ class ActivityViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         """Allow read/create/update/delete without auth for development - can be adjusted"""
         if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
             return [AllowAny()]
-        return [IsAuthenticated(), IsManagementAdmin()]
+        return [IsAuthenticated(), IsManagementAdmin | (IsFinancial & IsReadOnly)]
 
     def perform_create(self, serializer):
         """Set school reference when creating activity"""

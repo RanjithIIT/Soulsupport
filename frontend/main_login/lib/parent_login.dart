@@ -160,7 +160,41 @@ class _ParentLoginPageState extends State<ParentLoginPage> {
                           // Validation is handled by backend
                           validator: (value) => null,
                         ),
-                        const SizedBox(height: 32),
+                        
+                        // Forgot Password Link
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () {
+                              // Show forgot password dialog
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Forgot Password'),
+                                  content: const Text(
+                                    'Please contact your administrator to reset your password.',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('OK'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            child: const Text(
+                              'Forgot Password?',
+                              style: TextStyle(
+                                color: Color(0xFF667EEA),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 8),
 
                         // Login Button
                         SizedBox(

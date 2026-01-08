@@ -581,57 +581,58 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
                           ],
                         ),
                       ),
-                      ElevatedButton.icon(
-                        onPressed: () async {
-                          final picker = ImagePicker();
-                          final picked = await picker.pickImage(source: ImageSource.gallery);
-                          if (picked == null) return;
-                          final bytes = await picked.readAsBytes();
-                          if (!mounted) return;
-                          
-                          // Upload to backend
-                          try {
-                            final timestamp = DateTime.now().millisecondsSinceEpoch;
-                            final uploadResponse = await ApiService().uploadFile(
-                              '/management-admin/galleries/${photo.id}/upload-image/',
-                              fileBytes: bytes,
-                              fileName: 'image_$timestamp.jpg',
-                              fieldName: 'image',
-                              additionalFields: {
-                                'caption': 'additional image',
-                              }
-                            );
-
-                            if (uploadResponse.success) {
-                              setState(() {
-                                photo.images.add(bytes);
-                              });
-                              setDialogState(() {});
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Image uploaded successfully!')),
+                      if (ApiService().userRole != 'financial')
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            final picker = ImagePicker();
+                            final picked = await picker.pickImage(source: ImageSource.gallery);
+                            if (picked == null) return;
+                            final bytes = await picked.readAsBytes();
+                            if (!mounted) return;
+                            
+                            // Upload to backend
+                            try {
+                              final timestamp = DateTime.now().millisecondsSinceEpoch;
+                              final uploadResponse = await ApiService().uploadFile(
+                                '/management-admin/galleries/${photo.id}/upload-image/',
+                                fileBytes: bytes,
+                                fileName: 'image_$timestamp.jpg',
+                                fieldName: 'image',
+                                additionalFields: {
+                                  'caption': 'additional image',
+                                }
                               );
-                            } else {
+
+                              if (uploadResponse.success) {
+                                setState(() {
+                                  photo.images.add(bytes);
+                                });
+                                setDialogState(() {});
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Image uploaded successfully!')),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Upload failed: ${uploadResponse.error}')),
+                                );
+                              }
+                            } catch (e) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Upload failed: ${uploadResponse.error}')),
+                                SnackBar(content: Text('Error uploading image: $e')),
                               );
                             }
-                          } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error uploading image: $e')),
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.upload, size: 18),
-                        label: const Text('Upload Photo'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF667EEA),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
+                          },
+                          icon: const Icon(Icons.upload, size: 18),
+                          label: const Text('Upload Photo'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF667EEA),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
                           ),
                         ),
-                      ),
                       const SizedBox(width: 8),
                       IconButton(
                         icon: const Icon(Icons.close),
@@ -785,24 +786,26 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
                                 children: [
                                   Flexible(
                                     fit: FlexFit.loose,
-                                    child: _AddPhotoSection(
-                                      formKey: _formKey,
-                                      photoIdController: _photoIdController,
-                                      titleController: _titleController,
-                                      descriptionController:
-                                          _descriptionController,
-                                      photographerController:
-                                          _photographerController,
-                                      locationController: _locationController,
-                                      category: _newCategory,
-                                      onCategoryChanged: (value) =>
-                                          setState(() => _newCategory = value),
-                                      date: _newDate,
-                                      onPickDate: _pickDate,
-                                      selectedImageBytes: _selectedImageBytes,
-                                      onPickPhoto: _pickPhoto,
-                                      onSubmit: _addPhoto,
-                                    ),
+                                    child: ApiService().userRole == 'financial' 
+                                      ? const SizedBox.shrink() 
+                                      : _AddPhotoSection(
+                                          formKey: _formKey,
+                                          photoIdController: _photoIdController,
+                                          titleController: _titleController,
+                                          descriptionController:
+                                              _descriptionController,
+                                          photographerController:
+                                              _photographerController,
+                                          locationController: _locationController,
+                                          category: _newCategory,
+                                          onCategoryChanged: (value) =>
+                                              setState(() => _newCategory = value),
+                                          date: _newDate,
+                                          onPickDate: _pickDate,
+                                          selectedImageBytes: _selectedImageBytes,
+                                          onPickPhoto: _pickPhoto,
+                                          onSubmit: _addPhoto,
+                                        ),
                                   ),
                                   SizedBox(
                                     width: stacked ? 0 : 24,
@@ -1535,14 +1538,15 @@ class _PhotoCard extends StatelessWidget {
                     onPressed: onToggleFavorite,
                   ),
                 ),
-                Positioned(
-                  bottom: 10,
-                  right: 10,
-                  child: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.white),
-                    onPressed: onDelete,
+                if (ApiService().userRole != 'financial')
+                  Positioned(
+                    bottom: 10,
+                    right: 10,
+                    child: IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.white),
+                      onPressed: onDelete,
+                    ),
                   ),
-                ),
               ],
             ),
           ),

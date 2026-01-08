@@ -50,6 +50,9 @@ class AuthService {
             if (refreshToken != null) {
               await _apiService.setRefreshToken(refreshToken);
             }
+            
+            // Store user role
+            await _apiService.setUserRole(role);
 
             return {
               'success': true,
@@ -146,12 +149,14 @@ class AuthService {
       // Clear tokens regardless of response
       await _apiService.setAuthToken(null);
       await _apiService.setRefreshToken(null);
+      await _apiService.setUserRole(null);
 
       return response.success;
     } catch (e) {
       // Clear tokens even if request fails
       await _apiService.setAuthToken(null);
       await _apiService.setRefreshToken(null);
+      await _apiService.setUserRole(null);
       return false;
     }
   }

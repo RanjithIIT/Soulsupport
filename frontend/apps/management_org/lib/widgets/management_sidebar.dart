@@ -88,36 +88,14 @@ class ManagementSidebar extends StatelessWidget {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
+                  // Overview - Always at top
                   SidebarNavItem(
                     icon: '📊',
                     title: 'Overview',
                     isActive: activeRoute == '/dashboard',
                     onTap: () => _navigateToRoute(context, '/dashboard'),
                   ),
-                  SidebarNavItem(
-                    icon: '👨‍🏫',
-                    title: 'Teachers',
-                    isActive: activeRoute == '/teachers',
-                    onTap: () => _navigateToRoute(context, '/teachers'),
-                  ),
-                  SidebarNavItem(
-                    icon: '👥',
-                    title: 'Students',
-                    isActive: activeRoute == '/students',
-                    onTap: () => _navigateToRoute(context, '/students'),
-                  ),
-                  SidebarNavItem(
-                    icon: '💰',
-                    title: 'Fees',
-                    isActive: activeRoute == '/fees',
-                    onTap: () => _navigateToRoute(context, '/fees'),
-                  ),
-                  SidebarNavItem(
-                    icon: '🚌',
-                    title: 'Buses',
-                    isActive: activeRoute == '/buses',
-                    onTap: () => _navigateToRoute(context, '/buses'),
-                  ),
+                  // A
                   SidebarNavItem(
                     icon: '🎯',
                     title: 'Activities',
@@ -125,11 +103,31 @@ class ManagementSidebar extends StatelessWidget {
                     onTap: () => _navigateToRoute(context, '/activities'),
                   ),
                   SidebarNavItem(
-                    icon: '📅',
-                    title: 'Events',
-                    isActive: activeRoute == '/events',
-                    onTap: () => _navigateToRoute(context, '/events'),
+                    icon: '📝',
+                    title: 'Admissions',
+                    isActive: activeRoute == '/admissions',
+                    onTap: () => _navigateToRoute(context, '/admissions'),
                   ),
+                  SidebarNavItem(
+                    icon: '🏆',
+                    title: 'Awards',
+                    isActive: activeRoute == '/awards',
+                    onTap: () => _navigateToRoute(context, '/awards'),
+                  ),
+                  // B
+                  SidebarNavItem(
+                    icon: '🚌',
+                    title: 'Buses',
+                    isActive: activeRoute == '/buses',
+                    onTap: () => _navigateToRoute(context, '/buses'),
+                  ),
+                  SidebarNavItem(
+                    icon: '🛣️',
+                    title: 'Bus Routes',
+                    isActive: activeRoute == '/bus_routes',
+                    onTap: () => _navigateToRoute(context, '/bus_routes'),
+                  ),
+                  // C
                   SidebarNavItem(
                     icon: '📆',
                     title: 'Calendar',
@@ -137,18 +135,79 @@ class ManagementSidebar extends StatelessWidget {
                     onTap: () => _navigateToRoute(context, '/calendar'),
                   ),
                   SidebarNavItem(
+                    icon: '🏫',
+                    title: 'Campus Life',
+                    isActive: activeRoute == '/campus-life',
+                    onTap: () => _navigateToRoute(context, '/campus-life'),
+                  ),
+                  // D
+                  SidebarNavItem(
+                    icon: '🏢',
+                    title: 'Departments',
+                    isActive: activeRoute == '/departments',
+                    onTap: () => _navigateToRoute(context, '/departments'),
+                  ),
+                  // E
+                  SidebarNavItem(
+                    icon: '📅',
+                    title: 'Events',
+                    isActive: activeRoute == '/events',
+                    onTap: () => _navigateToRoute(context, '/events'),
+                  ),
+                  SidebarNavItem(
+                    icon: '📖',
+                    title: 'Examinations',
+                    isActive: activeRoute == '/examinations',
+                    onTap: () => _navigateToRoute(context, '/examinations'),
+                  ),
+                  // F
+                  SidebarNavItem(
+                    icon: '💰',
+                    title: 'Fees',
+                    isActive: activeRoute == '/fees',
+                    onTap: () => _navigateToRoute(context, '/fees'),
+                  ),
+                  SidebarNavItem(
+                    icon: '💼',
+                    title: 'Financial Staff',
+                    isActive: activeRoute == '/financial-profiles',
+                    onTap: () => _navigateToRoute(context, '/financial-profiles'),
+                  ),
+                  // N
+                  SidebarNavItem(
                     icon: '🔔',
                     title: 'Notifications',
                     isActive: activeRoute == '/notifications',
                     onTap: () => _navigateToRoute(context, '/notifications'),
                   ),
+                  // P
                   SidebarNavItem(
-                    icon: '🛣️',
-                    title: 'Bus Routes',
-                    isActive: activeRoute == '/bus_routes', // Assuming distinct route
-                    onTap: () => _navigateToRoute(context, '/bus_routes'),
+                    icon: '📸',
+                    title: 'Photo Gallery',
+                    isActive: activeRoute == '/gallery',
+                    onTap: () => _navigateToRoute(context, '/gallery'),
                   ),
-                  // Add other routes as necessary
+                  // R
+                  SidebarNavItem(
+                    icon: '📋',
+                    title: 'RTI Act',
+                    isActive: activeRoute == '/rti-act',
+                    onTap: () => _navigateToRoute(context, '/rti-act'),
+                  ),
+                  // S
+                  SidebarNavItem(
+                    icon: '👥',
+                    title: 'Students',
+                    isActive: activeRoute == '/students',
+                    onTap: () => _navigateToRoute(context, '/students'),
+                  ),
+                  // T
+                  SidebarNavItem(
+                    icon: '👨‍🏫',
+                    title: 'Teachers',
+                    isActive: activeRoute == '/teachers',
+                    onTap: () => _navigateToRoute(context, '/teachers'),
+                  ),
                 ],
               ),
             ),

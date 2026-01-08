@@ -5,6 +5,7 @@ import 'dart:math' as math; // Used for random data generation
 import 'package:intl/intl.dart' as intl;
 import 'package:main_login/main.dart' as main_login;
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'parent-profile.dart';
 import 'parent-academics.dart';
 import 'parent-bus.dart';
@@ -145,10 +146,12 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedAttendancePeriod = 'Monthly'; // For attendance period selection
   String? _schoolName;
   String? _schoolId;
+  String? _logoUrl;
 
   @override
   void initState() {
     super.initState();
+    _loadCachedSchoolDetails();
     _loadParentProfile();
   }
 
@@ -159,8 +162,14 @@ class _HomeScreenState extends State<HomeScreen> {
         // Extract school_id and school_name from parent profile
         _schoolId = parentData['school_id']?.toString();
         _schoolName = parentData['school_name']?.toString();
+        _logoUrl = parentData['logo_url']?.toString(); // Added: Extract logo directly
         
-        debugPrint('Parent profile - school_id: $_schoolId, school_name: $_schoolName');
+        // Save to cache immediately if available
+        if (_logoUrl != null || _schoolName != null) {
+          _saveSchoolDetailsToCache(_schoolName, _logoUrl);
+        }
+        
+        debugPrint('Parent profile - school_id: $_schoolId, school_name: $_schoolName, logo_url: $_logoUrl');
         
         // Check for null, empty, or 'null' string values
         final isSchoolIdEmpty = _schoolId == null || _schoolId!.isEmpty || _schoolId == 'null';
@@ -207,14 +216,45 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() {});
         }
         
-        // If school name is still not available, try to load it
-        if ((_schoolName == null || _schoolName!.isEmpty) && _schoolId != null && _schoolId!.isNotEmpty) {
-          // Fallback: try to load school name if not in profile
+        // If school name or logo is missing, try to load it
+        if (((_schoolName == null || _schoolName!.isEmpty) || (_logoUrl == null || _logoUrl!.isEmpty)) && 
+            _schoolId != null && _schoolId!.isNotEmpty && _schoolId != 'null') {
+          // Fallback: try to load school details if not in profile
           await _loadSchoolName();
         }
       }
     } catch (e) {
       debugPrint('Failed to load parent profile: $e');
+    }
+  }
+
+  Future<void> _loadCachedSchoolDetails() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedName = prefs.getString('school_name');
+      final cachedLogo = prefs.getString('logo_url');
+      
+      if (cachedName != null || cachedLogo != null) {
+        if (mounted) {
+          setState(() {
+            if (cachedName != null) _schoolName = cachedName;
+            if (cachedLogo != null) _logoUrl = cachedLogo;
+          });
+          debugPrint('Loaded Cached Details - Name: $_schoolName, Logo: $_logoUrl');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading cached details: $e');
+    }
+  }
+
+  Future<void> _saveSchoolDetailsToCache(String? name, String? logo) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (name != null) await prefs.setString('school_name', name);
+      if (logo != null) await prefs.setString('logo_url', logo);
+    } catch (e) {
+      debugPrint('Error saving to cache: $e');
     }
   }
 
@@ -235,7 +275,9 @@ class _HomeScreenState extends State<HomeScreen> {
         if (data is Map) {
           setState(() {
             _schoolName = data['school_name']?.toString() ?? 'School';
+            _logoUrl = data['logo_url']?.toString();
           });
+          _saveSchoolDetailsToCache(_schoolName, _logoUrl);
           return;
         }
       }
@@ -1620,27 +1662,38 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Transform.scale(
-                          scale: 1.2, // Zoom in to crop out the baked-in border
-                          child: Image.asset(
-                            'assets/images/vidhyarambh_logo.png',
-                            package: 'parent_app',
-                            fit: BoxFit.cover,
-                            width: side,
-                            height: side,
-                            errorBuilder: (context, error, stackTrace) {
-                              debugPrint('LOGO LOAD ERROR: $error');
-                              return const Icon(
-                                Icons.school, // Fallback icon
-                                size: 40,
-                                color: Color(0xFFFFD700),
-                              );
-                            },
-                          ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: _logoUrl != null && _logoUrl!.isNotEmpty
+                              ? Image.network(
+                                  _logoUrl!,
+                                  fit: BoxFit.cover,
+                                  width: side,
+                                  height: side,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: Colors.white,
+                                      width: side,
+                                      height: side,
+                                      child: const Icon(
+                                        Icons.school,
+                                        size: 40,
+                                        color: Color(0xFF667eea),
+                                      ),
+                                    );
+                                  },
+                                )
+                              : Container(
+                                  color: Colors.white,
+                                  width: side,
+                                  height: side,
+                                  child: const Icon(
+                                    Icons.school,
+                                    size: 40,
+                                    color: Color(0xFF667eea),
+                                  ),
+                                ),
                         ),
-                      ),
                     );
                   },
                 ),

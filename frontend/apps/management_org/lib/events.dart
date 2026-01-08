@@ -66,6 +66,9 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
   final TextEditingController _searchController = TextEditingController();
   late List<Event> _visibleEvents;
 
+  // Check if user has edit permissions
+  bool get _canEdit => ApiService().userRole != 'financial';
+
   @override
   void initState() {
     super.initState();
@@ -456,45 +459,46 @@ class _EventsManagementPageState extends State<EventsManagementPage> {
                   width: isMobile ? 0 : 20,
                   height: isMobile ? 15 : 0,
                 ),
-                InkWell(
-                  onTap: _addEvent,
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    width: isMobile ? double.infinity : null,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 12,
-                      horizontal: 24,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF51CF66), Color(0xFF40C057)],
+                if (_canEdit)
+                  InkWell(
+                    onTap: _addEvent,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: isMobile ? double.infinity : null,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 24,
                       ),
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF51CF66).withValues(alpha: 0.25),
-                          blurRadius: 15,
-                          offset: const Offset(0, 8),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF51CF66), Color(0xFF40C057)],
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.add, color: Colors.white),
-                        SizedBox(width: 8),
-                        Text(
-                          'Add New Event',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF51CF66).withValues(alpha: 0.25),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.add, color: Colors.white),
+                          SizedBox(width: 8),
+                          Text(
+                            'Add New Event',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -748,23 +752,25 @@ class _EventCardWithHoverState extends State<_EventCardWithHover> {
                       onTap: widget.onView,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _GradientButton(
-                      label: 'Edit',
-                      colors: const [Color(0xFFFFD93D), Color(0xFFFCC419)],
-                      textColor: const Color(0xFF333333),
-                      onTap: widget.onEdit,
+                  if (ApiService().userRole != 'financial') ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _GradientButton(
+                        label: 'Edit',
+                        colors: const [Color(0xFFFFD93D), Color(0xFFFCC419)],
+                        textColor: const Color(0xFF333333),
+                        onTap: widget.onEdit,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _GradientButton(
-                      label: 'Delete',
-                      colors: const [Color(0xFFFF6B6B), Color(0xFFEE5A52)],
-                      onTap: widget.onDelete,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _GradientButton(
+                        label: 'Delete',
+                        colors: const [Color(0xFFFF6B6B), Color(0xFFEE5A52)],
+                        onTap: widget.onDelete,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ],

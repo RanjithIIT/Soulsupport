@@ -12,6 +12,7 @@ class ApiService {
 
   String? _authToken;
   String? _refreshToken;
+  String? _userRole;
   Duration _timeout = const Duration(seconds: 30);
   bool _isRefreshing = false;
 
@@ -21,12 +22,32 @@ class ApiService {
       final prefs = await SharedPreferences.getInstance();
       _authToken = prefs.getString('access_token');
       _refreshToken = prefs.getString('refresh_token');
+      _userRole = prefs.getString('user_role');
     } catch (e) {
       // If SharedPreferences fails, continue without stored tokens
       _authToken = null;
       _refreshToken = null;
+      _userRole = null;
     }
   }
+
+  // Set user role
+  Future<void> setUserRole(String? role) async {
+    _userRole = role;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (role != null) {
+        await prefs.setString('user_role', role);
+      } else {
+        await prefs.remove('user_role');
+      }
+    } catch (e) {
+      // Ignore errors
+    }
+  }
+
+  // Get user role
+  String? get userRole => _userRole;
 
   // Set authentication token
   Future<void> setAuthToken(String? token) async {

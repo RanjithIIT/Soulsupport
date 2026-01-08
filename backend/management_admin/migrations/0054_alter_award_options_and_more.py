@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('super_admin', '0014_school_logo'),
-        ('management_admin', '0053_delete_activity'),
+        ('management_admin', '0012_galleryimage_caption_galleryimage_uploaded_at'),
     ]
 
     operations = [

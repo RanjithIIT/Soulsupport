@@ -180,6 +180,10 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
       _teachers.where((teacher) => teacher.status == 'Active').length;
   int get _classTeachers =>
       _teachers.where((teacher) => (teacher.classTeacher ?? '').isNotEmpty).length;
+
+  // Check if user has edit permissions (Financial users are read-only)
+  bool get _canEdit => ApiService().userRole != 'financial';
+
   double get _avgExperience {
     if (_teachers.isEmpty) return 0.0;
     double total = 0;
@@ -473,16 +477,17 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
                                     runSpacing: 12,
                                     alignment: WrapAlignment.center,
                                     children: [
-                                      _GradientButton(
-                                        label: 'Edit Profile',
-                                        colors: const [
-                                          Color(0xFF667EEA),
-                                          Color(0xFF764BA2)
-                                        ],
-                                        onTap: () {
-                                          _editTeacher(teacher);
-                                        },
-                                      ),
+                                      if (_canEdit)
+                                        _GradientButton(
+                                          label: 'Edit Profile',
+                                          colors: const [
+                                            Color(0xFF667EEA),
+                                            Color(0xFF764BA2)
+                                          ],
+                                          onTap: () {
+                                            _editTeacher(teacher);
+                                          },
+                                        ),
                                       _GradientButton(
                                         label: 'Close',
                                         colors: const [
@@ -691,11 +696,12 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
                   ),
                 ),
                 SizedBox(width: isMobile ? 0 : 20, height: isMobile ? 15 : 0),
-                _GradientButton(
-                  label: '+ Add New Teacher',
-                  colors: const [Color(0xFF51CF66), Color(0xFF40C057)],
-                  onTap: _addTeacher,
-                ),
+                if (_canEdit)
+                  _GradientButton(
+                    label: '+ Add New Teacher',
+                    colors: const [Color(0xFF51CF66), Color(0xFF40C057)],
+                    onTap: _addTeacher,
+                  ),
               ],
             ),
           ),
@@ -945,22 +951,24 @@ class _TeacherCardWithHoverState extends State<_TeacherCardWithHover> {
                       onTap: widget.onView,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _GradientButton(
-                      label: 'Edit',
-                      colors: const [Color(0xFFFFD93D), Color(0xFFFCC419)],
-                      onTap: widget.onEdit,
+                  if (ApiService().userRole != 'financial') ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _GradientButton(
+                        label: 'Edit',
+                        colors: const [Color(0xFFFFD93D), Color(0xFFFCC419)],
+                        onTap: widget.onEdit,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _GradientButton(
-                      label: 'Delete',
-                      colors: const [Color(0xFFFF6B6B), Color(0xFFEE5A52)],
-                      onTap: widget.onDelete,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _GradientButton(
+                        label: 'Delete',
+                        colors: const [Color(0xFFFF6B6B), Color(0xFFEE5A52)],
+                        onTap: widget.onDelete,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ],

@@ -18,6 +18,7 @@ import 'admissions.dart';
 import 'departments.dart';
 import 'awards.dart';
 import 'campus_life.dart';
+import 'rti_act.dart';
 import 'add_teacher.dart';
 import 'edit_student.dart';
 import 'edit_teacher.dart';
@@ -26,7 +27,9 @@ import 'edit_activity.dart';
 import 'add_newactivity.dart';
 import 'add_newBus.dart';
 import 'add_event.dart';
+import 'add_event.dart';
 import 'edit_event.dart';
+import 'financial_profiles.dart';
 
 
 class ManagementRoutePages {
@@ -42,9 +45,11 @@ class ManagementRoutePages {
     ManagementRoutes.activities: (_) => const ActivitiesManagementPage(),
     ManagementRoutes.examinations: (_) => const ExaminationManagementPage(),
     ManagementRoutes.fees: (_) => const FeesManagementPage(),
+    ManagementRoutes.financialProfiles: (_) => const FinancialProfilesPage(),
     ManagementRoutes.admissions: (_) => const AdmissionsManagementPage(),
     ManagementRoutes.departments: (_) => const DepartmentsManagementPage(),
     ManagementRoutes.awards: (_) => const AwardsManagementPage(),
+    ManagementRoutes.rtiAct: (_) => const RTIActPage(),
     ManagementRoutes.busRoutes: (_) => const BusesManagementPage(), // Mapping bus-routes to Buses page
     ManagementRoutes.campusLife: (_) => const CampusLifeManagementPage(),
     ManagementRoutes.addTeacher: (_) => const AddTeacherPage(),

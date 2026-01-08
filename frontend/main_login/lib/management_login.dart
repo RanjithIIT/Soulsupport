@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:core/api/auth_service.dart';
 import 'package:management_org/main.dart' as management;
 import 'create_password.dart';
+import 'financial_login.dart';
 
 void main() {
   runApp(const ManagementLoginPage());
@@ -164,7 +165,41 @@ class _ManagementLoginPageState extends State<ManagementLoginPage> {
                           // Validation is handled by backend
                           validator: (value) => null,
                         ),
-                        const SizedBox(height: 32),
+                        
+                        // Forgot Password Link
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () {
+                              // Show forgot password dialog
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Forgot Password'),
+                                  content: const Text(
+                                    'Please contact your administrator to reset your password.',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('OK'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            child: const Text(
+                              'Forgot Password?',
+                              style: TextStyle(
+                                color: Color(0xFF667EEA),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 8),
 
                         // Login Button
                         SizedBox(
@@ -227,10 +262,23 @@ class _ManagementLoginPageState extends State<ManagementLoginPage> {
                                     }
                                   } else {
                                     // Navigate to Management dashboard - completely replace the app
+                                    String? initialRoute;
+                                    if (result['routes'] != null && result['routes']['dashboard_route'] != null) {
+                                      final backendRoute = result['routes']['dashboard_route'] as String;
+                                      // Map backend route to flutter route
+                                      if (backendRoute.contains('/fees')) {
+                                        initialRoute = '/fees';
+                                      } else if (backendRoute.contains('/dashboard')) {
+                                        initialRoute = '/dashboard';
+                                      }
+                                    }
+                                    
                                     Navigator.pushAndRemoveUntil(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => const management.SchoolManagementApp(),
+                                        builder: (context) => management.SchoolManagementApp(
+                                          initialRoute: initialRoute,
+                                        ),
                                       ),
                                       (route) => false, // Remove all previous routes
                                     );
@@ -262,6 +310,44 @@ class _ManagementLoginPageState extends State<ManagementLoginPage> {
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Financial Login Link
+                        Center(
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const FinancialLoginPage(),
+                                ),
+                              );
+                            },
+                            child: RichText(
+                              text: const TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: 'Need financial access? ',
+                                    style: TextStyle(
+                                      color: Colors.black54,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: 'Financial Login',
+                                    style: TextStyle(
+                                      color: Color(0xFF667EEA),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ],

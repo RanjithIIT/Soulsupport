@@ -656,12 +656,13 @@ class _DepartmentsManagementPageState extends State<DepartmentsManagementPage> {
                                         ),
                                       ),
                                       const SizedBox(height: 15),
-                                      _QuickActionItem(
-                                        icon: Icons.add,
-                                        label: 'Add New Department',
-                                        onTap: () =>
-                                            _showAddDepartmentDialog(context),
-                                      ),
+                                      if (ApiService().userRole != 'financial')
+                                        _QuickActionItem(
+                                          icon: Icons.add,
+                                          label: 'Add New Department',
+                                          onTap: () =>
+                                              _showAddDepartmentDialog(context),
+                                        ),
                                       _QuickActionItem(
                                         icon: Icons.bar_chart,
                                         label: 'View Statistics',
@@ -1175,65 +1176,67 @@ class _DepartmentCard extends StatelessWidget {
                     child: const Text('View', style: TextStyle(fontSize: 13)),
                   ),
                 ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: onEdit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: const Text('Edit', style: TextStyle(fontSize: 13)),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Delete Department'),
-                          content: Text(
-                              'Are you sure you want to delete ${department.name} Department?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                onDelete();
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('Department deleted')),
-                                );
-                              },
-                              child: const Text('Delete',
-                                  style: TextStyle(color: Colors.red)),
-                            ),
-                          ],
+                if (ApiService().userRole != 'financial') ...[
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: onEdit,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        elevation: 0,
                       ),
-                      elevation: 0,
+                      child: const Text('Edit', style: TextStyle(fontSize: 13)),
                     ),
-                    child: const Text('Delete', style: TextStyle(fontSize: 13)),
                   ),
-                ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Delete Department'),
+                            content: Text(
+                                'Are you sure you want to delete ${department.name} Department?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Cancel'),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  onDelete();
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('Department deleted')),
+                                  );
+                                },
+                                child: const Text('Delete',
+                                    style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text('Delete', style: TextStyle(fontSize: 13)),
+                    ),
+                  ),
+                ],
               ],
             ),
           ],

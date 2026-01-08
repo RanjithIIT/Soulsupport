@@ -20,6 +20,7 @@ class Role(models.Model):
         ('management_admin', 'Management Admin'),
         ('teacher', 'Teacher'),
         ('student_parent', 'Student/Parent'),
+        ('financial', 'Financial Staff'),
     ]
     
     name = models.CharField(max_length=50, choices=ROLE_CHOICES, unique=True)
@@ -35,6 +36,42 @@ class Role(models.Model):
         db_table = 'roles'
         verbose_name = 'Role'
         verbose_name_plural = 'Roles'
+
+
+# -------------------------
+# FINANCIAL DETAILS MODEL
+# -------------------------
+
+class FinancialDetails(models.Model):
+    """Separate table for financial staff details"""
+    financial_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    # User credentials
+    email = models.EmailField(unique=True)
+    password = models.CharField(max_length=255, help_text="Hashed password")
+    
+    # Personal details
+    full_name = models.CharField(max_length=300)
+    phone = models.CharField(max_length=20)
+    address = models.TextField()
+    date_of_birth = models.DateField(null=True, blank=True)
+    gender = models.CharField(max_length=20, null=True, blank=True)
+    
+    # School association
+    school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True)
+    
+    # Metadata
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.full_name} ({self.email})"
+    
+    class Meta:
+        db_table = 'financial_details'
+        verbose_name = 'Financial Detail'
+        verbose_name_plural = 'Financial Details'
 
 
 
@@ -62,13 +99,14 @@ class UserManager(BaseUserManager):
         if password:
             if len(password) == 6 and password.isdigit():
                 user.password_hash = password
+                user.set_password(password)
             else:
-                raise ValueError("You must provide a 6-digit temporary password only.")
+                user.set_password(password)
+                user.updated_password = password
+                user.has_custom_password = True
         else:
             user.password_hash = self.generate_6_digit_password()
-
-        # Store hashed version for authentication
-        user.set_password(user.password_hash)
+            user.set_password(user.password_hash)
 
         user.save(using=self._db)
         return user
@@ -106,6 +144,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
 
     mobile = models.CharField(max_length=20, null=True, blank=True)
+    address = models.TextField(null=True, blank=True)
+    date_of_birth = models.DateField(null=True, blank=True)
+    gender = models.CharField(max_length=20, null=True, blank=True)
 
     # 🔥 Temporary login password (exactly 8 characters)
     password_hash = models.CharField(max_length=8, null=True, blank=True, help_text="Temporary login 8-character password")

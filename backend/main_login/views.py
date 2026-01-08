@@ -14,7 +14,8 @@ from .serializers import (
     UserSerializer,
     RoleSerializer,
     ChangePasswordSerializer,
-    CreatePasswordSerializer
+    CreatePasswordSerializer,
+    FinancialDetailsSerializer
 )
 
 User = get_user_model()
@@ -348,6 +349,7 @@ def role_login(request):
                 'management': 'management_admin',
                 'teacher': 'teacher',
                 'parent': 'student_parent',
+                'financial': 'financial',
             }
             
             backend_role = role_mapping.get(requested_role, requested_role)
@@ -383,6 +385,10 @@ def role_login(request):
                         'parent': {
                             'login_page': '/parent_login',
                             'dashboard_route': '/student-parent/dashboard',
+                        },
+                        'financial': {
+                            'login_page': '/financial_login',
+                            'dashboard_route': '/management-admin/fees',
                         },
                     }
                     
@@ -425,4 +431,141 @@ def role_login(request):
             'error': 'Internal server error',
             'traceback': traceback.format_exc() if settings.DEBUG else None
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def create_financial_user(request):
+    """Create financial staff user in User table AND FinancialDetails table"""
+    from django.db import transaction
+    from .models import FinancialDetails
+    from django.contrib.auth.hashers import make_password
+    
+    try:
+        print("=" * 80)
+        print("CREATE FINANCIAL USER - Request received")
+        print(f"Request user: {request.user}")
+        print(f"Request data: {request.data}")
+        print("=" * 80)
+        
+        # Prepare data for serializer
+        data = request.data.copy()
+        
+        # 1. Handle Name (Split into first_name and last_name)
+        full_name = ''
+        if 'name' in data:
+            full_name = data['name'].strip()
+            # Also remove name from data to avoid serializer errors if it doesn't expect it
+            # But UserRegistrationSerializer doesn't have 'name', so we keep it for FinancialDetails
+            name_parts = full_name.split(' ', 1)
+            data['first_name'] = name_parts[0]
+            data['last_name'] = name_parts[1] if len(name_parts) > 1 else ''
+        
+        # 2. Map 'phone' to 'mobile'
+        if 'phone' in data:
+            data['mobile'] = data['phone']
+        
+        # 3. Set username (use email if not provided)
+        if 'username' not in data and 'email' in data:
+            data['username'] = data['email']
+        
+        # 4. Set role to 'financial'
+        data['role'] = 'financial'
+        
+        # 5. Handle password confirmation
+        if 'password' in data and 'password2' not in data:
+            data['password2'] = data['password']
+        
+        print(f"Processed data: {data}")
+        
+        # Ensure 'financial' role exists
+        financial_role, created = Role.objects.get_or_create(
+            name='financial',
+            defaults={'description': 'Financial Staff'}
+        )
+        if created:
+            print("Created 'financial' role")
+        
+        # USE ATOMIC TRANSACTION
+        with transaction.atomic():
+            # Use existing UserRegistrationSerializer
+            serializer = UserRegistrationSerializer(data=data)
+            if serializer.is_valid():
+                print("Serializer validation passed")
+                user = serializer.save()
+                print(f"Financial user created in User table: {user.email}")
+                
+                # --- CREATE FINANCIAL DETAILS RECORD ---
+                # Extract fields needed for FinancialDetails
+                email = data.get('email')
+                password = data.get('password')
+                phone = data.get('phone', data.get('mobile', ''))
+                address = data.get('address', '')
+                date_of_birth = data.get('date_of_birth')
+                gender = data.get('gender')
+                school_id = data.get('school_id', '')
+                
+                # Create the financial record
+                fin_details, fin_created = FinancialDetails.objects.get_or_create(
+                    email=email,
+                    defaults={
+                        'full_name': full_name or f"{user.first_name} {user.last_name}".strip(),
+                        'phone': phone,
+                        'address': address,
+                        'date_of_birth': date_of_birth,
+                        'gender': gender,
+                        'school_id': school_id,
+                        'is_active': True
+                    }
+                )
+                
+                # Set password (hashed)
+                if password:
+                    fin_details.password = make_password(password)
+                    fin_details.save()
+                
+                print(f"FinancialDetails record {'created' if fin_created else 'fetched'} for {email}")
+                
+                return Response({
+                    'success': True,
+                    'message': 'Financial staff created successfully',
+                    'user_id': str(user.user_id),
+                    'financial_id': str(fin_details.financial_id),
+                    'email': user.email,
+                    'username': user.username
+                }, status=status.HTTP_201_CREATED)
+            
+            print(f"Serializer validation FAILED: {serializer.errors}")
+            return Response({
+                'success': False,
+                'errors': serializer.errors,
+                'message': 'Validation failed'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    except Exception as e:
+        import traceback
+        print(f"Exception occurred: {str(e)}")
+        print(traceback.format_exc())
+        return Response({
+            'success': False,
+            'message': f'Error creating financial user: {str(e)}',
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class FinancialUserListView(generics.ListAPIView):
+    """List all financial users"""
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        """Filter users by financial role and optional school_id"""
+        queryset = User.objects.filter(role__name='financial', is_active=True)
+        
+        # Filter by school_id if available in request user or params
+        # This assumes User model might have school_id or we filter by context
+        return queryset
+
 

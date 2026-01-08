@@ -1,0 +1,7 @@
+
+--- Testing Permission Logic ---
+DEBUG: request.user: AnonymousUser
+DEBUG: request.user.is_authenticated: False
+IsFinancial.has_permission: False
+IsManagementAdmin.has_permission: False
+Combined.has_permission: False

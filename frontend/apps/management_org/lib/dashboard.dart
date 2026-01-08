@@ -36,7 +36,17 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
+    _checkFinancialRedirect();
     _fetchDashboardData();
+  }
+
+  void _checkFinancialRedirect() {
+    final userRole = ApiService().userRole;
+    if (userRole == 'financial') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _navigateToRoute('/fees');
+      });
+    }
   }
 
   Future<void> _fetchDashboardData() async {
@@ -583,6 +593,7 @@ class _StatsGridState extends State<_StatsGrid> {
       fetchCount('gallery', Endpoints.gallery),
       fetchCount('campus_life', Endpoints.campusLife),
       fetchCount('departments', Endpoints.departments),
+      fetchCount('financial_staff', Endpoints.financialUsers),
     ]);
 
     if (mounted) {
@@ -635,6 +646,14 @@ class _StatsGridState extends State<_StatsGrid> {
         'description': 'Click to manage exams',
         'color': const Color(0xFFFF6B35),
         'route': 'examinations',
+      },
+      {
+        'icon': '💼',
+        'number': _isLoading ? '...' : (_counts['financial_staff'] ?? '0'),
+        'label': 'Financial Staff',
+        'description': 'Click to view profiles',
+        'color': const Color(0xFF607D8B),
+        'route': 'financial-profiles',
       },
       {
         'icon': '💰',

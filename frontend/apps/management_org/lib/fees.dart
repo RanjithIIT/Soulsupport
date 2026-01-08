@@ -8,6 +8,7 @@ import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
 import 'widgets/school_profile_header.dart';
 import 'widgets/management_sidebar.dart';
+import 'package:main_login/main.dart' as main_login;
 
 enum FeeStatus { paid, pending, overdue }
 
@@ -1496,10 +1497,25 @@ class _FeesManagementPageState extends State<FeesManagementPage> {
                             showMenuButton: !showSidebar,
                             onMenuTap: () =>
                                 _scaffoldKey.currentState?.openDrawer(),
-                            onBackToDashboard: () => Navigator.pushReplacement(
-                                          context,
-                              MaterialPageRoute(builder: (_) => DashboardPage()),
-                                    ),
+                            onBackToDashboard: () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (_) => const DashboardPage()),
+                              );
+                            },
+                            onLogout: () async {
+                              // Standard logout logic
+                              await ApiService().setAuthToken(null);
+                              await ApiService().setRefreshToken(null);
+                              await ApiService().setUserRole(null);
+                              
+                              if (context.mounted) {
+                                Navigator.of(context).pushAndRemoveUntil(
+                                  MaterialPageRoute(builder: (_) => const main_login.LoginScreen()),
+                                  (route) => false,
+                                );
+                              }
+                            },
                           ),
                           const SizedBox(height: 24),
                           // Stat Cards Overview
@@ -2266,11 +2282,13 @@ class _Header extends StatelessWidget {
   final bool showMenuButton;
   final VoidCallback? onMenuTap;
   final VoidCallback onBackToDashboard;
+  final VoidCallback? onLogout;
 
   const _Header({
     required this.showMenuButton,
     this.onMenuTap,
     required this.onBackToDashboard,
+    this.onLogout,
   });
 
   @override
@@ -2311,6 +2329,30 @@ class _Header extends StatelessWidget {
           Row(
             children: [
               SchoolProfileHeader(apiService: ApiService()),
+              const SizedBox(width: 15),
+
+// Add logout button to header
+              const SizedBox(width: 15),
+              ElevatedButton(
+                onPressed: onLogout,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFDC3545), // Red
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  elevation: 2, // Subtle shadow
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.logout, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text('Logout'),
+                  ],
+                ),
+              ),
               const SizedBox(width: 15),
               ElevatedButton(
                 onPressed: onBackToDashboard,
@@ -3981,3 +4023,4 @@ class _TableCell extends StatelessWidget {
     );
   }
 }
+

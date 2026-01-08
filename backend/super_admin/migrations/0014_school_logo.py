@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('super_admin', '0013_fix_null_school_ids'),
+        ('super_admin', '0001_initial'),
     ]
 
     operations = [

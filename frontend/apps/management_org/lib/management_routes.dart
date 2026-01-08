@@ -10,10 +10,12 @@ class ManagementRoutes {
   static const String notifications = '/notifications';
   static const String gallery = '/gallery';
   static const String fees = '/fees';
+  static const String financialProfiles = '/financial-profiles';
   static const String examinations = '/examinations';
   static const String admissions = '/admissions';
   static const String departments = '/departments';
   static const String awards = '/awards';
+  static const String rtiAct = '/rti-act';
   static const String busRoutes = '/bus-routes';
   static const String campusLife = '/campus-life';
   static const String addStudent = '/add-student';
