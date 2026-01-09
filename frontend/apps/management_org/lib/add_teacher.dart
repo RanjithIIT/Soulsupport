@@ -41,15 +41,8 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
   final _subjectSpecializationController = TextEditingController();
   final _emergencyContactController = TextEditingController();
 
-<<<<<<< HEAD
   String? _gender;
   String? _bloodGroup;
-  
-=======
-  final _departmentController = TextEditingController();
-  String? _gender;
-  String? _bloodGroup;
->>>>>>> origin/praneeth
   DateTime? _dob;
   DateTime? _joiningDate;
   Uint8List? _photoBytes;
@@ -63,10 +56,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
         employeeNo: _employeeNoController.text,
         firstName: _firstNameController.text,
         lastName: _lastNameController.text,
-<<<<<<< HEAD
         qualification: _qualificationController.text,
-=======
->>>>>>> origin/praneeth
         department: _departmentController.text,
         mobileNo: _mobileNoController.text,
         email: _emailController.text,
@@ -78,11 +68,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
   void initState() {
     super.initState();
   }
-<<<<<<< HEAD
-=======
 
-
->>>>>>> origin/praneeth
 
   @override
   void dispose() {
@@ -91,7 +77,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
     _firstNameController.dispose();
     _lastNameController.dispose();
     _qualificationController.dispose();
-    _departmentController.dispose();
+
     _mobileNoController.dispose();
     _emailController.dispose();
     _addressController.dispose();
@@ -148,15 +134,8 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
         'is_active': true,
       };
       
-<<<<<<< HEAD
-      // Add department
-      if (_departmentController.text.trim().isNotEmpty) {
-        teacherData['department_name'] = _departmentController.text.trim();
-      }
-=======
       final department = nullIfEmpty(_departmentController.text);
       if (department != null) teacherData['department'] = department;
->>>>>>> origin/praneeth
       
       // Add optional fields only if they have values
       final mobileNo = nullIfEmpty(_mobileNoController.text);
@@ -679,11 +658,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                         child: TextFormField(
                                           controller: _departmentController,
                                           decoration: _inputDecoration(
-<<<<<<< HEAD
-                                            hint: 'Enter department name',
-=======
                                             hint: 'Enter department',
->>>>>>> origin/praneeth
                                           ),
                                           validator: (value) {
                                             if (value == null || value.trim().isEmpty) {

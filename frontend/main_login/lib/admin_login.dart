@@ -21,6 +21,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _passwordFocusNode = FocusNode();
   bool _obscurePassword = true;
   bool _isLoading = false;
 
@@ -28,7 +29,77 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    if (_isLoading) return;
+
+    // All validation and login logic is handled by the backend
+    setState(() {
+      _isLoading = true;
+    });
+
+    final authService = AuthService();
+    final result = await authService.login(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+      role: 'admin',
+    );
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'Login attempt completed'),
+          backgroundColor: result['success']
+              ? const Color(0xFF667EEA)
+              : Colors.red,
+        ),
+      );
+
+      if (result['success']) {
+        // Check if user needs to create password
+        final needsPasswordCreation = result['needs_password_creation'] as bool? ?? false;
+        
+        if (needsPasswordCreation) {
+          // Navigate to create password page
+          final passwordCreated = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CreatePasswordPage(
+                role: 'admin',
+                userData: result['user'],
+                tokens: result['tokens'],
+                routes: result['routes'],
+              ),
+            ),
+          );
+          
+          // If password was created successfully, navigate back to role selection
+          if (passwordCreated == true && mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const super_admin.AdminDashboardApp(),
+              ),
+            );
+          }
+        } else {
+          // Navigate to Super Admin dashboard
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const super_admin.AdminDashboardApp(),
+            ),
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -108,6 +179,10 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          onFieldSubmitted: (_) {
+                            FocusScope.of(context).requestFocus(_passwordFocusNode);
+                          },
                           decoration: InputDecoration(
                             labelText: 'Email Address',
                             hintText: 'Enter your email',
@@ -131,7 +206,10 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                         // Password Field
                         TextFormField(
                           controller: _passwordController,
+                          focusNode: _passwordFocusNode,
                           obscureText: _obscurePassword,
+                          textInputAction: TextInputAction.done,
+                          onFieldSubmitted: (_) => _handleLogin(),
                           decoration: InputDecoration(
                             labelText: 'Password',
                             hintText: 'Enter your password',
@@ -168,79 +246,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                         SizedBox(
                           height: 55,
                           child: ElevatedButton(
-                            onPressed: _isLoading
-                                ? null
-                                : () async {
-                                    // All validation and login logic is handled by the backend
-                                    setState(() {
-                                      _isLoading = true;
-                                    });
-
-                                    final authService = AuthService();
-                                    final result = await authService.login(
-                                      email: _emailController.text.trim(),
-                                      password: _passwordController.text,
-                                      role: 'admin',
-                                    );
-
-                                    setState(() {
-                                      _isLoading = false;
-                                    });
-
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            result['message'] ??
-                                                'Login attempt completed',
-                                          ),
-                                          backgroundColor: result['success']
-                                              ? const Color(0xFF667EEA)
-                                              : Colors.red,
-                                        ),
-                                      );
-
-                                      if (result['success']) {
-                                        // Check if user needs to create password
-                                        final needsPasswordCreation = result['needs_password_creation'] as bool? ?? false;
-                                        
-                                        if (needsPasswordCreation) {
-                                          // Navigate to create password page
-                                          final passwordCreated = await Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) => CreatePasswordPage(
-                                                role: 'admin',
-                                                userData: result['user'],
-                                                tokens: result['tokens'],
-                                                routes: result['routes'],
-                                              ),
-                                            ),
-                                          );
-                                          
-                                          // If password was created successfully, navigate to dashboard
-                                          if (passwordCreated == true && mounted) {
-                                            Navigator.pushReplacement(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) => const super_admin.AdminDashboardApp(),
-                                              ),
-                                            );
-                                          }
-                                        } else {
-                                          // Navigate to Super Admin dashboard
-                                          Navigator.pushReplacement(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) => const super_admin.AdminDashboardApp(),
-                                            ),
-                                          );
-                                        }
-                                      }
-                                    }
-                                  },
+                            onPressed: _isLoading ? null : _handleLogin,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF667EEA),
                               shape: RoundedRectangleBorder(

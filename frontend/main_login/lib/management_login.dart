@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'main.dart';
+
 import 'package:core/api/auth_service.dart';
 import 'package:management_org/main.dart' as management;
 import 'create_password.dart';
@@ -21,6 +23,7 @@ class _ManagementLoginPageState extends State<ManagementLoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _passwordFocusNode = FocusNode();
   bool _obscurePassword = true;
   bool _isLoading = false;
 
@@ -28,7 +31,79 @@ class _ManagementLoginPageState extends State<ManagementLoginPage> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    if (_isLoading) return;
+    
+    // All validation and login logic is handled by the backend
+    setState(() {
+      _isLoading = true;
+    });
+
+    final authService = AuthService();
+    final result = await authService.login(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+      role: 'management',
+    );
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'Login attempt completed'),
+          backgroundColor: result['success']
+              ? const Color(0xFF667EEA)
+              : Colors.red,
+        ),
+      );
+
+      if (result['success']) {
+        // Check if user needs to create password
+        final needsPasswordCreation = result['needs_password_creation'] as bool? ?? false;
+        
+        if (needsPasswordCreation) {
+          // Navigate to create password page
+          final passwordCreated = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CreatePasswordPage(
+                role: 'management',
+                userData: result['user'],
+                tokens: result['tokens'],
+                routes: result['routes'],
+              ),
+            ),
+          );
+          
+          // If password was created successfully, navigate back to role selection
+          if (passwordCreated == true && mounted) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const LoginScreen(),
+              ),
+              (route) => false, // Remove all previous routes
+            );
+          }
+        } else {
+          // Navigate to Management dashboard - completely replace the app
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const management.SchoolManagementApp(),
+            ),
+            (route) => false, // Remove all previous routes
+          );
+        }
+      }
+    }
   }
 
   void _showForgotPasswordDialog(BuildContext context) {
@@ -200,6 +275,10 @@ class _ManagementLoginPageState extends State<ManagementLoginPage> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          onFieldSubmitted: (_) {
+                            FocusScope.of(context).requestFocus(_passwordFocusNode);
+                          },
                           decoration: InputDecoration(
                             labelText: 'Email Address',
                             hintText: 'Enter your email',
@@ -223,7 +302,10 @@ class _ManagementLoginPageState extends State<ManagementLoginPage> {
                         // Password Field
                         TextFormField(
                           controller: _passwordController,
+                          focusNode: _passwordFocusNode,
                           obscureText: _obscurePassword,
+                          textInputAction: TextInputAction.done,
+                          onFieldSubmitted: (_) => _handleLogin(),
                           decoration: InputDecoration(
                             labelText: 'Password',
                             hintText: 'Enter your password',
@@ -260,74 +342,7 @@ class _ManagementLoginPageState extends State<ManagementLoginPage> {
                         SizedBox(
                           height: 55,
                           child: ElevatedButton(
-                            onPressed: _isLoading ? null : () async {
-                              // All validation and login logic is handled by the backend
-                              setState(() {
-                                _isLoading = true;
-                              });
-
-                              final authService = AuthService();
-                              final result = await authService.login(
-                                email: _emailController.text.trim(),
-                                password: _passwordController.text,
-                                role: 'management',
-                              );
-
-                              setState(() {
-                                _isLoading = false;
-                              });
-
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(result['message'] ?? 'Login attempt completed'),
-                                    backgroundColor: result['success']
-                                        ? const Color(0xFF667EEA)
-                                        : Colors.red,
-                                  ),
-                                );
-
-                                if (result['success']) {
-                                  // Check if user needs to create password
-                                  final needsPasswordCreation = result['needs_password_creation'] as bool? ?? false;
-                                  
-                                  if (needsPasswordCreation) {
-                                    // Navigate to create password page
-                                    final passwordCreated = await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => CreatePasswordPage(
-                                          role: 'management',
-                                          userData: result['user'],
-                                          tokens: result['tokens'],
-                                          routes: result['routes'],
-                                        ),
-                                      ),
-                                    );
-                                    
-                                    // If password was created successfully, navigate to dashboard
-                                    if (passwordCreated == true && mounted) {
-                                      Navigator.pushAndRemoveUntil(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => const management.SchoolManagementApp(),
-                                        ),
-                                        (route) => false, // Remove all previous routes
-                                      );
-                                    }
-                                  } else {
-                                    // Navigate to Management dashboard - completely replace the app
-                                    Navigator.pushAndRemoveUntil(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => const management.SchoolManagementApp(),
-                                      ),
-                                      (route) => false, // Remove all previous routes
-                                    );
-                                  }
-                                }
-                              }
-                            },
+                            onPressed: _isLoading ? null : _handleLogin,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF667EEA),
                               shape: RoundedRectangleBorder(

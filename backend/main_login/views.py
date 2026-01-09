@@ -76,7 +76,12 @@ def logout(request):
             token.blacklist()
         return Response({'message': 'Logout successful'}, status=status.HTTP_200_OK)
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        # If blacklisting fails (e.g. token already blacklisted or expired), 
+        # still return 200 because the client should still clear its local tokens.
+        return Response({
+            'message': 'Logout successful (local)',
+            'warning': str(e)
+        }, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
@@ -309,10 +314,13 @@ def role_login(request):
     """Role-specific login endpoint that validates role and returns routing info"""
     try:
         # Safely get request data
+        print(f"DEBUG: role_login started")
         try:
             request_data = request.data if hasattr(request, 'data') else {}
-        except Exception:
+            print(f"DEBUG: request_data: {request_data}")
+        except Exception as e:
             request_data = {}
+            print(f"DEBUG: request_data failed: {str(e)}")
         
         try:
             serializer = UserLoginSerializer(data=request_data)
@@ -338,7 +346,9 @@ def role_login(request):
         
         if is_valid:
             user = serializer.validated_data['user']
+            print(f"DEBUG: user authenticated: {user}")
             requested_role = request_data.get('role', '')
+            print(f"DEBUG: requested_role: {requested_role}")
             if isinstance(requested_role, str):
                 requested_role = requested_role.lower()
             else:
@@ -364,9 +374,13 @@ def role_login(request):
             
             # Verify user has the correct role
             if user.role and current_role_name == backend_role:
+                print(f"DEBUG: role match: {current_role_name} == {backend_role}")
                 try:
+                    print(f"DEBUG: getting tokens...")
                     tokens = get_tokens_for_user(user)
+                    print(f"DEBUG: getting user_data...")
                     user_data = UserSerializer(user).data
+                    print(f"DEBUG: user_data retrieved")
                     
                     # Get routing information for the role
                     route_info = {

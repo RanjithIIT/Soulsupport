@@ -2,7 +2,7 @@
 Serializers for management_admin app
 """
 from rest_framework import serializers
-from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, Activity
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, Activity, Gallery, GalleryImage
 
 from main_login.serializers import UserSerializer
 from main_login.serializer_mixins import SchoolIdMixin
@@ -654,3 +654,33 @@ class ActivitySerializer(SchoolIdMixin, serializers.ModelSerializer):
         instance.save()
         return instance
 
+
+class GalleryImageSerializer(serializers.ModelSerializer):
+    """Serializer for GalleryImage model"""
+    class Meta:
+        model = GalleryImage
+        fields = ['id', 'gallery', 'image', 'alt_text', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+
+class GallerySerializer(serializers.ModelSerializer):
+    """Serializer for Gallery model"""
+    images = GalleryImageSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = Gallery
+        fields = [
+            'id', 'school_id', 'school_name', 'photo_id', 'title', 'category', 'description', 
+            'date', 'photographer', 'location', 'emoji', 'images', 
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'school_id', 'school_name', 'created_at', 'updated_at'
+        ]
+
+    def update(self, instance, validated_data):
+        """Update gallery instance"""
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
