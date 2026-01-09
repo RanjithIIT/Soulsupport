@@ -135,6 +135,23 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
     super.dispose();
   }
 
+  void _showNotification(String message, {bool isError = false}) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(isError ? 'Error' : 'Notification'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _filterPhotos() {
     setState(() {
       _visiblePhotos = _allPhotos.where((photo) {
@@ -309,19 +326,15 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
           _isLoading = false;
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to load galleries: ${response.error ?? "Unknown error"}')),
-          );
+          _showNotification('Failed to load galleries: ${response.error ?? "Unknown error"}', isError: true);
         }
       }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading galleries: $e')),
-        );
+        setState(() {
+          _isLoading = false;
+        });
+        _showNotification('Error loading galleries: $e', isError: true);
       }
     }
   }
@@ -439,14 +452,10 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
         _selectedImageBytes = [];
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Photo added successfully!')),
-      );
+      _showNotification('Photo added successfully!');
 
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error adding photo: $e')),
-      );
+      _showNotification('Error adding photo: $e', isError: true);
     }
   }
 
@@ -473,9 +482,7 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
                 _allPhotos.remove(photo);
                 _filterPhotos();
               });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Photo deleted')),
-              );
+              _showNotification('Photo deleted');
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
@@ -537,8 +544,8 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
   void _viewImages(PhotoEntry photo) {
     showDialog<void>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => Dialog(
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (sbContext, setDialogState) => Dialog(
           backgroundColor: Colors.transparent,
           insetPadding: const EdgeInsets.all(20),
           child: Container(
@@ -607,18 +614,12 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
                                 photo.images.add(bytes);
                               });
                               setDialogState(() {});
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Image uploaded successfully!')),
-                              );
+                              _showNotification('Image uploaded successfully!');
                             } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Upload failed: ${uploadResponse.error}')),
-                              );
+                              _showNotification('Upload failed: ${uploadResponse.error}', isError: true);
                             }
                           } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error uploading image: $e')),
-                            );
+                            _showNotification('Error uploading image: $e', isError: true);
                           }
                         },
                         icon: const Icon(Icons.upload, size: 18),
@@ -635,7 +636,7 @@ class _PhotoGalleryPageState extends State<PhotoGalleryPage> {
                       const SizedBox(width: 8),
                       IconButton(
                         icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () => Navigator.of(dialogContext).pop(),
                       ),
                     ],
                   ),

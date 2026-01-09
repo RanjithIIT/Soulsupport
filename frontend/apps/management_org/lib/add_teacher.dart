@@ -81,6 +81,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
         employeeNo: _employeeNoController.text,
         firstName: _firstNameController.text,
         lastName: _lastNameController.text,
+        qualification: _qualificationController.text,
         department: _departmentController.text,
         mobileNo: _mobileNoController.text,
         email: _emailController.text,

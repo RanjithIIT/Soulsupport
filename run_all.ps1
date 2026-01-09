@@ -18,7 +18,8 @@ $backendPath = Join-Path $projectRoot 'backend'
 # Determine Flutter app path
 if ($App -eq 'main_login') {
     $flutterPath = Join-Path $projectRoot 'frontend\main_login'
-} else {
+}
+else {
     $flutterPath = Join-Path $projectRoot "frontend\apps\$App"
 }
 
@@ -59,20 +60,22 @@ try {
         # Extract PID from the last column (format: TCP    127.0.0.1:8000    0.0.0.0:0    LISTENING    12345)
         $pidString = ($portOutput -split '\s+')[-1]
         if ($pidString -match '^\d+$') {
-            $pid = [int]$pidString
-            Write-Host "Found process $pid using port 8000, terminating..." -ForegroundColor Yellow
+            $portPid = [int]$pidString
+            Write-Host "Found process $portPid using port 8000, terminating..." -ForegroundColor Yellow
             try {
-                Stop-Process -Id $pid -Force -ErrorAction Stop
+                Stop-Process -Id $portPid -Force -ErrorAction Stop
                 Start-Sleep -Seconds 1
                 Write-Host "Process terminated successfully." -ForegroundColor Green
-            } catch {
-                Write-Host "Trying taskkill for process $pid..." -ForegroundColor Yellow
-                $null = & taskkill /PID $pid /F 2>&1
+            }
+            catch {
+                Write-Host "Trying taskkill for process $portPid..." -ForegroundColor Yellow
+                $null = & taskkill /PID $portPid /F 2>&1
                 Start-Sleep -Seconds 1
             }
         }
     }
-} catch {
+}
+catch {
     # If checking fails, continue anyway
     Write-Host "Could not check for existing processes on port 8000. Continuing..." -ForegroundColor Yellow
 }
@@ -128,7 +131,8 @@ try {
     if ($Release) {
         $flutterArgs += '--release'
         Write-Host "Running in RELEASE mode" -ForegroundColor Yellow
-    } else {
+    }
+    else {
         Write-Host "Running in DEBUG mode" -ForegroundColor Yellow
     }
     

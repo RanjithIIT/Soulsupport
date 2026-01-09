@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'dart:io';
 import 'services/api_service.dart' as api;
+import 'package:core/api/auth_service.dart';
+import 'package:main_login/main.dart' as main_login;
 // image_picker removed for emulator/demo builds. Image picking is simulated.
 
 void main() {
@@ -711,7 +714,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
         _securityTile(
           'Change Password',
           Icons.lock,
-          () => _show('Change Password'),
+          () => _showChangePasswordDialog(),
         ),
         _securityTile(
           'Enable Two-Factor Authentication',
@@ -1181,12 +1184,275 @@ class _TeacherProfilePageState extends State<TeacherProfilePage>
 
 
   void _show(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
         content: Text(msg),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(20),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String? _validatePasswordStrength(String password) {
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters long';
+    }
+    if (!password.contains(RegExp(r'[A-Z]'))) {
+      return 'Password must contain at least one uppercase letter (A-Z)';
+    }
+    if (!password.contains(RegExp(r'[a-z]'))) {
+      return 'Password must contain at least one lowercase letter (a-z)';
+    }
+    if (!password.contains(RegExp(r'[0-9]'))) {
+      return 'Password must contain at least one number (0-9)';
+    }
+    if (!password.contains(RegExp(r'[@#$%&*!^()_+=\-\[\]{}|;:,.<>?/~`]'))) {
+      return 'Password must contain at least one special character (@, #, \$, %, &, etc.)';
+    }
+    return null;
+  }
+
+  void _showChangePasswordDialog() {
+    final oldPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    bool obscureOld = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (sbContext, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text(
+            'Change Password',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Enter your current password and choose a new one',
+                  style: TextStyle(color: Colors.black54),
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: oldPasswordController,
+                  obscureText: obscureOld,
+                  enabled: !isLoading,
+                  decoration: InputDecoration(
+                    labelText: 'Current Password',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureOld ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setDialogState(() => obscureOld = !obscureOld),
+                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: newPasswordController,
+                  obscureText: obscureNew,
+                  enabled: !isLoading,
+                  decoration: InputDecoration(
+                    labelText: 'New Password',
+                    prefixIcon: const Icon(Icons.lock),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureNew ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setDialogState(() => obscureNew = !obscureNew),
+                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: confirmPasswordController,
+                  obscureText: obscureConfirm,
+                  enabled: !isLoading,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm New Password',
+                    prefixIcon: const Icon(Icons.lock),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureConfirm ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setDialogState(() => obscureConfirm = !obscureConfirm),
+                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isLoading ? null : () => Navigator.pop(sbContext),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      // Validate
+                      if (oldPasswordController.text.isEmpty) {
+                        if (!mounted) return;
+                        showDialog(
+                          context: sbContext,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Validation Error'),
+                            content: const Text('Please enter your current password'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text('OK'),
+                              ),
+                            ],
+                          ),
+                        );
+                        return;
+                      }
+                      
+                      // Password strength validation
+                      final passwordError = _validatePasswordStrength(newPasswordController.text);
+                      if (passwordError != null) {
+                        if (!mounted) return;
+                        showDialog(
+                          context: sbContext,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Weak Password'),
+                            content: Text(passwordError),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text('OK'),
+                              ),
+                            ],
+                          ),
+                        );
+                        return;
+                      }
+                      
+                      if (newPasswordController.text != confirmPasswordController.text) {
+                        if (!mounted) return;
+                        showDialog(
+                          context: sbContext,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Validation Error'),
+                            content: const Text('Passwords do not match'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text('OK'),
+                              ),
+                            ],
+                          ),
+                        );
+                        return;
+                      }
+
+                      setDialogState(() => isLoading = true);
+
+                      // Assuming AuthService is imported and available
+                      // import 'package:your_app_name/services/auth_service.dart';
+                      final authService = AuthService();
+                      final result = await authService.changePassword(
+                        oldPassword: oldPasswordController.text,
+                        newPassword: newPasswordController.text,
+                      );
+
+                      setDialogState(() => isLoading = false);
+
+                      if (sbContext.mounted) {
+                        Navigator.pop(sbContext);
+                        if (result['success']) {
+                          if (this.context.mounted) {
+                            // Show success message using Dialog
+                            showDialog(
+                              context: this.context,
+                              barrierDismissible: false,
+                              builder: (successCtx) => AlertDialog(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.check_circle, color: Colors.green, size: 60),
+                                    const SizedBox(height: 20),
+                                    const Text(
+                                      'Success',
+                                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    const Text('Password changed successfully! Logging out...'),
+                                  ],
+                                ),
+                              ),
+                            );
+                            
+                            // Wait for 2 seconds then logout and redirect
+                            Future.delayed(const Duration(seconds: 2), () async {
+                              await AuthService().logout();
+                              if (mounted) {
+                                Navigator.of(this.context, rootNavigator: true).pushAndRemoveUntil(
+                                  MaterialPageRoute(
+                                    builder: (_) => const main_login.LoginScreen(),
+                                  ),
+                                  (_) => false,
+                                );
+                              }
+                            });
+                          }
+                        } else {
+                          if (!mounted) return;
+                          showDialog(
+                            context: this.context,
+                            builder: (errCtx) => AlertDialog(
+                              title: const Row(
+                                children: [
+                                  Icon(Icons.error, color: Colors.red, size: 28),
+                                  SizedBox(width: 10),
+                                  Text('Error'),
+                                ],
+                              ),
+                              content: Text(result['message'] ?? 'Failed to change password'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(errCtx),
+                                  child: const Text('OK'),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8B47E6),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                minimumSize: const Size(120, 45),
+              ),
+              child: isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Text('Change Password'),
+            ),
+          ],
+        ),
       ),
     );
   }

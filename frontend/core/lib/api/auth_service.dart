@@ -141,7 +141,16 @@ class AuthService {
   // Logout
   Future<bool> logout() async {
     try {
-      final response = await _apiService.post(Endpoints.logout);
+      // Get refresh token to blacklist it on server
+      final refreshToken = _apiService.refreshToken;
+      
+      // We set retryOn401: false because if logout fails with 401, 
+      // there's no point in trying to refresh the token to log out.
+      final response = await _apiService.post(
+        Endpoints.logout,
+        body: refreshToken != null ? {'refresh_token': refreshToken} : null,
+        retryOn401: false,
+      );
 
       // Clear tokens regardless of response
       await _apiService.setAuthToken(null);
@@ -245,6 +254,40 @@ class AuthService {
         return {
           'success': false,
           'message': response.error ?? 'Failed to reset password',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+      };
+    }
+  }
+
+  // Change password (requires authentication)
+  Future<Map<String, dynamic>> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await _apiService.post(
+        Endpoints.changePassword,
+        body: {
+          'old_password': oldPassword,
+          'new_password': newPassword,
+          'new_password2': newPassword, // Backend requires confirmation
+        },
+      );
+      
+      if (response.success) {
+        return {
+          'success': true,
+          'message': response.data['message'] ?? 'Password changed successfully',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': response.error ?? 'Failed to change password',
         };
       }
     } catch (e) {

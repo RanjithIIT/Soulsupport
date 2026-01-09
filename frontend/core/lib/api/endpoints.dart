@@ -13,6 +13,7 @@ class Endpoints {
   static const String createPassword = '/auth/create-password/';
   static const String requestOtp = '/auth/request-otp/';
   static const String resetPasswordOtp = '/auth/reset-password-otp/';
+  static const String changePassword = '/auth/change-password/';
 
   // Admin endpoints
   static const String adminSchools = '/super-admin/schools/';

@@ -4,11 +4,12 @@ Views for management_admin app - API layer for App 2
 import random
 import string
 from rest_framework import viewsets, status, filters
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, Activity
+from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, CampusFeature, Activity, Gallery, GalleryImage
 from super_admin.models import School
 from .serializers import (
     FileSerializer,
@@ -25,7 +26,9 @@ from .serializers import (
     EventSerializer,
     AwardSerializer,
     CampusFeatureSerializer,
-    ActivitySerializer
+    ActivitySerializer,
+    GallerySerializer,
+    GalleryImageSerializer
 )
 
 
@@ -1902,3 +1905,61 @@ class ActivityViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         """Update activity"""
         serializer.save()
 
+
+class GalleryViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
+    """ViewSet for Gallery management"""
+    queryset = Gallery.objects.all()
+    serializer_class = GallerySerializer
+    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['category', 'date']
+    search_fields = ['title', 'description', 'photographer', 'location']
+    ordering_fields = ['date', 'created_at', 'title']
+    ordering = ['-date', '-created_at']
+    
+    def get_permissions(self):
+        """Allow read/create/update/delete without auth for development - can be adjusted"""
+        if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
+            return [AllowAny()]
+        return [IsAuthenticated(), IsManagementAdmin()]
+
+    def perform_create(self, serializer):
+        """Set school reference when creating gallery"""
+        gallery = serializer.save()
+        
+        school_id = self.get_school_id()
+        if school_id:
+            from super_admin.models import School
+            # Set school_id direct string field
+            Gallery.objects.filter(pk=gallery.pk).update(school_id=school_id)
+            
+            # Try to set school_name as well
+            try:
+                school = School.objects.get(school_id=school_id)
+                Gallery.objects.filter(pk=gallery.pk).update(school_name=school.school_name)
+            except School.DoesNotExist:
+                pass
+
+    def perform_update(self, serializer):
+        """Update gallery"""
+        serializer.save()
+
+    @action(detail=True, methods=['post'], url_path='upload-image', parser_classes=[MultiPartParser, FormParser])
+    def upload_image(self, request, pk=None):
+        """Upload an image for a specific gallery"""
+        gallery = self.get_object()
+        image_file = request.FILES.get('image')
+        
+        if not image_file:
+            return Response({'error': 'No image file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        alt_text = request.data.get('caption', '')
+        
+        gallery_image = GalleryImage.objects.create(
+            gallery=gallery,
+            image=image_file,
+            alt_text=alt_text
+        )
+        
+        serializer = GalleryImageSerializer(gallery_image)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

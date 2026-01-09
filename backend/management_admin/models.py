@@ -1446,6 +1446,7 @@ class Gallery(models.Model):
         help_text='School name'
     )
     
+    photo_id = models.CharField(max_length=100, blank=True, help_text='Gallery Photo ID (e.g., PID-123)')
     title = models.CharField(max_length=255, help_text='Gallery title')
     category = models.CharField(
         max_length=50, 
@@ -1480,9 +1481,12 @@ class GalleryImage(models.Model):
         related_name='images',
         help_text='Parent gallery'
     )
-    image = models.CharField(
-        max_length=255,
-        help_text='Image URL or path'
+    image = models.FileField(
+        upload_to='gallery_photos/',
+        validators=[
+            FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])
+        ],
+        help_text='Gallery image (jpg/jpeg/png/gif only)'
     )
     alt_text = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

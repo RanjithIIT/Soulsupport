@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'main.dart';
+
 import 'package:core/api/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:parent_app/main.dart' as parent;
@@ -22,6 +24,7 @@ class _ParentLoginPageState extends State<ParentLoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _passwordFocusNode = FocusNode();
   bool _obscurePassword = true;
   bool _isLoading = false;
 
@@ -29,7 +32,112 @@ class _ParentLoginPageState extends State<ParentLoginPage> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    if (_isLoading) return;
+
+    // All validation and login logic is handled by the backend
+    setState(() {
+      _isLoading = true;
+    });
+
+    final authService = AuthService();
+    final result = await authService.login(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+      role: 'parent',
+    );
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'Login attempt completed'),
+          backgroundColor: result['success']
+              ? const Color(0xFF667EEA)
+              : Colors.red,
+        ),
+      );
+
+      if (result['success']) {
+        // Check if user needs to create password
+        final needsPasswordCreation = result['needs_password_creation'] as bool? ?? false;
+        
+        if (needsPasswordCreation) {
+          // Navigate to create password page
+          final passwordCreated = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CreatePasswordPage(
+                role: 'parent',
+                userData: result['user'],
+                tokens: result['tokens'],
+                routes: result['routes'],
+              ),
+            ),
+          );
+          
+          // If password was created successfully, navigate back to role selection
+          if (passwordCreated == true && mounted) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const LoginScreen(),
+              ),
+              (route) => false, // Remove all previous routes
+            );
+          }
+        } else {
+          // Cache school details if available
+          try {
+            final user = result['user'];
+            if (user != null && user is Map) {
+              final prefs = await SharedPreferences.getInstance();
+              
+              // Try to extract school name
+              String? schoolName = user['school_name']?.toString();
+              // If not directly available, check nested school object
+              if (schoolName == null && user['school'] is Map) {
+                schoolName = user['school']['school_name']?.toString() ?? 
+                           user['school']['name']?.toString();
+              }
+              
+              if (schoolName != null && schoolName.isNotEmpty) {
+                await prefs.setString('school_name', schoolName);
+              }
+              
+              // Try to extract logo URL
+              String? logoUrl = user['logo_url']?.toString();
+              if (logoUrl == null && user['school'] is Map) {
+                logoUrl = user['school']['logo_url']?.toString();
+              }
+              
+              if (logoUrl != null && logoUrl.isNotEmpty) {
+                await prefs.setString('logo_url', logoUrl);
+              }
+            }
+          } catch (e) {
+            debugPrint('Error caching school details: $e');
+          }
+
+          // Navigate to Parent/Student dashboard
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const parent.SchoolManagementSystemApp(),
+              ),
+            );
+          }
+        }
+      }
+    }
   }
 
   @override
@@ -109,6 +217,10 @@ class _ParentLoginPageState extends State<ParentLoginPage> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          onFieldSubmitted: (_) {
+                            FocusScope.of(context).requestFocus(_passwordFocusNode);
+                          },
                           decoration: InputDecoration(
                             labelText: 'Email Address',
                             hintText: 'Enter your email',
@@ -132,7 +244,10 @@ class _ParentLoginPageState extends State<ParentLoginPage> {
                         // Password Field
                         TextFormField(
                           controller: _passwordController,
+                          focusNode: _passwordFocusNode,
                           obscureText: _obscurePassword,
+                          textInputAction: TextInputAction.done,
+                          onFieldSubmitted: (_) => _handleLogin(),
                           decoration: InputDecoration(
                             labelText: 'Password',
                             hintText: 'Enter your password',
@@ -169,111 +284,7 @@ class _ParentLoginPageState extends State<ParentLoginPage> {
                         SizedBox(
                           height: 55,
                           child: ElevatedButton(
-                            onPressed: _isLoading
-                                ? null
-                                : () async {
-                                    // All validation and login logic is handled by the backend
-                                    setState(() {
-                                      _isLoading = true;
-                                    });
-
-                                    final authService = AuthService();
-                                    final result = await authService.login(
-                                      email: _emailController.text.trim(),
-                                      password: _passwordController.text,
-                                      role: 'parent',
-                                    );
-
-                                    setState(() {
-                                      _isLoading = false;
-                                    });
-
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            result['message'] ??
-                                                'Login attempt completed',
-                                          ),
-                                          backgroundColor: result['success']
-                                              ? const Color(0xFF667EEA)
-                                              : Colors.red,
-                                        ),
-                                      );
-
-                                      if (result['success']) {
-                                        // Check if user needs to create password
-                                        final needsPasswordCreation = result['needs_password_creation'] as bool? ?? false;
-                                        
-                                        if (needsPasswordCreation) {
-                                          // Navigate to create password page
-                                          final passwordCreated = await Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) => CreatePasswordPage(
-                                                role: 'parent',
-                                                userData: result['user'],
-                                                tokens: result['tokens'],
-                                                routes: result['routes'],
-                                              ),
-                                            ),
-                                          );
-                                          
-                                          // If password was created successfully, navigate to dashboard
-                                          if (passwordCreated == true && mounted) {
-                                            Navigator.pushReplacement(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) => const parent.SchoolManagementSystemApp(),
-                                              ),
-                                            );
-                                          }
-                                        } else {
-                                          // Cache school details if available
-                                          try {
-                                            final user = result['user'];
-                                            if (user != null && user is Map) {
-                                              final prefs = await SharedPreferences.getInstance();
-                                              
-                                              // Try to extract school name
-                                              String? schoolName = user['school_name']?.toString();
-                                              // If not directly available, check nested school object
-                                              if (schoolName == null && user['school'] is Map) {
-                                                schoolName = user['school']['school_name']?.toString() ?? 
-                                                           user['school']['name']?.toString();
-                                              }
-                                              
-                                              if (schoolName != null && schoolName.isNotEmpty) {
-                                                await prefs.setString('school_name', schoolName);
-                                              }
-                                              
-                                              // Try to extract logo URL
-                                              String? logoUrl = user['logo_url']?.toString();
-                                              if (logoUrl == null && user['school'] is Map) {
-                                                logoUrl = user['school']['logo_url']?.toString();
-                                              }
-                                              
-                                              if (logoUrl != null && logoUrl.isNotEmpty) {
-                                                await prefs.setString('logo_url', logoUrl);
-                                              }
-                                            }
-                                          } catch (e) {
-                                            debugPrint('Error caching school details: $e');
-                                          }
-
-                                          // Navigate to Parent/Student dashboard
-                                          Navigator.pushReplacement(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) => const parent.SchoolManagementSystemApp(),
-                                            ),
-                                          );
-                                        }
-                                      }
-                                    }
-                                  },
+                            onPressed: _isLoading ? null : _handleLogin,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF667EEA),
                               shape: RoundedRectangleBorder(
