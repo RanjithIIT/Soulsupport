@@ -75,6 +75,8 @@ class DashboardData {
         homework = homework ?? [],
         tests = tests ?? [],
         results = results ?? [];
+        
+  List<Map<String, dynamic>> attendanceHistory = [];
 }
 
 // -------------------------------------------------------------------------
@@ -147,12 +149,36 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _schoolName;
   String? _schoolId;
   String? _logoUrl;
+  String? _studentId; // Added to store the current student ID
 
   @override
   void initState() {
     super.initState();
     _loadCachedSchoolDetails();
-    _loadParentProfile();
+    _loadParentProfile(); // This will trigger _fetchAttendance after getting student ID
+  }
+
+  Future<void> _fetchAttendance({String? studentId}) async {
+    try {
+      final idToUse = studentId ?? _studentId;
+      debugPrint('Fetching attendance for studentId: $idToUse');
+      final data = await api.ApiService.fetchAttendanceHistory(studentId: idToUse);
+      if (data != null && mounted) {
+        setState(() {
+          // Update history list
+          if (data['history'] != null) {
+            mockData.attendanceHistory = List<Map<String, dynamic>>.from(data['history']);
+          }
+          
+          // Update stats
+          if (data['stats'] != null) {
+            _attendanceRate = '${data['stats']['percentage']}%';
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching attendance: $e');
+    }
   }
 
   Future<void> _loadParentProfile() async {
@@ -182,6 +208,12 @@ class _HomeScreenState extends State<HomeScreen> {
             // Try all students to find one with school data
             for (var student in students) {
               if (student is Map) {
+                // Extract student ID if we don't have one yet
+                if (_studentId == null && student['id'] != null) {
+                  _studentId = student['id'].toString();
+                  debugPrint('Found student ID: $_studentId');
+                }
+
                 // Try to get school_id
                 if (isSchoolIdEmpty) {
                   final extractedSchoolId = student['school_id']?.toString() ?? 
@@ -222,9 +254,18 @@ class _HomeScreenState extends State<HomeScreen> {
           // Fallback: try to load school details if not in profile
           await _loadSchoolName();
         }
+
+        // Fetch attendance now that we ideally have a student ID
+        if (_studentId != null) {
+          _fetchAttendance(studentId: _studentId);
+        } else {
+           _fetchAttendance(); // Try anyway
+        }
       }
     } catch (e) {
       debugPrint('Failed to load parent profile: $e');
+      // If profile fails, still try to fetch attendance (might work if user is student)
+      _fetchAttendance();
     }
   }
 
@@ -453,7 +494,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'color': const Color(0xFF5A67C4), // Primary
         'action': () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const AcademicsPage()),
+          MaterialPageRoute(builder: (context) => AcademicsPage(studentId: _studentId)),
         ),
       },
       {
@@ -1030,29 +1071,29 @@ class _HomeScreenState extends State<HomeScreen> {
     final firstDayOfMonth = DateTime(currentYear, currentMonth + 1, 1);
     final firstWeekday = firstDayOfMonth.weekday % 7; // 0 = Sunday
 
-    // Mock attendance data (Present days) - will vary by month
-    final presentDays = [
-      3,
-      4,
-      5,
-      7,
-      10,
-      11,
-      12,
-      13,
-      14,
-      17,
-      18,
-      19,
-      20,
-      21,
-      24,
-      25,
-      26,
-      27,
-      28,
-    ];
-    final absentDays = [6, 15]; // Red color
+    // Real attendance data processing
+    final Set<int> presentDays = {};
+    final Set<int> absentDays = {};
+
+    for (var record in mockData.attendanceHistory) {
+      // DEBUG: Print each record to verify data
+      print('Processing attendance record: $record');
+      if (record['date'] != null && record['status'] != null) {
+        try {
+          final date = DateTime.parse(record['date'].toString());
+          if (date.month == currentMonth + 1 && date.year == currentYear) {
+            final status = record['status'].toString().toLowerCase();
+            if (status == 'present') {
+              presentDays.add(date.day);
+            } else if (status == 'absent') {
+              absentDays.add(date.day);
+            }
+          }
+        } catch (e) {
+          debugPrint('Date parse error: $e');
+        }
+      }
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1189,7 +1230,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       currentMonth == now.month - 1 &&
                       currentYear == now.year;
 
-                  Color bgColor = Colors.grey.shade100; // Default background
+                  Color bgColor = Colors.white; // Default background (Not given attendance)
                   Color textColor = Colors.black87;
                   String? statusText;
 
@@ -1220,7 +1261,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 color: const Color(0xFF5A67C4),
                                 width: 3, // Thicker border for Today
                               )
-                            : null,
+                            : Border.all(
+                                color: Colors.black, // Specified black color border
+                                width: 1,
+                              ),
                       ),
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
@@ -1276,6 +1320,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Colors.grey.shade100, // Use the actual default cell color
                 'No Record',
                 hasBorder: true,
+                borderColor: Colors.black,
               ),
             ],
           ),
@@ -1284,7 +1329,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildLegendItem(Color color, String label, {bool hasBorder = false}) {
+  Widget _buildLegendItem(Color color, String label, {bool hasBorder = false, Color? borderColor}) {
     return Row(
       children: [
         Container(
@@ -1293,7 +1338,9 @@ class _HomeScreenState extends State<HomeScreen> {
           decoration: BoxDecoration(
             color: color,
             borderRadius: BorderRadius.circular(4),
-            border: hasBorder ? Border.all(color: Colors.grey.shade400) : null,
+            border: hasBorder 
+                ? Border.all(color: borderColor ?? Colors.grey.shade400) 
+                : null,
           ),
         ),
         const SizedBox(width: 6),
@@ -1309,294 +1356,25 @@ class _HomeScreenState extends State<HomeScreen> {
     bool isPresent,
     bool isAbsent,
   ) {
+    // Construct DateTime object for the API
+    // currentMonth is 0-indexed in the list, so +1 for DateTime
+    final date = DateTime(currentYear, currentMonth + 1, day);
+    
     final monthNames = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
     ];
     final dateString = '${monthNames[currentMonth]} $day, $currentYear';
-
-    // Mock data for the selected date
-    final List<Map<String, dynamic>> dayEvents = day == 17
-        ? []
-        : [
-            // Make one date empty
-            {
-              'type': 'event',
-              'icon': Icons.event,
-              'title': 'Science Fair',
-              'time': '10:00 AM',
-              'color': Colors.blue,
-            },
-            {
-              'type': 'event',
-              'icon': Icons.celebration,
-              'title': 'Sports Day',
-              'time': '2:00 PM',
-              'color': Colors.orange,
-            },
-          ];
-
-    final List<Map<String, dynamic>> dayExams = day == 17
-        ? [
-            {
-              'subject': 'Physics',
-              'time': '11:00 AM',
-              'duration': '1 hour',
-              'type': 'Quiz',
-            },
-          ]
-        : [
-            {
-              'subject': 'Mathematics',
-              'time': '9:00 AM',
-              'duration': '2 hours',
-              'type': 'Mid-Term',
-            },
-          ];
-
-    final List<Map<String, dynamic>> dayHomework = day == 17
-        ? [
-            {
-              'subject': 'English',
-              'title': 'Essay on Climate Change',
-              'status': 'pending',
-            },
-          ]
-        : [
-            {
-              'subject': 'History',
-              'title': 'Chapter 5 Questions',
-              'status': 'completed',
-            },
-          ];
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 500),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            dateString,
-                            style: const TextStyle(
-                              fontSize: 22, // Increased size
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF5A67C4), // Sharper color
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Icon(
-                                isPresent
-                                    ? Icons.check_circle
-                                    : (isAbsent
-                                          ? Icons.cancel
-                                          : Icons.help_outline),
-                                color: isPresent
-                                    ? Colors.green
-                                    : (isAbsent ? Colors.red : Colors.grey),
-                                size: 18,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                isPresent
-                                    ? 'Present'
-                                    : (isAbsent ? 'Absent' : 'No Record'),
-                                style: TextStyle(
-                                  fontSize: 15, // Increased size
-                                  color: isPresent
-                                      ? Colors.green
-                                      : (isAbsent ? Colors.red : Colors.grey),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
-                const Divider(height: 24),
-
-                // Scrollable content
-                Flexible(
-                  // Use Flexible to allow the column to take space and the SingleChildScrollView to work
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Events Section
-                        if (dayEvents.isNotEmpty) ...[
-                          _buildDetailSection(
-                            '📅 Events',
-                            dayEvents
-                                .map(
-                                  (event) => ListTile(
-                                    dense: true,
-                                    contentPadding: EdgeInsets.zero,
-                                    leading: Icon(
-                                      event['icon'] as IconData,
-                                      color: event['color'] as Color,
-                                      size: 20, // Increased size
-                                    ),
-                                    title: Text(
-                                      event['title'] as String,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w700, // Bolder
-                                        fontSize: 15, // Increased size
-                                      ),
-                                    ),
-                                    subtitle: Text(
-                                      event['time'] as String,
-                                      style: const TextStyle(fontSize: 13),
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // Exams Section
-                        if (dayExams.isNotEmpty) ...[
-                          _buildDetailSection(
-                            '📝 Exams',
-                            dayExams
-                                .map(
-                                  (exam) => Container(
-                                    margin: const EdgeInsets.only(bottom: 8),
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.purple.shade50,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                exam['subject'] as String,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w700,
-                                                  fontSize:
-                                                      16, // Increased size
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                '${exam['type']} • ${exam['time']} • ${exam['duration']}',
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: Colors.grey.shade700,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // Homework Section
-                        if (dayHomework.isNotEmpty) ...[
-                          _buildDetailSection(
-                            '📚 Homework',
-                            dayHomework
-                                .map(
-                                  (hw) => Container(
-                                    margin: const EdgeInsets.only(bottom: 8),
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue.shade50,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                hw['subject'] as String,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w700,
-                                                  fontSize: 14,
-                                                ),
-                                              ),
-                                              Text(
-                                                hw['title'] as String,
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: Colors.grey.shade700,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Icon(
-                                          hw['status'] == 'completed'
-                                              ? Icons.check_circle
-                                              : Icons.pending,
-                                          color: hw['status'] == 'completed'
-                                              ? Colors.green
-                                              : Colors.orange,
-                                          size: 20,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+        return DayDetailsDialog(
+          date: date,
+          studentId: _studentId,
+          dateString: dateString,
+          isPresent: isPresent,
+          isAbsent: isAbsent,
         );
       },
     );
@@ -4817,5 +4595,345 @@ class _GroupChatScreenState extends State<_GroupChatScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class DayDetailsDialog extends StatefulWidget {
+  final DateTime date;
+  final String? studentId;
+  final String dateString;
+  final bool isPresent;
+  final bool isAbsent;
+
+  const DayDetailsDialog({
+    super.key,
+    required this.date,
+    required this.studentId,
+    required this.dateString,
+    required this.isPresent,
+    required this.isAbsent,
+  });
+
+  @override
+  State<DayDetailsDialog> createState() => _DayDetailsDialogState();
+}
+
+class _DayDetailsDialogState extends State<DayDetailsDialog> {
+  bool _isLoading = true;
+  Map<String, dynamic>? _data;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    if (widget.studentId == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    final data = await api.ApiService.fetchDayDetails(
+      date: widget.date,
+      studentId: widget.studentId!,
+    );
+
+    if (mounted) {
+      setState(() {
+        _data = data;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Fallback status from props if API fetch fails or returns null attendance
+    bool currentIsPresent = widget.isPresent;
+    bool currentIsAbsent = widget.isAbsent;
+    
+    // If API returned attendance data, use that
+    String? apiStatus;
+    if (_data != null && _data!['attendance'] != null) {
+       apiStatus = _data!['attendance']['status'];
+       if (apiStatus == 'present') {
+         currentIsPresent = true;
+         currentIsAbsent = false;
+       } else if (apiStatus == 'absent') {
+          currentIsPresent = false;
+          currentIsAbsent = true;
+       }
+    }
+
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 500),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.dateString,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF5A67C4),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            currentIsPresent
+                                ? Icons.check_circle
+                                : (currentIsAbsent
+                                    ? Icons.cancel
+                                    : Icons.help_outline),
+                            color: currentIsPresent
+                                ? Colors.green
+                                : (currentIsAbsent ? Colors.red : Colors.grey),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            currentIsPresent
+                                ? 'Present'
+                                : (currentIsAbsent ? 'Absent' : 'No Record'),
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: currentIsPresent
+                                  ? Colors.green
+                                  : (currentIsAbsent ? Colors.red : Colors.grey),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+
+            // Content
+            SizedBox(
+              height: 400, // Fixed height for scrollable content
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Events Section
+                          _buildSectionHeader('Events', Icons.calendar_today, Colors.redAccent),
+                          if (_data?['events'] == null || (_data?['events'] as List).isEmpty)
+                             _buildEmptyState('No events scheduled'),
+                          if (_data?['events'] != null)
+                            ...(_data!['events'] as List).map((e) => _buildEventItem(e)),
+
+                          const SizedBox(height: 20),
+
+                          // Exams Section
+                          _buildSectionHeader('Exams', Icons.edit_note, Colors.blue),
+                          if (_data?['exams'] == null || (_data?['exams'] as List).isEmpty)
+                             _buildEmptyState('No exams scheduled'),
+                          if (_data?['exams'] != null)
+                             ...(_data!['exams'] as List).map((e) => _buildExamItem(e)),
+
+                          const SizedBox(height: 20),
+
+                          // Homework Section
+                          _buildSectionHeader('Homework', Icons.menu_book, Colors.orange),
+                          if (_data?['homework'] == null || (_data?['homework'] as List).isEmpty)
+                             _buildEmptyState('No homework assigned'),
+                          if (_data?['homework'] != null)
+                             ...(_data!['homework'] as List).map((e) => _buildHomeworkItem(e)),
+                        ],
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, IconData icon, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.black87), // Assuming icons are black/dark
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildEmptyState(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+      child: Text(
+        text,
+        style: TextStyle(color: Colors.grey[600], fontStyle: FontStyle.italic),
+      ),
+    );
+  }
+
+  Widget _buildEventItem(Map<String, dynamic> event) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.red.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.event, color: Colors.redAccent, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  event['title'] ?? 'Event',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  event['time'] ?? 'All Day',
+                  style: TextStyle(
+                    color: Colors.grey[700],
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExamItem(Map<String, dynamic> exam) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3E5F5), // Light purple
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.deepPurple.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+           Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+            ),
+             // Assuming subject determines icon or just generic
+             child: const Icon(Icons.quiz, color: Colors.deepPurple, size: 20),
+           ),
+           const SizedBox(width: 12),
+           Expanded(
+             child: Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                 Text(
+                   exam['subject'] ?? 'Exam',
+                   style: const TextStyle(
+                     fontWeight: FontWeight.bold,
+                     fontSize: 16,
+                   ),
+                 ),
+                 Text(
+                   "${exam['type'] ?? 'Exam'} • ${exam['time'] ?? ''} • ${exam['duration'] ?? ''}",
+                   style: TextStyle(
+                     color: Colors.grey[700],
+                     fontSize: 13,
+                   ),
+                 ),
+               ],
+             ),
+           )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHomeworkItem(Map<String, dynamic> hw) {
+      return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue[50], // Light blue
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hw['subject'] ?? 'Homework',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  hw['title'] ?? '',
+                  style: TextStyle(
+                    color: Colors.grey[800],
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+           const Icon(Icons.check_circle, color: Colors.green, size: 24),
+        ],
+      ),
+    );
   }
 }

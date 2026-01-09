@@ -425,7 +425,9 @@ class StudentDashboardViewSet(viewsets.ViewSet):
         if not student:
             try:
                 student = Student.objects.get(user=user)
+                print(f"DEBUG: Found student for user {user.username}: {student.student_name} (ID: {student.student_id})")
             except Student.DoesNotExist:
+                 print(f"DEBUG: Student profile not found for user {user.username}")
                  return Response(
                     {'error': 'Student profile not found'},
                     status=status.HTTP_404_NOT_FOUND
@@ -433,6 +435,7 @@ class StudentDashboardViewSet(viewsets.ViewSet):
 
         # Fetch all attendance
         attendances = Attendance.objects.filter(student=student).order_by('date')
+        print(f"DEBUG: Found {attendances.count()} attendance records for {student.student_name}")
         
         total_days = attendances.count()
         present_days = attendances.filter(status='present').count()
@@ -461,6 +464,240 @@ class StudentDashboardViewSet(viewsets.ViewSet):
             'student_name': student.student_name,
             'class_name': student.applying_class, # or fetch class object name
         })
+
+    @action(detail=False, methods=['get'])
+    def day_details(self, request):
+        """Get details for a specific day (Events, Exams, Homework, Attendance)"""
+        user = request.user
+        
+        # 1. Get Date
+        date_str = request.query_params.get('date')
+        student_id_param = request.query_params.get('student_id')
+        print(f"DEBUG: day_details called by {user.username} for date={date_str}, student_id_param={student_id_param}")
+
+        if not date_str:
+            return Response({'error': 'Date parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            target_date = timezone.datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+             return Response({'error': 'Invalid date format. Use YYYY-MM-DD'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+        # 2. Get Student
+        student = None
+        student_id_param = request.query_params.get('student_id')
+        print(f"DEBUG: day_details called for date={date_str}, student_id_param={student_id_param}")
+        
+        if student_id_param:
+            try:
+                parent = Parent.objects.get(user=user)
+                if student_id_param.isdigit():
+                    student = parent.students.get(id=student_id_param)
+                else:
+                    student = parent.students.get(student_id=student_id_param)
+            except (Parent.DoesNotExist, Student.DoesNotExist):
+                 pass
+        
+        if not student:
+            try:
+                student = Student.objects.get(user=user)
+            except Student.DoesNotExist:
+                 # Fallback
+                 if student_id_param:
+                    if student_id_param.isdigit():
+                         student = Student.objects.filter(pk=student_id_param).first()
+                    else:
+                         student = Student.objects.filter(student_id=student_id_param).first()
+
+                 if not student:
+                     return Response({'error': 'Student profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        print(f"DEBUG: Found student {student.student_name} (PK: {student.pk})")
+
+        # 3. Fetch Data
+        response_data = {
+            'date': date_str,
+            'events': [],
+            'exams': [],
+            'homework': [],
+            'attendance': None
+        }
+
+        # A. Attendance
+        try:
+            att = Attendance.objects.filter(student=student, date=target_date).first()
+            if att:
+                response_data['attendance'] = {
+                    'status': att.status,
+                    'remarks': att.remarks
+                }
+        except Exception as e:
+            print(f"Error fetching attendance: {e}")
+
+        # B. Events (School-wide for now)
+        try:
+            from management_admin.models import Event
+            # Filter events that encompass this date
+            events = Event.objects.filter(
+                school_id=student.school_id
+            ).filter(
+                Q(start_datetime__date=target_date) | 
+                Q(end_datetime__date=target_date) |
+                (Q(start_datetime__date__lte=target_date) & Q(end_datetime__date__gte=target_date))
+            )
+            
+            for event in events:
+                response_data['events'].append({
+                    'title': event.name,
+                    'time': event.start_datetime.strftime('%I:%M %p') if event.start_datetime else 'All Day',
+                    'category': event.category
+                })
+        except Exception as e:
+             print(f"Error fetching events: {e}")
+
+        # C. Exams & D. Homework (Shared Class IDs)
+        class_ids = []
+        try:
+            # Optimized: Fetch all exams for all student classes in one go
+            student_classes = student.student_classes.select_related('class_obj').all()
+            class_ids = [sc.class_obj.id for sc in student_classes]
+            print(f"DEBUG: Student {student.student_name} (ID: {student.pk}) linked to classes: {class_ids}")
+            
+            if class_ids:
+                # Fetch Exams
+                exams = Exam.objects.filter(
+                    class_obj__id__in=class_ids, 
+                    exam_date__date=target_date
+                ).select_related('class_obj')
+                
+                print(f"DEBUG: Found {exams.count()} exams for dates {target_date}")
+                
+                for exam in exams:
+                    response_data['exams'].append({
+                        'id': exam.id,
+                        'title': exam.title,
+                        'subject': exam.subject or exam.title,
+                        'description': exam.description,
+                        'time': exam.exam_date.strftime('%I:%M %p'),
+                        'duration': f"{exam.duration_minutes} min" if exam.duration_minutes else 'N/A',
+                        'type': exam.exam_type or 'Exam',
+                        'className': f"{exam.class_obj.name} - {exam.class_obj.section}"
+                    })
+
+                # Fetch Homework (Assignments)
+                assignments = Assignment.objects.filter(
+                     class_obj__id__in=class_ids, 
+                     due_date__date=target_date
+                 ).select_related('class_obj')
+                 
+                print(f"DEBUG: Found {assignments.count()} assignments")
+
+                for asm in assignments:
+                     response_data['homework'].append({
+                         'subject': asm.subject or asm.title, 
+                         'title': asm.title,
+                         'description': asm.description[:50],
+                         'status': 'pending',
+                         'type': asm.assignment_type or 'Homework'
+                     })
+
+        except Exception as e:
+            print(f"Error fetching exams/homework: {e}")
+            import traceback
+            traceback.print_exc()
+
+        return Response(response_data)
+
+    @action(detail=False, methods=['get'])
+    def student_exams(self, request):
+        """Get all exams for the student (past and upcoming)"""
+        user = request.user
+        
+        # 1. Get Student
+        student = None
+        student_id_param = request.query_params.get('student_id')
+        print(f"DEBUG: student_exams called for student_id_param={student_id_param}")
+        
+        if student_id_param:
+            try:
+                parent = Parent.objects.get(user=user)
+                if student_id_param.isdigit():
+                    student = parent.students.get(id=student_id_param)
+                else:
+                    student = parent.students.get(student_id=student_id_param)
+            except (Parent.DoesNotExist, Student.DoesNotExist):
+                 pass
+        
+        if not student:
+            try:
+                student = Student.objects.get(user=user)
+            except Student.DoesNotExist:
+                 # Fallback direct lookup
+                 if student_id_param:
+                    if student_id_param.isdigit():
+                         student = Student.objects.filter(pk=student_id_param).first()
+                    else:
+                         student = Student.objects.filter(student_id=student_id_param).first()
+
+                 if not student:
+                     return Response({'error': 'Student profile not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        print(f"DEBUG: Found student {student.student_name} (PK: {student.pk})")
+
+        # 2. Fetch Exams for Student's Classes
+        response_data = []
+        try:
+            student_classes = student.student_classes.all()
+            for class_link in student_classes:
+                cls = class_link.class_obj
+                # Fetch exams for this class
+                exams = Exam.objects.filter(class_obj=cls).order_by('-exam_date')
+                
+                for exam in exams:
+                    # Check for Grade
+                    grade_entry = Grade.objects.filter(exam=exam, student=student).first()
+                    
+                    exam_data = {
+                        'id': exam.id,
+                        'title': exam.title,
+                        'subject': exam.subject or exam.title,
+                        'description': exam.description,
+                        'examType': exam.exam_type or 'Exam',
+                        'exam_date': exam.exam_date.isoformat() if exam.exam_date else None,
+                        'date': exam.exam_date.strftime('%Y-%m-%d') if exam.exam_date else None,
+                        'start_time': exam.exam_date.strftime('%I:%M %p') if exam.exam_date else 'TBA',
+                        'total_marks': exam.total_marks,
+                        'duration': f"{exam.duration_minutes} mins" if exam.duration_minutes else "N/A",
+                        'room': exam.room_no or "TBA",
+                        'teacher': cls.teacher.user.username if cls and cls.teacher and cls.teacher.user else "TBA",
+                    }
+                    
+                    if grade_entry:
+                        exam_data['score'] = grade_entry.marks_obtained
+                        exam_data['status'] = 'completed'
+                        # Calculate letter grade
+                        try:
+                            percentage = (float(grade_entry.marks_obtained) / float(exam.total_marks)) * 100
+                            if percentage >= 90: exam_data['grade'] = 'A'
+                            elif percentage >= 80: exam_data['grade'] = 'B'
+                            elif percentage >= 70: exam_data['grade'] = 'C'
+                            elif percentage >= 60: exam_data['grade'] = 'D'
+                            else: exam_data['grade'] = 'F'
+                        except:
+                             exam_data['grade'] = 'N/A'
+                    else:
+                        exam_data['score'] = 0
+                        exam_data['grade'] = '-'
+                        exam_data['status'] = 'upcoming' if exam.exam_date > timezone.now() else 'pending'
+
+                    response_data.append(exam_data)
+                    
+        except Exception as e:
+            print(f"Error fetching student exams: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        return Response(response_data)
 
 
 @api_view(['GET'])

@@ -470,13 +470,12 @@ class BusSerializer(SchoolIdMixin, serializers.ModelSerializer):
         model = Bus
         fields = '__all__'
 
-    def get_morning_stops(self, obj):
-        """Get morning stops with their students"""
-        # Get all morning stops for this bus, ordered by stop_order
-        morning_stops = obj.stops.filter(route_type='morning').order_by('stop_order')
+    def _get_stops_for_route(self, obj, route_type):
+        """Helper to get stops for a specific route type with their students"""
+        stops = obj.stops.filter(route_type=route_type).order_by('stop_order')
         
         stops_data = []
-        for stop in morning_stops:
+        for stop in stops:
             # Get students for this stop
             students = stop.stop_students.all()
             
@@ -513,8 +512,13 @@ class BusSerializer(SchoolIdMixin, serializers.ModelSerializer):
         
         return stops_data
 
+    def get_morning_stops(self, obj):
+        """Get morning stops with their students"""
+        return self._get_stops_for_route(obj, 'morning')
+
     def get_afternoon_stops(self, obj):
-        return []
+        """Get afternoon stops with their students"""
+        return self._get_stops_for_route(obj, 'afternoon')
 
 
 class EventSerializer(SchoolIdMixin, serializers.ModelSerializer):

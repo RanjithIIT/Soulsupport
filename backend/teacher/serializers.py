@@ -8,6 +8,7 @@ from .models import (
 )
 from main_login.serializer_mixins import SchoolIdMixin
 from management_admin.serializers import TeacherSerializer, StudentSerializer, DepartmentSerializer
+from management_admin.models import Teacher
 
 
 class ClassSerializer(SchoolIdMixin, serializers.ModelSerializer):
@@ -44,7 +45,7 @@ class AttendanceSerializer(SchoolIdMixin, serializers.ModelSerializer):
         model = Attendance
         fields = [
             'id', 'school_id', 'class_obj', 'student', 'date', 'status',
-            'marked_by', 'created_at'
+            'marked_by', 'remarks', 'student_name', 'teacher_name', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
 
@@ -58,6 +59,7 @@ class AssignmentSerializer(SchoolIdMixin, serializers.ModelSerializer):
         model = Assignment
         fields = [
             'id', 'school_id', 'class_obj', 'teacher', 'title', 'description',
+            'instructions', 'subject', 'assignment_type', 'total_marks',
             'due_date', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
@@ -67,14 +69,30 @@ class ExamSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Exam model"""
     class_obj = ClassSerializer(read_only=True)
     teacher = TeacherSerializer(read_only=True)
+    class_id = serializers.PrimaryKeyRelatedField(
+        queryset=Class.objects.all(), source='class_obj', write_only=True
+    )
     
     class Meta:
         model = Exam
         fields = [
-            'id', 'school_id', 'class_obj', 'teacher', 'title', 'description',
+            'id', 'school_id', 'class_obj', 'class_id', 'teacher', 'title', 
+            'description', 'instructions', 'subject', 'exam_type', 
+            'duration_minutes', 'room_no',
             'exam_date', 'total_marks', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+        
+    def create(self, validated_data):
+        # Auto-assign teacher
+        user = self.context['request'].user
+        try:
+            teacher = Teacher.objects.get(user=user)
+            validated_data['teacher'] = teacher
+        except Teacher.DoesNotExist:
+            raise serializers.ValidationError("Teacher profile not found for current user")
+            
+        return super().create(validated_data)
 
 
 class GradeSerializer(SchoolIdMixin, serializers.ModelSerializer):

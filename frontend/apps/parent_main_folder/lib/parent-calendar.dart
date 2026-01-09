@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'services/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 void main() {
   runApp(const SchoolManagementSystemApp());
@@ -57,78 +60,7 @@ class _AcademicCalendarPageState extends State<AcademicCalendarPage> {
   late DateTime _selectedDate;
   String _currentFilter = 'all';
 
-  final List<AcademicEvent> _academicEvents = [
-    AcademicEvent(
-      id: 1,
-      title: 'Mid-Term Examinations',
-      date: DateTime(2024, 12, 15),
-      type: 'exam',
-      description: 'Mathematics, Science, English',
-    ),
-    AcademicEvent(
-      id: 2,
-      title: 'Winter Break',
-      date: DateTime(2024, 12, 23),
-      type: 'holiday',
-      description: 'School closed for winter holidays',
-    ),
-    AcademicEvent(
-      id: 3,
-      title: 'Science Fair',
-      date: DateTime(2024, 12, 10),
-      type: 'activity',
-      description: 'Annual science fair exhibition',
-    ),
-    AcademicEvent(
-      id: 4,
-      title: 'Parent-Teacher Meeting',
-      date: DateTime(2024, 12, 5),
-      type: 'meeting',
-      description: 'Quarterly parent-teacher conference',
-    ),
-    AcademicEvent(
-      id: 5,
-      title: 'Christmas Celebration',
-      date: DateTime(2024, 12, 25),
-      type: 'holiday',
-      description: 'Christmas holiday',
-    ),
-    AcademicEvent(
-      id: 6,
-      title: 'Final Examinations',
-      date: DateTime(2024, 12, 30),
-      type: 'exam',
-      description: 'End of semester exams',
-    ),
-    AcademicEvent(
-      id: 7,
-      title: 'Sports Day',
-      date: DateTime(2024, 12, 12),
-      type: 'activity',
-      description: 'Annual sports competition',
-    ),
-    AcademicEvent(
-      id: 8,
-      title: 'New Year Holiday',
-      date: DateTime(2025, 1, 1),
-      type: 'holiday',
-      description: 'New Year celebration',
-    ),
-    AcademicEvent(
-      id: 9,
-      title: 'Mathematics Olympiad',
-      date: DateTime(2024, 12, 8),
-      type: 'activity',
-      description: 'Inter-school mathematics competition',
-    ),
-    AcademicEvent(
-      id: 10,
-      title: 'Library Week',
-      date: DateTime(2024, 12, 18),
-      type: 'activity',
-      description: 'Reading and literacy activities',
-    ),
-  ];
+  List<AcademicEvent> _academicEvents = [];
 
   final List<AcademicEvent> _indianPublicHolidays = [
     AcademicEvent(
@@ -155,11 +87,12 @@ class _AcademicCalendarPageState extends State<AcademicCalendarPage> {
   ];
 
   late final List<AcademicEvent> _allEvents;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _allEvents = [..._academicEvents, ..._indianPublicHolidays];
+    _allEvents = [..._indianPublicHolidays];
     _currentDate = DateTime.now();
     _currentMonth = _currentDate.month;
     _currentYear = _currentDate.year;
@@ -168,6 +101,57 @@ class _AcademicCalendarPageState extends State<AcademicCalendarPage> {
       _currentDate.month,
       _currentDate.day,
     );
+    _loadExams();
+  }
+
+  Future<void> _loadExams() async {
+    try {
+      // 1. Get Student ID
+      final profile = await ApiService.fetchStudentProfile();
+      String? studentId;
+      if (profile != null && profile['student_id'] != null) {
+        studentId = profile['student_id'].toString();
+      } else {
+         // Fallback: try parent profile to get first student
+         final parentProfile = await ApiService.fetchParentProfile();
+         if (parentProfile != null && parentProfile['students'] != null) {
+            final students = parentProfile['students'] as List;
+            if (students.isNotEmpty) {
+               studentId = students[0]['id'].toString();
+            }
+         }
+      }
+
+      if (studentId == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+
+      // 2. Fetch Exams
+      final exams = await ApiService.fetchStudentExams(studentId: studentId);
+      
+      if (exams != null && mounted) {
+        setState(() {
+          _academicEvents = exams.map((e) {
+             // Parse Date: YYYY-MM-DDTHH:MM:SSZ
+             DateTime date = DateTime.parse(e['exam_date']);
+             return AcademicEvent(
+               id: e['id'] is int ? e['id'] : int.tryParse(e['id'].toString()) ?? 0,
+               title: e['title'] ?? 'Exam',
+               date: date,
+               type: 'exam',
+               description: "${e['subject']} - ${e['description']}",
+             );
+          }).toList();
+
+          _allEvents = [..._indianPublicHolidays, ..._academicEvents];
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading exams: $e");
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   String getMonthName(int month) {

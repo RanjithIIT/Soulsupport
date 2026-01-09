@@ -411,57 +411,96 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
                                           ),
                                           const SizedBox(height: 16, width: 30),
                                           Expanded(
-                                            child: GridView.count(
-                                              crossAxisCount: isNarrow ? 1 : 2,
-                                              shrinkWrap: true,
-                                              crossAxisSpacing: 16,
-                                              mainAxisSpacing: 16,
-                                              childAspectRatio: 1.5,
-                                              physics:
-                                                  const NeverScrollableScrollPhysics(),
-                                              children: [
-                                                _DetailCard(
-                                                  title: 'Contact Information',
-                                                  lines: [
-                                                    'Phone: ${teacher.phone}',
-                                                    'Email: ${teacher.email}',
-                                                    'Address: ${teacher.address}',
-                                                    'Permanent Address: ${teacher.permanentAddress}',
-                                                    'Emergency Contact: ${teacher.emergencyContact} (${teacher.emergencyContactRelation})',
-                                                    'Marital Status: ${teacher.maritalStatus}',
+                                            child: isNarrow 
+                                              ? Column(
+                                                  children: [
+                                                    _DetailCard(
+                                                      title: 'Academic Information',
+                                                      lines: [
+                                                        () {
+                                                          if (teacher.isClassTeacher &&
+                                                              (teacher.classTeacherClass != null ||
+                                                                  teacher.classTeacherGrade != null)) {
+                                                            return 'Class Teacher: ${teacher.classTeacherClass ?? ''} ${teacher.classTeacherGrade ?? ''}'.trim();
+                                                          } else if (teacher.isClassTeacher) {
+                                                            return 'Class Teacher: Assigned';
+                                                          } else {
+                                                            return 'Class Teacher: Not Assigned';
+                                                          }
+                                                        }(),
+                                                        'Class: ${teacher.classTeacherClass ?? "N/A"}',
+                                                        'Grade: ${teacher.classTeacherGrade ?? "N/A"}',
+                                                        'Teacher ID: ${teacher.employeeNo}',
+                                                        if (teacher.subjects.isNotEmpty) 'Subjects: ${teacher.subjects.join(', ')}',
+                                                        if (teacher.qualifications.isNotEmpty) 'Qualifications: ${teacher.qualifications}',
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    _DetailCard(
+                                                      title: 'Contact Information',
+                                                      lines: [
+                                                        'Email: ${teacher.email}',
+                                                        'Phone: ${teacher.phone}',
+                                                        'Address: ${teacher.address}',
+                                                        'Permanent Address: ${teacher.permanentAddress}',
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    _DetailCard(
+                                                      title: 'Parent Information',
+                                                      lines: [
+                                                        'Emergency Contact: ${teacher.emergencyContact} (${teacher.emergencyContactRelation})',
+                                                        'Marital Status: ${teacher.maritalStatus}',
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    _DetailCard(
+                                                      title: 'Professional Details',
+                                                      lines: [
+                                                        'Experience: ${(double.tryParse(teacher.experience.toString()) ?? 0).toStringAsFixed(0)} years',
+                                                        'Joining Date: ${teacher.joiningDate}',
+                                                        'Salary: ${teacher.salary}',
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    if (teacher.specializations.isNotEmpty)
+                                                      _DetailCard(
+                                                        title: 'Specializations',
+                                                        lines: [teacher.specializations],
+                                                      ),
+                                                  ],
+                                                )
+                                              : Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    _DetailCard(
+                                                      title: 'Academic Information',
+                                                      lines: [
+                                                        'Class: ${teacher.classTeacherClass ?? "N/A"}',
+                                                        'Grade: ${teacher.classTeacherGrade ?? "N/A"}',
+                                                        'Teacher ID: ${teacher.employeeNo}',
+                                                        if (teacher.subjects.isNotEmpty) 'Subjects: ${teacher.subjects.join(', ')}',
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    _DetailCard(
+                                                      title: 'Contact Information',
+                                                      lines: [
+                                                        'Email: ${teacher.email}',
+                                                        'Phone: ${teacher.phone}',
+                                                        'Address: ${teacher.address}',
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    _DetailCard(
+                                                      title: 'Other Information',
+                                                      lines: [
+                                                        'Parents: ${teacher.emergencyContactRelation.toLowerCase().contains("spouse") ? "Spouse" : teacher.emergencyContactRelation}',
+                                                        'Emergency Contact: ${teacher.emergencyContact}',
+                                                      ],
+                                                    ),
                                                   ],
                                                 ),
-                                                _DetailCard(
-                                                  title: 'Professional Details',
-                                                  lines: [
-                                                    'Experience: ${(double.tryParse(teacher.experience.toString()) ?? 0).toStringAsFixed(0)} years',
-                                                    'Joining Date: ${teacher.joiningDate}',
-                                                    'Salary: ${teacher.salary}',
-                                                  ],
-                                                ),
-                                                _DetailCard(
-                                                  title: 'Academic Information',
-                                                  lines: [
-                                                    () {
-                                                      if (teacher.isClassTeacher && 
-                                                          (teacher.classTeacherClass != null || teacher.classTeacherGrade != null)) {
-                                                        return 'Class Teacher: ${teacher.classTeacherClass ?? ''} ${teacher.classTeacherGrade ?? ''}'.trim();
-                                                      } else if (teacher.isClassTeacher) {
-                                                        return 'Class Teacher: Assigned';
-                                                      } else {
-                                                        return 'Class Teacher: Not Assigned';
-                                                      }
-                                                    }(),
-                                                    if (teacher.subjects.isNotEmpty) 'Subjects: ${teacher.subjects.join(', ')}',
-                                                    if (teacher.qualifications.isNotEmpty) 'Qualifications: ${teacher.qualifications}',
-                                                  ],
-                                                ),
-                                                _DetailCard(
-                                                  title: 'Specializations',
-                                                  lines: [teacher.specializations],
-                                                ),
-                                              ],
-                                            ),
                                           ),
                                         ],
                                       );
@@ -1222,10 +1261,11 @@ class _DetailCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(10),
+        color: const Color(0xFFF8F9FA), // Light background color as in design
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1235,25 +1275,24 @@ class _DetailCard extends StatelessWidget {
             title.toUpperCase(),
             style: const TextStyle(
               fontSize: 12,
-              color: Color(0xFF666666),
-              letterSpacing: 1,
+              color: Color(0xFF9E9E9E), // Lighter grey for header
+              letterSpacing: 1.2,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 5),
-          for (final line in lines)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: Text(
-                line,
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF333333),
-                ),
+          const SizedBox(height: 12),
+          ...lines.map((line) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              line,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF2D3436), // Darker text for content
+                height: 1.4,
               ),
             ),
+          )),
         ],
       ),
     );

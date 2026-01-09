@@ -24,6 +24,45 @@ class ApiService {
   static const chatMessagesEndpoint = 'http://localhost:8000/api/student-parent/chat-messages/';
   static const parentBase = 'http://localhost:8000/api/student-parent';
   static const parentEndpoint = '$parentBase/parent/';
+  static const teacherBase = 'http://localhost:8000/api/teacher';
+
+  static Future<List<dynamic>> fetchTeacherClasses() async {
+    final headers = await _getAuthHeaders();
+    final resp = await http.get(Uri.parse('$teacherBase/classes/'), headers: headers);
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as List<dynamic>;
+    }
+    return [];
+  }
+
+  static Future<List<dynamic>> fetchTeacherExams() async {
+    final headers = await _getAuthHeaders();
+    final resp = await http.get(Uri.parse('$teacherBase/exams/'), headers: headers);
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as List<dynamic>;
+    }
+    return [];
+  }
+
+  static Future<bool> createExam(Map<String, dynamic> data) async {
+    final headers = await _getAuthHeaders();
+    print('Creating exam: $data');
+    final resp = await http.post(
+      Uri.parse('$teacherBase/exams/'),
+      headers: headers,
+      body: jsonEncode(data),
+    );
+    if (resp.statusCode != 201) {
+      print('Failed to create exam: ${resp.body}');
+    }
+    return resp.statusCode == 201;
+  }
+  
+  static Future<bool> deleteExam(int id) async {
+    final headers = await _getAuthHeaders();
+    final resp = await http.delete(Uri.parse('$teacherBase/exams/$id/'), headers: headers);
+    return resp.statusCode == 204;
+  }
 
   /// Get authentication headers with token (private)
   static Future<Map<String, String>> _getAuthHeaders() async {
@@ -201,7 +240,7 @@ class ApiService {
   static Future<Map<String, dynamic>?> fetchAttendanceHistory({String? studentId}) async {
     try {
       final headers = await _getAuthHeaders();
-      String url = '$parentBase/student-dashboard/attendance_history/';
+      String url = '$parentBase/dashboard/attendance_history/';
       if (studentId != null) {
         url += '?student_id=$studentId';
       }
@@ -212,6 +251,51 @@ class ApiService {
       return null;
     } catch (e) {
       print('Error fetching attendance history: $e');
+      return null;
+    }
+  }
+  static Future<Map<String, dynamic>?> fetchDayDetails({
+    required DateTime date,
+    required String studentId,
+  }) async {
+    try {
+      final headers = await _getAuthHeaders();
+      final dateStr = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+      final url = '$parentBase/dashboard/day_details/?date=$dateStr&student_id=$studentId';
+      
+      print('Fetching day details: $url');
+      final resp = await http.get(Uri.parse(url), headers: headers);
+      
+      if (resp.statusCode == 200) {
+        return jsonDecode(resp.body) as Map<String, dynamic>;
+      } else {
+        print('Error fetching day details: ${resp.body}');
+      }
+      return null;
+    } catch (e) {
+      print('Exception fetching day details: $e');
+      return null;
+    }
+  }
+
+  static Future<List<dynamic>?> fetchStudentExams({
+    required String studentId,
+  }) async {
+    try {
+      final headers = await _getAuthHeaders();
+      final url = '$parentBase/dashboard/student_exams/?student_id=$studentId';
+      
+      print('Fetching student exams: $url');
+      final resp = await http.get(Uri.parse(url), headers: headers);
+      
+      if (resp.statusCode == 200) {
+        return jsonDecode(resp.body) as List<dynamic>;
+      } else {
+        print('Error fetching student exams: ${resp.body}');
+      }
+      return null;
+    } catch (e) {
+      print('Exception fetching student exams: $e');
       return null;
     }
   }

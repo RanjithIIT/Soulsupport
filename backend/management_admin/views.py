@@ -1183,33 +1183,26 @@ class BusViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         
         # If school_id not provided, try to get it from the logged-in user
         if not school_id:
-            try:
-                school = School.objects.filter(user=request.user).first()
-                if not school:
-                    return Response(
-                        {
-                            'success': False,
-                            'message': 'No school found. Please contact administrator to assign a school to your account.',
-                            'error': 'School not found'
-                        },
-                        status=status.HTTP_404_NOT_FOUND
-                    )
-                # Create mutable copy of request data and add school_id
-                mutable_data = request.data.copy()
-                if hasattr(mutable_data, '_mutable'):
-                    mutable_data._mutable = True
-                mutable_data['school'] = school.school_id
-                # Update request data
-                request._full_data = mutable_data
-            except Exception as e:
+            from main_login.utils import get_user_school_id
+            from super_admin.models import School
+            
+            school_id = get_user_school_id(request.user)
+            
+            if not school_id:
                 return Response(
                     {
                         'success': False,
-                        'message': f'Error getting school: {str(e)}',
-                        'error': 'Failed to get school'
+                        'message': 'No school found for your account. Please contact administrator.',
+                        'error': 'School not found'
                     },
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=status.HTTP_404_NOT_FOUND
                 )
+            
+            # Create mutable copy of request data and add school_id
+            mutable_data = request.data.copy()
+            mutable_data['school'] = school_id
+            # Update request data
+            request._full_data = mutable_data
         
         # Call parent create method
         return super().create(request, *args, **kwargs)

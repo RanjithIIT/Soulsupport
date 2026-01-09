@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'services/api_service.dart' as api;
 
 void main() {
   runApp(const ParentPortalApp());
@@ -22,144 +23,178 @@ class ParentPortalApp extends StatelessWidget {
   }
 }
 
-class TestManagementPage extends StatelessWidget {
+class TestManagementPage extends StatefulWidget {
   const TestManagementPage({super.key});
 
-  // --- Mock Data (Unchanged) ---
-  static final mockTests = [
-    {
-      "title": "Mathematics Mid-Term",
-      "subject": "Mathematics",
-      "date": "2024-12-15",
-      "time": "10:00 AM",
-      "duration": "2 hours",
-      "status": "upcoming",
-      "description":
-          "Covers Algebra and Geometry chapters 1-5. Requires calculator and protractor.",
-      "teacher": "Mrs. Johnson",
-      "room": "Room 201",
-    },
-    {
-      "title": "Science Unit Test",
-      "subject": "Science",
-      "date": "2024-12-12",
-      "time": "2:00 PM",
-      "duration": "1 hour",
-      "status": "upcoming",
-      "description":
-          "Chemistry unit test on atomic structure and bonding. Review diagrams.",
-      "teacher": "Mr. Smith",
-      "room": "Lab 105",
-    },
-    {
-      "title": "English Literature",
-      "subject": "English",
-      "date": "2024-12-10",
-      "time": "9:00 AM",
-      "duration": "1.5 hours",
-      "status": "completed",
-      "description":
-          "Essay writing on Shakespeare's plays: Character analysis focus.",
-      "teacher": "Ms. Davis",
-      "room": "Room 103",
-    },
-    {
-      "title": "History Final",
-      "subject": "History",
-      "date": "2024-12-18",
-      "time": "11:00 AM",
-      "duration": "2.5 hours",
-      "status": "upcoming",
-      "description":
-          "Comprehensive final exam covering World War II, major battles and treaties.",
-      "teacher": "Mr. Wilson",
-      "room": "Room 205",
-    },
-    {
-      "title": "Art History Quiz",
-      "subject": "Art",
-      "date": "2024-12-05",
-      "time": "1:00 PM",
-      "duration": "30 mins",
-      "status": "completed",
-      "description": "Quiz on Renaissance artists and their key works.",
-      "teacher": "Ms. Lin",
-      "room": "Art Studio",
-    },
-  ];
+  @override
+  State<TestManagementPage> createState() => _TestManagementPageState();
+}
+
+class _TestManagementPageState extends State<TestManagementPage> {
+  // State variables
+  List<dynamic> _tests = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // 1. Get current student profile to get ID
+      final profile = await api.ApiService.fetchStudentProfile();
+      if (profile != null && profile['id'] != null) {
+        final studentId = profile['id'].toString();
+        
+        // 2. Fetch exams for this student
+        final exams = await api.ApiService.fetchStudentExams(studentId: studentId);
+        
+        if (exams != null) {
+          setState(() {
+            _tests = exams;
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+      
+      // Fallback if no profile or empty
+       setState(() {
+        _isLoading = false;
+        _tests = []; // Verify with user if empty state is OK
+      });
+
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = "Failed to load exams: $e";
+      });
+    }
+  }
 
   void _showAction(BuildContext context, String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  // --- Status and Icon Mapping (Unchanged) ---
+  // --- Status and Icon Mapping ---
   Map<String, dynamic> _getStatusStyle(String status) {
-    if (status == 'upcoming') {
+    // Normalize status to lowercase
+    final s = status.toLowerCase();
+    
+    if (s == 'upcoming') {
       return {
         'color': Colors.orange,
         'icon': Icons.schedule,
         'label': 'Upcoming',
         'badgeBg': Colors.orange.withValues(alpha: 0.15),
-        'badgeFg': Colors.orange.darken(0.3),
+        'badgeFg': Colors.deepOrange, // Darkened manually
       };
     }
-    return {
-      'color': Colors.green,
-      'icon': Icons.check_circle_outline,
-      'label': 'Completed',
-      'badgeBg': Colors.green.withValues(alpha: 0.15),
-      'badgeFg': Colors.green.darken(0.3),
+    if (s == 'completed') {
+      return {
+        'color': Colors.green,
+        'icon': Icons.check_circle_outline,
+        'label': 'Completed',
+        'badgeBg': Colors.green.withValues(alpha: 0.15),
+        'badgeFg': Colors.green[800],
+      };
+    }
+     return {
+      'color': Colors.grey,
+      'icon': Icons.help_outline,
+      'label': s.toUpperCase(),
+      'badgeBg': Colors.grey.withValues(alpha: 0.15),
+      'badgeFg': Colors.grey[800],
     };
   }
 
   // --- Main Build Method ---
   @override
   Widget build(BuildContext context) {
-    final totalTests = mockTests.length;
-    final upcomingTests = mockTests
-        .where((t) => t['status'] == 'upcoming')
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    
+    if (_errorMessage != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text("Error")),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+              ElevatedButton(onPressed: _loadData, child: const Text("Retry"))
+            ],
+          ),
+        ),
+      );
+    }
+
+    final totalTests = _tests.length;
+    final upcomingTests = _tests
+        .where((t) => (t['status'] ?? '').toString().toLowerCase() == 'upcoming')
         .length;
-    final completedTests = mockTests
-        .where((t) => t['status'] == 'completed')
+    final completedTests = _tests
+        .where((t) => (t['status'] ?? '').toString().toLowerCase() == 'completed')
         .length;
 
-    // Days to Next Test (Simulated: find the earliest upcoming date)
+    // Days to Next Test
     int daysToNextTest = 0;
     try {
-      final upcomingDates = mockTests
-          .where((t) => t['status'] == 'upcoming')
-          .map((t) => DateTime.parse(t['date']!))
+      final upcomingDates = _tests
+          .where((t) => (t['status'] ?? '').toString().toLowerCase() == 'upcoming')
+          .map((t) => DateTime.parse(t['date'] ?? DateTime.now().toIso8601String()))
           .toList();
       upcomingDates.sort();
       if (upcomingDates.isNotEmpty) {
-        daysToNextTest =
-            upcomingDates.first.difference(DateTime.now()).inDays + 1;
+        final nextDate = upcomingDates.first;
+        final now = DateTime.now();
+        // Calculate difference in days, ignoring time for "days to"
+        final nextDay = DateTime(nextDate.year, nextDate.month, nextDate.day);
+        final today = DateTime(now.year, now.month, now.day);
+        daysToNextTest = nextDay.difference(today).inDays;
+        
         if (daysToNextTest < 0) daysToNextTest = 0;
       }
     } catch (_) {
       daysToNextTest = 0;
     }
+    
+    // Sort tests: Upcoming first, then by date
+    // Note: This modifies the list order for display
+    final sortedTests = List.from(_tests);
+    sortedTests.sort((a, b) {
+       // Custom sort: Upcoming at top
+       final statusA = (a['status'] ?? '').toString().toLowerCase();
+       final statusB = (b['status'] ?? '').toString().toLowerCase();
+       if (statusA == 'upcoming' && statusB != 'upcoming') return -1;
+       if (statusA != 'upcoming' && statusB == 'upcoming') return 1;
+       // Then by date
+       return (b['date'] ?? '').compareTo(a['date'] ?? '');
+    });
 
-    final currentTests = mockTests
-        .where((t) => t['status'] == 'upcoming')
-        .toList();
 
     return Scaffold(
-      backgroundColor: const Color(
-        0xfff5f6fa,
-      ), // Light background color from previous code
-      // 1. Mobile AppBar (Matching Image)
+      backgroundColor: const Color(0xfff5f6fa),
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: const Color(0xFF6A67FC),
         elevation: 0,
         toolbarHeight: 60,
-
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-
         title: const Text(
           "Test Dashboard",
           style: TextStyle(
@@ -169,33 +204,35 @@ class TestManagementPage extends StatelessWidget {
           ),
         ),
         centerTitle: false,
-
-        actions: const [],
       ),
 
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 2. Stats Cards (Horizontal Scroll) - UPDATED TO MATCH IMAGE
-            _buildStatsRow(
-              totalTests,
-              upcomingTests,
-              completedTests,
-              daysToNextTest,
-            ),
+      body: RefreshIndicator(
+        onRefresh: _loadData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Stats
+              _buildStatsRow(
+                totalTests,
+                upcomingTests,
+                completedTests,
+                daysToNextTest,
+              ),
 
-            const SizedBox(height: 25),
+              const SizedBox(height: 25),
 
-            // 3. Upcoming Tests Section (Unchanged)
-            _buildUpcomingTestsSection(context, currentTests),
+              // Test List
+              _buildUpcomingTestsSection(context, sortedTests),
 
-            const SizedBox(height: 25),
+              const SizedBox(height: 25),
 
-            // 4. Quick Actions (Unchanged)
-            _buildQuickActionsSection(context),
-          ],
+              // Quick Actions
+              _buildQuickActionsSection(context),
+            ],
+          ),
         ),
       ),
     );
@@ -213,15 +250,13 @@ class TestManagementPage extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          // Total Tests
           _StatCard(
             icon: Icons.collections_bookmark,
-            iconColor: Colors.teal, // color used only for top border
+            iconColor: Colors.teal,
             value: total.toString(),
             label: "Total Tests",
           ),
           const SizedBox(width: 10),
-          // Upcoming
           _StatCard(
             icon: Icons.hourglass_top,
             iconColor: const Color(0xFF7A63F5),
@@ -229,7 +264,6 @@ class TestManagementPage extends StatelessWidget {
             label: "Upcoming",
           ),
           const SizedBox(width: 10),
-          // Completed
           _StatCard(
             icon: Icons.check_box,
             iconColor: const Color(0xFF27DFA2),
@@ -237,7 +271,6 @@ class TestManagementPage extends StatelessWidget {
             label: "Completed",
           ),
           const SizedBox(width: 10),
-          // Days to Next
           _StatCard(
             icon: Icons.calendar_today,
             iconColor: Colors.redAccent,
@@ -251,7 +284,7 @@ class TestManagementPage extends StatelessWidget {
 
   Widget _buildUpcomingTestsSection(
     BuildContext context,
-    List<Map> currentTests,
+    List<dynamic> tests,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,19 +298,25 @@ class TestManagementPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 15),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: mockTests.length,
-          itemBuilder: (context, index) {
-            final test = mockTests[index];
-            return _TestItemCard(
-              test: test,
-              style: _getStatusStyle(test['status'] as String),
-              onTap: () => _showTestDetailsDialog(context, test),
-            );
-          },
-        ),
+        if (tests.isEmpty)
+           const Padding(
+             padding: EdgeInsets.all(20.0),
+             child: Text("No exams scheduled found."),
+           )
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: tests.length,
+            itemBuilder: (context, index) {
+              final test = tests[index];
+              return _TestItemCard(
+                test: test,
+                style: _getStatusStyle(test['status']?.toString() ?? 'upcoming'),
+                onTap: () => _showTestDetailsDialog(context, test),
+              );
+            },
+          ),
       ],
     );
   }
@@ -334,14 +373,14 @@ class TestManagementPage extends StatelessWidget {
     );
   }
 
-  void _showTestDetailsDialog(BuildContext context, Map test) {
-    final style = _getStatusStyle(test['status'] as String);
+  void _showTestDetailsDialog(BuildContext context, dynamic test) {
+    final style = _getStatusStyle(test['status']?.toString() ?? 'upcoming');
     showDialog(
       context: context,
       builder: (ctx) {
         return AlertDialog(
           title: Text(
-            test["title"] as String,
+            test["title"]?.toString() ?? "Exam Details",
             style: TextStyle(color: style['color'] as Color),
           ),
           content: SingleChildScrollView(
@@ -353,14 +392,14 @@ class TestManagementPage extends StatelessWidget {
                 _detailRow("Teacher", test["teacher"]),
                 _detailRow("Room", test["room"]),
                 _detailRow("Date", test["date"]),
-                _detailRow("Time", test["time"]),
+                _detailRow("Time", test["start_time"]),
                 _detailRow("Duration", test["duration"]),
                 const Divider(),
                 const Text(
                   "Description:",
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-                Text(test["description"] as String),
+                Text(test["description"]?.toString() ?? "No description provided."),
               ],
             ),
           ),
@@ -379,7 +418,7 @@ class TestManagementPage extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4.0),
       child: Text(
-        "$label: $value",
+        "$label: ${value ?? 'N/A'}",
         style: const TextStyle(fontSize: 15.5, color: Colors.black87),
       ),
     );
@@ -389,7 +428,7 @@ class TestManagementPage extends StatelessWidget {
 // --- Reusable Component Widgets ---
 
 class _StatCard extends StatelessWidget {
-  final IconData icon; // Changed from String emoji to IconData
+  final IconData icon; 
   final Color iconColor;
   final String value;
   final String label;
@@ -404,12 +443,11 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 120, // slightly wider for label clarity
+      width: 120, 
       margin: const EdgeInsets.symmetric(horizontal: 5),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        // color only applied to the top border as requested
         border: Border(top: BorderSide(color: iconColor, width: 4)),
         boxShadow: [
           BoxShadow(
@@ -423,7 +461,6 @@ class _StatCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Icon kept neutral; color emphasis remains on the top border only
           Icon(icon, color: Colors.grey[700], size: 26),
           const SizedBox(height: 8),
           Text(
@@ -452,7 +489,7 @@ class _StatCard extends StatelessWidget {
 }
 
 class _TestItemCard extends StatelessWidget {
-  final Map test;
+  final dynamic test;
   final Map style;
   final VoidCallback onTap;
 
@@ -485,12 +522,15 @@ class _TestItemCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    test["title"] as String,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16.5,
-                      color: Color(0xFF333333),
+                  Expanded(
+                    child: Text(
+                      test["title"]?.toString() ?? "Exam",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16.5,
+                        color: Color(0xFF333333),
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Container(
@@ -515,16 +555,16 @@ class _TestItemCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                "📅 ${test["date"]} at ${test["time"]} | ${test["subject"]}",
+                "📅 ${test["date"] ?? 'N/A'} at ${test["start_time"] ?? 'TBA'} | ${test["subject"] ?? ''}",
                 style: const TextStyle(fontSize: 13.5, color: Colors.black87),
               ),
               Text(
-                "👨‍🏫 ${test["teacher"]} in ${test["room"]} (${test["duration"]})",
+                "👨‍🏫 ${test["teacher"] ?? 'TBA'} in ${test["room"] ?? 'TBA'} (${test["duration"] ?? 'N/A'})",
                 style: const TextStyle(fontSize: 13.5, color: Colors.grey),
               ),
               const SizedBox(height: 8),
               Text(
-                "Info: ${test["description"]}",
+                "Info: ${test["description"] ?? ''}",
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 13, color: Color(0xFF555555)),
@@ -568,14 +608,5 @@ class _ActionRow extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-// Extension to darken colors slightly for contrast
-extension on Color {
-  Color darken(double amount) {
-    final hsl = HSLColor.fromColor(this);
-    final newLightness = (hsl.lightness - amount).clamp(0.0, 1.0);
-    return hsl.withLightness(newLightness).toColor();
   }
 }

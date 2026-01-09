@@ -37,7 +37,7 @@ class Class(models.Model):
                 self.school_id = self.teacher.department.school.school_id
                 self.school_name = self.teacher.department.school.school_name
             # If no teacher, try to get from first student in class
-            elif hasattr(self, 'class_students') and self.class_students.exists():
+            elif self.pk and hasattr(self, 'class_students') and self.class_students.exists():
                 first_student = self.class_students.first().student
                 if first_student and first_student.school:
                     self.school_id = first_student.school.school_id
@@ -91,6 +91,9 @@ class Attendance(models.Model):
         ],
         default='present'
     )
+    remarks = models.TextField(null=True, blank=True, help_text="Teacher's remarks for this attendance record")
+    student_name = models.CharField(max_length=255, null=True, blank=True, help_text="Snapshot of student name at time of marking")
+    teacher_name = models.CharField(max_length=255, null=True, blank=True, help_text="Snapshot of teacher name at time of marking")
     marked_by = models.ForeignKey(Teacher, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
@@ -116,6 +119,10 @@ class Assignment(models.Model):
     school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
     title = models.CharField(max_length=255)
     description = models.TextField()
+    instructions = models.TextField(blank=True, help_text="Instructions for the assignment")
+    subject = models.CharField(max_length=100, blank=True, null=True)
+    assignment_type = models.CharField(max_length=50, blank=True, null=True, choices=[('Homework', 'Homework'), ('Project', 'Project'), ('Lab', 'Lab'), ('Other', 'Other')], default='Homework')
+    total_marks = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     due_date = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -142,8 +149,14 @@ class Exam(models.Model):
     school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
+    instructions = models.TextField(blank=True) # Added instructions
     exam_date = models.DateTimeField()
     total_marks = models.DecimalField(max_digits=5, decimal_places=2)
+    # New fields to match frontend
+    subject = models.CharField(max_length=100, blank=True, null=True)
+    exam_type = models.CharField(max_length=50, blank=True, null=True)
+    duration_minutes = models.IntegerField(null=True, blank=True)
+    room_no = models.CharField(max_length=50, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

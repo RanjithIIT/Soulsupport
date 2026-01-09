@@ -1,70 +1,10 @@
 import 'package:flutter/material.dart';
 import 'teacher-profile.dart';
+import '../services/api_service.dart' as api;
 
 // --- Constants (Your Data) ---
-const List<String> allSubjectsData = [
-  'Mathematics',
-  'General Science',
-  'Social Studies',
-  'Language I/II/III',
-  'Physics',
-  'Chemistry',
-  'Biology',
-  'English Core',
-  'Computer Science',
-  'History/Civics/Geography',
-  'English Language/Literature',
-  'Psychology',
-  'Economics',
-  'Art',
-  'Music',
-  'History',
-];
+// All dummy data constants removed.
 
-const Map<String, List<String>> mockSectionsData = {
-  'Nursery': ['Teddy Bears', 'Tiny Tots'],
-  'LKG': ['Little Stars', 'Sunshine'],
-  'UKG': ['Rising Stars', 'Bright Buds'],
-  'I': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'II': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'III': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'IV': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'V': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'VI': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'VII': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'VIII': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'IX': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'X': ['A - Fredo Fighters', 'B - Galileo', 'C - Newton'],
-  'XI': ['Science - A', 'Commerce - B', 'Arts - C'],
-  'XII': ['Science - A', 'Commerce - B', 'Arts - C'],
-};
-
-const List<String> allClassesData = [
-  'Nursery',
-  'LKG',
-  'UKG',
-  'I',
-  'II',
-  'III',
-  'IV',
-  'V',
-  'VI',
-  'VII',
-  'VIII',
-  'IX',
-  'X',
-  'XI',
-  'XII',
-];
-
-const List<String> initialExamTypes = [
-  'Mid-Term',
-  'Final',
-  'Unit Test',
-  'Quiz',
-  'Practical',
-  'Project',
-];
 
 // --- Data Model for Exam ---
 class Exam {
@@ -111,7 +51,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Exam Management - Teacher Dashboard',
+      title: 'Exams Dashboard', // Updated title
       theme: ThemeData(
         colorSchemeSeed: const Color(0xFF667eea),
         useMaterial3: true,
@@ -139,32 +79,18 @@ class TeacherDashboard extends StatefulWidget {
 
 class _TeacherDashboardState extends State<TeacherDashboard> {
   // Mock Data (Pre-filled examples)
-  List<Exam> exams = [
-    Exam(
-      id: 1,
-      title: "Mathematics Mid-Term",
-      subject: "Mathematics",
-      className: "X - A - Fredo Fighters",
-      date: "2024-01-15",
-      startTime: "09:00",
-      duration: 120,
-      marks: 100,
-      status: "upcoming",
-      description: "Covers Algebra, Geometry, and Trigonometry",
-      instructions: "Bring calculator, show all work",
-      type: "Mid-Term",
-      room: "Room 201",
-    ),
-  ];
+  List<Exam> exams = []; 
 
   // Form State Variables
   final _formKey = GlobalKey<FormState>();
 
   // Dynamic Lists (Mutable State)
   List<String> _availableSubjects = [];
-  Map<String, List<String>> _sectionsMap = {}; // Mutable map of sections
-  List<String> _availableSections = []; // Currently visible sections
+  Map<String, List<String>> _sectionsMap = {}; 
+  List<String> _availableSections = []; 
   List<String> _examTypesList = [];
+  List<String> _availableClasses = []; 
+  List<dynamic> _fetchedClasses = []; 
 
   // Input Variables
   String _title = '';
@@ -183,14 +109,111 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   @override
   void initState() {
     super.initState();
-    // Initialize mutable lists from constants
-    _availableSubjects = List.from(allSubjectsData);
-    _sectionsMap = Map.from(mockSectionsData);
-    _examTypesList = List.from(initialExamTypes);
+    // Initialize mutable lists
+    _availableSubjects = []; // Initialize empty
+    _sectionsMap = {}; // Initialize empty, will load from API
+    _availableClasses = []; // Initialize empty, will load from API
+    _examTypesList = ['Mid-Term', 'Final', 'Unit Test']; // Basic defaults instead of constant
 
     final tomorrow = DateTime.now().add(const Duration(days: 1));
     _date =
         "${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}";
+        
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      // 1. Fetch Classes (Try Backend)
+      final classes = await api.ApiService.fetchTeacherClasses();
+      if (classes.isNotEmpty) {
+          _fetchedClasses = classes;
+          
+          final Map<String, List<String>> newSectionsMap = {};
+          final Set<String> newClasses = {};
+          
+          for (var c in classes) {
+            final name = c['name'].toString();
+            final section = c['section'].toString();
+            
+            newClasses.add(name);
+            if (!newSectionsMap.containsKey(name)) {
+              newSectionsMap[name] = [];
+            }
+            newSectionsMap[name]!.add(section);
+          }
+
+          if (mounted) {
+            setState(() {
+                _sectionsMap = newSectionsMap;
+                _availableClasses = newClasses.toList()..sort();
+                
+                // Validate selected class
+                if (_class != null && !_availableClasses.contains(_class)) {
+                  _class = null;
+                  _section = null;
+                  _availableSections = [];
+                }
+            });
+          }
+      } 
+    } catch (e) {
+      debugPrint('Error loading teacher classes: $e');
+      // Keep default data initialized in initState
+    }
+    
+    try {
+      // 2. Fetch Exams
+      final fetchedExamsData = await api.ApiService.fetchTeacherExams();
+      final List<Exam> loadedExams = [];
+      
+      for (var e in fetchedExamsData) {
+         // ... (existing parsing logic)
+         String dateStr = '';
+         if (e['exam_date'] != null) {
+            try {
+              final dt = DateTime.parse(e['exam_date']).toLocal();
+              dateStr = "${dt.year}-${dt.month.toString().padLeft(2,'0')}-${dt.day.toString().padLeft(2,'0')}";
+            } catch (_) {}
+         }
+         
+        String classNameStr = 'Unknown';
+        if (e['class_obj'] != null) {
+            classNameStr = "${e['class_obj']['name']} - ${e['class_obj']['section']}";
+        } else if (e['class_id'] != null) {
+            // Try to find in fetched classes
+             final cls = _fetchedClasses.firstWhere((c) => c['id'] == e['class_id'], orElse: () => null);
+             if (cls != null) {
+                 classNameStr = "${cls['name']} - ${cls['section']}";
+             }
+        }
+        
+        loadedExams.add(Exam(
+          id: e['id'],
+          title: e['title'] ?? '',
+          subject: e['subject'] ?? 'General',
+          className: classNameStr,
+          date: dateStr,
+          startTime: e['exam_date'] != null ? 
+            "${DateTime.parse(e['exam_date']).toLocal().hour.toString().padLeft(2,'0')}:${DateTime.parse(e['exam_date']).toLocal().minute.toString().padLeft(2,'0')}" : '',
+          duration: e['duration_minutes'] ?? 0,
+          marks: (double.tryParse(e['total_marks']?.toString() ?? '0') ?? 0).toInt(),
+          status: 'upcoming', 
+          description: e['description'] ?? '',
+          instructions: e['instructions'] ?? '',
+          type: e['exam_type'] ?? 'Exam',
+          room: e['room_no'] ?? '',
+        ));
+      }
+
+      if (mounted) {
+        setState(() {
+            exams = loadedExams;
+        });
+      }
+    } catch (e) {
+       debugPrint('Error loading exams: $e');
+    }
   }
 
   // --- Logic to Add Items Dynamically ---
@@ -292,7 +315,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         onPressed: () => Navigator.of(context).pop(),
       ),
       title: const Text(
-        'Exam Management',
+        'Exams Dashboard', // Updated Title
         style: TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.w800,
@@ -503,6 +526,85 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             return null;
           },
           onSaved: onSaved,
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Widget _buildDateTimePicker(
+      String label,
+      String hint,
+      IconData icon,
+      String? currentValue,
+      Function(String) onSelected, {
+      bool isTime = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8.0),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+              fontSize: 15,
+            ),
+          ),
+        ),
+        InkWell(
+          onTap: () async {
+            if (isTime) {
+              final TimeOfDay? picked = await showTimePicker(
+                context: context,
+                initialTime: TimeOfDay.now(),
+              );
+              if (picked != null) {
+                // Return HH:MM formatted string
+                final hour = picked.hour.toString().padLeft(2, '0');
+                final minute = picked.minute.toString().padLeft(2, '0');
+                onSelected("$hour:$minute");
+              }
+            } else {
+               final DateTime? picked = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now(),
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+               );
+               if (picked != null) {
+                  // Return YYYY-MM-DD string
+                 final dateStr = "${picked.year}-${picked.month.toString().padLeft(2,'0')}-${picked.day.toString().padLeft(2,'0')}";
+                 onSelected(dateStr);
+               }
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.transparent), // Placeholder for focus
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: Colors.grey[600], size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    currentValue != null && currentValue.isNotEmpty ? currentValue : hint,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: currentValue != null && currentValue.isNotEmpty ? Colors.black : Colors.grey[500],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
         const SizedBox(height: 20),
       ],
@@ -901,56 +1003,105 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
 
   // --- Logic Methods ---
 
-  void _scheduleExam() {
+  Future<void> _scheduleExam() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
+      
+      // Find class ID
+      int? classId;
+      try {
+        final cls = _fetchedClasses.firstWhere(
+            (c) => c['name'].toString() == _class && c['section'].toString() == _section
+        );
+        classId = cls['id'];
+      } catch (_) {
+         ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Invalid Class/Section selection')),
+         );
+         return;
+      }
 
-      final fullClassString = "$_class - $_section";
+      // Combine Date and Time
+      // Backend expects: YYYY-MM-DDTHH:MM:SSZ
+      // _date is YYYY-MM-DD
+      // Ensure _startTime '9:30' becomes '09:30'
+      List<String> timeParts = _startTime.split(':');
+      if (timeParts.length == 2) {
+          timeParts[0] = timeParts[0].padLeft(2, '0');
+          timeParts[1] = timeParts[1].padLeft(2, '0');
+          _startTime = timeParts.join(':');
+      }
+      String isoDateTime = "${_date}T${_startTime}:00";
+      
+      final examData = {
+        'class_id': classId,
+        'title': _title,
+        'description': _description,
+        'instructions': _instructions,
+        'subject': _subject,
+        'exam_type': _type,
+        'duration_minutes': _duration,
+        'room_no': _room,
+        'exam_date': isoDateTime,
+        'total_marks': _marks,
+      };
 
-      final newExam = Exam(
-        id: exams.isNotEmpty
-            ? exams.map((e) => e.id).reduce((a, b) => a > b ? a : b) + 1
-            : 1,
-        title: _title,
-        subject: _subject!,
-        className: fullClassString,
-        date: _date,
-        startTime: _startTime,
-        duration: _duration!,
-        marks: _marks!,
-        status: 'upcoming',
-        description: _description,
-        instructions: _instructions,
-        type: _type!,
-        room: _room,
-      );
+      final errorMsg = await api.ApiService.createExam(examData);
+      
+      if (errorMsg == null) {
+        // Optimistic Update: Add to list immediately
+        final newExam = Exam(
+          id: DateTime.now().millisecondsSinceEpoch, // Temp ID
+          title: _title,
+          subject: _subject ?? '',
+          className: '$_class - $_section',
+          date: _date,
+          startTime: _startTime,
+          duration: _duration ?? 0,
+          marks: _marks ?? 0,
+          status: 'upcoming',
+          description: _description,
+          instructions: _instructions,
+          type: _type ?? 'Exam',
+          room: _room,
+        );
 
-      setState(() {
-        exams.insert(0, newExam);
-      });
+        setState(() {
+            exams.add(newExam);
+            // Sort by date descending
+            exams.sort((a, b) => b.date.compareTo(a.date));
+        });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Exam scheduled successfully!')),
-      );
-
-      _formKey.currentState!.reset();
-      final tomorrow = DateTime.now().add(const Duration(days: 1));
-      setState(() {
-        _date =
-            "${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}";
-        _title = '';
-        _startTime = '';
-        _description = '';
-        _instructions = '';
-        _room = '';
-        _subject = null;
-        _class = null;
-        _section = null;
-        _availableSections = [];
-        _type = null;
-        _duration = null;
-        _marks = null;
-      });
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Exam scheduled successfully!')),
+        );
+        _formKey.currentState!.reset();
+        // Reload data in background
+        _loadData(); 
+        
+        // Reset form fields
+        final tomorrow = DateTime.now().add(const Duration(days: 1));
+        setState(() {
+            _date =
+                "${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}";
+            _title = '';
+            _startTime = '';
+            _description = '';
+            _instructions = '';
+            _room = '';
+            _subject = null;
+            _class = null;
+            _section = null;
+            _availableSections = [];
+            _type = null;
+            _duration = null;
+            _marks = null;
+        });
+      } else {
+         ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed: $errorMsg')),
+         );
+      }
     }
   }
 
@@ -1007,14 +1158,21 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
               'Delete',
               style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
             ),
-            onPressed: () {
-              setState(() {
-                exams.removeWhere((e) => e.id == id);
-              });
+            onPressed: () async {
               Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Exam deleted successfully')),
-              );
+              final success = await api.ApiService.deleteExam(id);
+              if (success) {
+                  setState(() {
+                    exams.removeWhere((e) => e.id == id);
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Exam deleted successfully')),
+                  );
+              } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to delete exam')),
+                  );
+              }
             },
           ),
         ],
@@ -1162,7 +1320,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 _buildDropdown<String>(
                   'Class',
                   _class,
-                  allClassesData,
+                  _availableClasses,
                   'Select class...',
                   (value) => _class = value,
                   onChangedOverride: (val) {
@@ -1199,17 +1357,20 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
               ),
 
               _buildFormRow([
-                _buildTextFormField(
+                _buildDateTimePicker(
                   'Exam Date',
-                  'YYYY-MM-DD',
-                  (value) => _date = value ?? '',
-                  initialValue: _date,
+                  'Select date',
+                  Icons.calendar_today,
+                  _date,
+                  (value) => setState(() => _date = value),
                 ),
-                _buildTextFormField(
+                _buildDateTimePicker(
                   'Start Time',
-                  'HH:MM',
-                  (value) => _startTime = value ?? '',
-                  initialValue: _startTime,
+                  'Select time',
+                  Icons.access_time,
+                  _startTime,
+                  (value) => setState(() => _startTime = value),
+                  isTime: true,
                 ),
               ]),
 
@@ -1235,14 +1396,14 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 'Enter exam description and topics covered...',
                 (value) => _description = value ?? '',
                 initialValue: _description,
-                maxLines: 3,
+                maxLines: 1,
               ),
               _buildTextFormField(
                 'Instructions',
                 'Enter exam instructions for students...',
                 (value) => _instructions = value ?? '',
                 initialValue: _instructions,
-                maxLines: 3,
+                maxLines: 1,
               ),
 
               _buildFormRow([

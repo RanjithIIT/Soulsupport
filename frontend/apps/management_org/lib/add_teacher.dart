@@ -40,9 +40,34 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
   final _nationalityController = TextEditingController();
   final _subjectSpecializationController = TextEditingController();
   final _emergencyContactController = TextEditingController();
+  final _emergencyContactRelationController = TextEditingController();
+  final _salaryController = TextEditingController();
+  final _experienceController = TextEditingController();
 
+  List<Map<String, dynamic>> _departments = [];
+  bool _isLoadingDepartments = false;
   String? _gender;
   String? _bloodGroup;
+  bool _isClassTeacher = false;
+  String? _classTeacherClass;
+  String? _classTeacherGrade;
+  
+  // Default department names (from old designation dropdown)
+  static const List<String> _defaultDepartmentNames = [
+    'Mathematics',
+    'Physics',
+    'Chemistry',
+    'Biology',
+    'English',
+    'History',
+    'Geography',
+    'Computer Science',
+    'Art',
+    'Music',
+    'Principal',
+    'Vice Principal',
+    'Coordinator',
+  ];
   DateTime? _dob;
   DateTime? _joiningDate;
   Uint8List? _photoBytes;
@@ -56,19 +81,66 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
         employeeNo: _employeeNoController.text,
         firstName: _firstNameController.text,
         lastName: _lastNameController.text,
-        qualification: _qualificationController.text,
         department: _departmentController.text,
         mobileNo: _mobileNoController.text,
         email: _emailController.text,
         address: _addressController.text,
+        qualification: _qualificationController.text,
         subjectSpecialization: _subjectSpecializationController.text,
       );
 
   @override
   void initState() {
     super.initState();
+    _loadDepartments();
   }
 
+  Future<void> _loadDepartments() async {
+    setState(() => _isLoadingDepartments = true);
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+      final response = await apiService.get(Endpoints.departments);
+      
+      if (response.success && response.data != null) {
+        List<dynamic> data = [];
+        if (response.data is List) {
+          data = response.data as List;
+        } else if (response.data is Map && (response.data as Map)['results'] != null) {
+          data = (response.data as Map)['results'] as List;
+        }
+        
+        if (mounted) {
+          setState(() {
+            _departments = data.map((d) => d as Map<String, dynamic>).toList();
+            // If no departments from API, add default ones as fallback
+            if (_departments.isEmpty) {
+              _departments = _defaultDepartmentNames.map((name) => <String, dynamic>{
+                'id': name,
+                'name': name,
+              }).toList();
+            }
+            _isLoadingDepartments = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            // If API fails, use default departments as fallback
+            _departments = _defaultDepartmentNames.map((name) => <String, dynamic>{
+              'id': name,
+              'name': name,
+            }).toList();
+            _isLoadingDepartments = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingDepartments = false);
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -77,13 +149,15 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
     _firstNameController.dispose();
     _lastNameController.dispose();
     _qualificationController.dispose();
-
     _mobileNoController.dispose();
     _emailController.dispose();
     _addressController.dispose();
       _nationalityController.dispose();
     _subjectSpecializationController.dispose();
     _emergencyContactController.dispose();
+    _emergencyContactRelationController.dispose();
+    _salaryController.dispose();
+    _experienceController.dispose();
     super.dispose();
   }
 
@@ -132,10 +206,35 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
             : null,
         'gender': _gender,
         'is_active': true,
+        'is_class_teacher': _isClassTeacher,
+        'salary': nullIfEmpty(_salaryController.text),
+        'experience': nullIfEmpty(_experienceController.text),
       };
       
-      final department = nullIfEmpty(_departmentController.text);
-      if (department != null) teacherData['department'] = department;
+      // Add department - try to find matching ID by name from loaded departments
+      final departmentName = _departmentController.text.trim();
+      if (departmentName.isNotEmpty) {
+        // Try to find a matching department ID
+        final matchingDept = _departments.firstWhere(
+          (d) => d['name']?.toString().toLowerCase() == departmentName.toLowerCase(),
+          orElse: () => <String, dynamic>{},
+        );
+        
+        if (matchingDept.isNotEmpty && matchingDept['id'] != null) {
+          final matchingId = int.tryParse(matchingDept['id'].toString());
+          if (matchingId != null) {
+            teacherData['department'] = matchingId;
+          } else {
+             // If ID is not an int (e.g. from defaults), send the name
+            teacherData['department'] = departmentName;
+          }
+        } else {
+          // No matching department found, send the name string
+          // Note: Backend must handle string name if no ID is provided, 
+          // or create a new department.
+          teacherData['department'] = departmentName;
+        }
+      }
       
       // Add optional fields only if they have values
       final mobileNo = nullIfEmpty(_mobileNoController.text);
@@ -159,6 +258,18 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
       
       final emergencyContact = nullIfEmpty(_emergencyContactController.text);
       if (emergencyContact != null) teacherData['emergency_contact'] = emergencyContact;
+
+      final emergencyContactRelation = nullIfEmpty(_emergencyContactRelationController.text);
+      if (emergencyContactRelation != null) teacherData['emergency_contact_relation'] = emergencyContactRelation;
+
+      if (_isClassTeacher) {
+        if (_classTeacherClass != null && _classTeacherClass!.isNotEmpty) {
+          teacherData['class_teacher_class'] = _classTeacherClass;
+        }
+        if (_classTeacherGrade != null && _classTeacherGrade!.isNotEmpty) {
+          teacherData['class_teacher_grade'] = _classTeacherGrade;
+        }
+      }
 
       // Note: Profile photo will be sent as multipart/form-data with the request
       // The backend handles file upload directly
@@ -615,6 +726,28 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                         ),
                                       ),
                                     ),
+                                    // Experience
+                                    SizedBox(
+                                      width: isTwoColumns ? (constraints.maxWidth - 30) / 2 : constraints.maxWidth,
+                                      child: _LabeledField(
+                                        label: 'Experience (Years)',
+                                        child: TextFormField(
+                                          controller: _experienceController,
+                                          decoration: _inputDecoration(hint: 'e.g. 5'),
+                                        ),
+                                      ),
+                                    ),
+                                    // Salary
+                                    SizedBox(
+                                      width: isTwoColumns ? (constraints.maxWidth - 30) / 2 : constraints.maxWidth,
+                                      child: _LabeledField(
+                                        label: 'Salary',
+                                        child: TextFormField(
+                                          controller: _salaryController,
+                                          decoration: _inputDecoration(hint: 'Enter salary'),
+                                        ),
+                                      ),
+                                    ),
                                     // Joining Date
                                     SizedBox(
                                       width:
@@ -649,7 +782,7 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                         ),
                                       ),
                                     ),
-                                    // Department
+                                    // Department *
                                     SizedBox(
                                       width:
                                           isTwoColumns ? (constraints.maxWidth - 30) / 2 : constraints.maxWidth,
@@ -666,6 +799,67 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                             }
                                             return null;
                                           },
+                                        ),
+                                      ),
+                                    ),
+                                    // Class Teacher Assignment
+                                    SizedBox(
+                                      width: constraints.maxWidth,
+                                      child: _LabeledField(
+                                        label: 'Class Teacher Assignment',
+                                        child: Column(
+                                          children: [
+                                            CheckboxListTile(
+                                              title: const Text('Assign as Class Teacher'),
+                                              value: _isClassTeacher,
+                                              onChanged: (value) => setState(() => _isClassTeacher = value ?? false),
+                                              contentPadding: EdgeInsets.zero,
+                                              controlAffinity: ListTileControlAffinity.leading,
+                                            ),
+                                            if (_isClassTeacher)
+                                              Padding(
+                                                padding: const EdgeInsets.only(top: 10),
+                                                child: Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: DropdownButtonFormField<String>(
+                                                        value: _classTeacherClass,
+                                                        decoration: _inputDecoration(hint: 'Select Class'),
+                                                        items: [
+                                                          'Nursery',
+                                                          'LKG',
+                                                          'UKG',
+                                                          'Class 1',
+                                                          'Class 2',
+                                                          'Class 3',
+                                                          'Class 4',
+                                                          'Class 5',
+                                                          'Class 6',
+                                                          'Class 7',
+                                                          'Class 8',
+                                                          'Class 9',
+                                                          'Class 10',
+                                                        ]
+                                                            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                                                            .toList(),
+                                                        onChanged: (v) => setState(() => _classTeacherClass = v),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 20),
+                                                    Expanded(
+                                                      child: DropdownButtonFormField<String>(
+                                                        value: _classTeacherGrade,
+                                                        decoration: _inputDecoration(hint: 'Select Section'),
+                                                        items: ['A', 'B', 'C', 'D']
+                                                            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                                                            .toList(),
+                                                        onChanged: (v) => setState(() => _classTeacherGrade = v),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                          ],
                                         ),
                                       ),
                                     ),
@@ -779,6 +973,20 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
                                           keyboardType: TextInputType.phone,
                                           decoration: _inputDecoration(
                                             hint: 'Enter emergency contact number',
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    // Emergency Contact Relation
+                                    SizedBox(
+                                      width:
+                                          isTwoColumns ? (constraints.maxWidth - 30) / 2 : constraints.maxWidth,
+                                      child: _LabeledField(
+                                        label: 'Emergency Contact Relation',
+                                        child: TextFormField(
+                                          controller: _emergencyContactRelationController,
+                                          decoration: _inputDecoration(
+                                            hint: 'e.g. Spouse, Parent',
                                           ),
                                         ),
                                       ),

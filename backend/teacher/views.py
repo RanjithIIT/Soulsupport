@@ -18,7 +18,7 @@ from .serializers import (
 )
 from main_login.permissions import IsTeacher
 from main_login.mixins import SchoolFilterMixin
-from management_admin.models import Teacher
+from management_admin.models import Teacher, Student
 from management_admin.serializers import TeacherSerializer
 from student_parent.models import Communication
 from student_parent.serializers import CommunicationSerializer
@@ -43,6 +43,9 @@ class ClassViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         user = self.request.user
         try:
             teacher = Teacher.objects.get(user=user)
+             # Return all classes for the school, not just assigned classes
+            if teacher.school_id:
+                return Class.objects.filter(school_id=teacher.school_id)
             return Class.objects.filter(teacher=teacher)
         except Teacher.DoesNotExist:
             return Class.objects.none()
@@ -90,6 +93,173 @@ class AttendanceViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     ordering_fields = ['date', 'created_at']
     ordering = ['-date']
 
+    @action(detail=False, methods=['get'])
+    def get_students_for_attendance(self, request):
+        """
+        Get students for a specific class and section for attendance marking.
+        Query params: class_name, section, date (optional)
+        """
+        class_name = request.query_params.get('class_name')
+        section = request.query_params.get('section')
+        date_str = request.query_params.get('date')
+        
+        if not class_name or not section:
+            return Response(
+                {'error': 'class_name and section are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        try:
+            # 1. Ensure Class object exists
+            # We map Student.applying_class -> Class.name, Student.grade -> Class.section
+            # Also need to associate with teacher/school if creating new
+            user = request.user
+            teacher = Teacher.objects.filter(user=user).first()
+            if not teacher:
+                return Response({'error': 'Teacher profile not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Find or create the class
+            # Note: This auto-creates a Class record effectively syncing the string fields to the relational model
+            class_obj, created = Class.objects.get_or_create(
+                name=class_name,
+                section=section,
+                defaults={
+                    'teacher': teacher,
+                    'academic_year': '2025-2026', # Default current year
+                    'school_id': teacher.school_id,
+                    'school_name': teacher.school_name
+                }
+            )
+            
+            # 2. Fetch Students from Student model directly
+            # This ensures we get the "real" students from Admission
+            students = Student.objects.filter(
+                applying_class=class_name,
+                grade=section
+            ).order_by('student_name')
+
+            # Filter by school if possible to avoid cross-school data leak
+            if teacher.school_id:
+                students = students.filter(school__school_id=teacher.school_id)
+            
+            # 3. Fetch existing attendance for the date
+            attendance_map = {}
+            if date_str:
+                attendances = Attendance.objects.filter(
+                    class_obj=class_obj,
+                    date=date_str
+                )
+                for att in attendances:
+                    attendance_map[att.student_id] = {
+                        'status': att.status,
+                        'id': att.id,
+                        'remarks': att.remarks
+                    }
+            
+            # 4. Construct Response
+            student_data = []
+            for student in students:
+                # Generate a roll number if not existing (UI needs it)
+                roll_no = student.admission_number or f"ROLL-{student.pk}"
+                
+                att_info = attendance_map.get(str(student.pk), {}) # pk is email/string usually
+                if not att_info:
+                    # check integer id if pk is not matching
+                    att_info = attendance_map.get(student.user_id, {})
+                
+                student_data.append({
+                    'id': student.pk, # This is the email or primary key
+                    'name': student.student_name,
+                    'rollNo': roll_no,
+                    'avatarInitials': "".join([n[0] for n in student.student_name.split()[:2]]).upper(),
+                    'status': att_info.get('status', 'present'), # Default to present
+                    'attendance_id': att_info.get('id'),
+                    'remarks': att_info.get('remarks', '')
+                })
+                
+            return Response({
+                'class_id': class_obj.id,
+                'students': student_data
+            })
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error fetching students for attendance: {str(e)}")
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['post'])
+    def bulk_save_attendance(self, request):
+        """
+        Bulk save attendance records.
+        Body: {
+            "class_id": 1,
+            "date": "2025-01-08",
+            "records": [
+                {"student_id": "email@example.com", "status": "present"},
+                ...
+            ]
+        }
+        """
+        class_id = request.data.get('class_id')
+        date_str = request.data.get('date')
+        records = request.data.get('records', [])
+        
+        if not class_id or not date_str:
+            return Response({'error': 'class_id and date are required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            teacher = Teacher.objects.get(user=request.user)
+            class_obj = Class.objects.get(id=class_id)
+            
+            created_count = 0
+            updated_count = 0
+            
+            for record in records:
+                student_id = record.get('student_id')
+                status_val = record.get('status')
+                
+                # Verify student exists
+                try:
+                    student = Student.objects.get(pk=student_id)
+                except Student.DoesNotExist:
+                    continue
+                
+                # Update or Create
+                obj, created = Attendance.objects.update_or_create(
+                    class_obj=class_obj,
+                    student=student,
+                    date=date_str,
+                    defaults={
+                        'status': status_val,
+                        'remarks': record.get('remarks', ''),
+                        'student_name': student.student_name,
+                        'teacher_name': f"{teacher.first_name} {teacher.last_name or ''}".strip() or teacher.employee_no,
+                        'marked_by': teacher,
+                        'school_id': teacher.school_id,
+                        'school_name': teacher.school_name
+                    }
+                )
+                
+                if created:
+                    created_count += 1
+                else:
+                    updated_count += 1
+                    
+            return Response({
+                'message': 'Attendance saved successfully',
+                'created': created_count,
+                'updated': updated_count
+            })
+            
+        except Class.DoesNotExist:
+            return Response({'error': 'Class not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class AssignmentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Assignment management"""
@@ -131,6 +301,49 @@ class ExamViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
             return Exam.objects.filter(teacher=teacher)
         except Teacher.DoesNotExist:
             return Exam.objects.none()
+            
+    def perform_create(self, serializer):
+        """Create exam and corresponding assignment"""
+        exam = serializer.save()
+        
+        # Auto-create assignment for this exam
+        try:
+            # Ensure school info is present
+            school_id = exam.school_id
+            school_name = exam.school_name
+            if not school_id and exam.class_obj and exam.class_obj.school_id:
+                 school_id = exam.class_obj.school_id
+                 school_name = exam.class_obj.school_name
+
+            # Pack all data into description (single line as requested)
+            desc_parts = []
+            if exam.description:
+                desc_parts.append(f"{exam.description}")
+            if exam.instructions:
+                desc_parts.append(f"Instructions: {exam.instructions}")
+            if exam.exam_type:
+                desc_parts.append(f"Type: {exam.exam_type}")
+            if exam.duration_minutes:
+                desc_parts.append(f"Duration: {exam.duration_minutes} min")
+            if exam.total_marks:
+                desc_parts.append(f"Marks: {exam.total_marks}")
+            if exam.room_no:
+                desc_parts.append(f"Room: {exam.room_no}")
+
+            full_description = " | ".join(desc_parts)
+
+            Assignment.objects.create(
+                class_obj=exam.class_obj,
+                teacher=exam.teacher,
+                school_id=school_id,
+                school_name=school_name,
+                title=f"Exam: {exam.title}",
+                description=full_description,
+                due_date=exam.exam_date
+            )
+        except Exception as e:
+            # Log error but don't fail the request if assignment creation fails
+            print(f"Failed to auto-create assignment for exam {exam.id}: {e}")
 
 
 class GradeViewSet(SchoolFilterMixin, viewsets.ModelViewSet):

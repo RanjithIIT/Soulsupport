@@ -8,6 +8,7 @@ class ApiService {
   static const String baseUrl = 'http://127.0.0.1:8000/api';
   static const teachersEndpoint = '$_base/teachers/';
   static const studentsEndpoint = '$_base/students/';
+  static const teacherBase = 'http://127.0.0.1:8000/api/teacher';
 
   static Future<http.Response> authenticatedRequest(String endpoint, {String method = 'GET', Map<String, dynamic>? body}) async {
     final headers = await getAuthHeaders();
@@ -271,6 +272,50 @@ class ApiService {
       debugPrint('Error fetching students from classes: $e');
       return [];
     }
+  }
+  static Future<List<dynamic>> fetchTeacherClasses() async {
+    final headers = await _getAuthHeaders();
+    final resp = await http.get(Uri.parse('$teacherBase/classes/'), headers: headers);
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as List<dynamic>;
+    }
+    return [];
+  }
+
+  static Future<List<dynamic>> fetchTeacherExams() async {
+    final headers = await _getAuthHeaders();
+    final resp = await http.get(Uri.parse('$teacherBase/exams/'), headers: headers);
+    if (resp.statusCode == 200) {
+      final data = jsonDecode(resp.body);
+      if (data is List) {
+        return data;
+      }
+      if (data is Map && data.containsKey('results')) {
+        return data['results'] as List<dynamic>;
+      }
+    }
+    return [];
+  }
+
+  static Future<String?> createExam(Map<String, dynamic> data) async {
+    final headers = await _getAuthHeaders();
+    debugPrint('Creating exam: $data');
+    final resp = await http.post(
+      Uri.parse('$teacherBase/exams/'),
+      headers: headers,
+      body: jsonEncode(data),
+    );
+    if (resp.statusCode == 201) {
+      return null; // Success
+    }
+    debugPrint('Failed to create exam: ${resp.body}');
+    return 'Error ${resp.statusCode}: ${resp.body}';
+  }
+  
+  static Future<bool> deleteExam(int id) async {
+    final headers = await _getAuthHeaders();
+    final resp = await http.delete(Uri.parse('$teacherBase/exams/$id/'), headers: headers);
+    return resp.statusCode == 204;
   }
 }
 

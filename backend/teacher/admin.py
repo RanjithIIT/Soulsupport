@@ -31,9 +31,9 @@ class AttendanceAdmin(admin.ModelAdmin):
 
 @admin.register(Assignment)
 class AssignmentAdmin(admin.ModelAdmin):
-    list_display = ['title', 'class_obj', 'teacher', 'due_date', 'created_at']
-    list_filter = ['teacher', 'due_date', 'created_at']
-    search_fields = ['title', 'description']
+    list_display = ['title', 'subject', 'assignment_type', 'class_obj', 'teacher', 'due_date', 'total_marks', 'created_at']
+    list_filter = ['assignment_type', 'teacher', 'due_date', 'created_at']
+    search_fields = ['title', 'description', 'instructions', 'subject']
 
 
 @admin.register(Exam)

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'services/api_service.dart' as api;
 // Needed for SystemMouseCursors
 
 // -------------------------------------------------------------------------
@@ -287,7 +288,8 @@ final List<AcademicGoal> mockGoals = [
 // -------------------------------------------------------------------------
 
 class AcademicsPage extends StatefulWidget {
-  const AcademicsPage({super.key});
+  final String? studentId;
+  const AcademicsPage({super.key, this.studentId});
 
   @override
   State<AcademicsPage> createState() => _AcademicsPageState();
@@ -295,6 +297,52 @@ class AcademicsPage extends StatefulWidget {
 
 class _AcademicsPageState extends State<AcademicsPage> {
   Subject selectedSubject = mockSubjects.first;
+  List<Exam> _exams = [];
+  bool _isLoadingExams = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchExams();
+  }
+
+  Future<void> _fetchExams() async {
+    if (widget.studentId == null) {
+      setState(() {
+        _isLoadingExams = false;
+        // Keep mock exams if no studentId provided? Or clear them?
+        // User wants to remove dummy data.
+        _exams = []; 
+      });
+      return;
+    }
+
+    try {
+      final data = await api.ApiService.fetchStudentExams(studentId: widget.studentId!);
+      if (data != null) {
+        final List<Exam> fetchedExams = data.map((e) => Exam(
+          subject: e['subject'] ?? 'Unknown',
+          examType: e['examType'] ?? 'Exam',
+          score: (e['score'] is int) ? e['score'] : (double.tryParse(e['score'].toString())?.toInt() ?? 0),
+          grade: e['grade'] ?? '-',
+          date: e['date'] ?? '',
+          status: e['status'] ?? 'pending',
+        )).toList();
+        
+        if (mounted) {
+          setState(() {
+            _exams = fetchedExams;
+            _isLoadingExams = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _isLoadingExams = false);
+      }
+    } catch (e) {
+      debugPrint("Error fetching exams: $e");
+      if (mounted) setState(() => _isLoadingExams = false);
+    }
+  }
 
   // --- UTILITIES ---
   Color _getGradeColor(String grade) {
@@ -940,12 +988,27 @@ class _AcademicsPageState extends State<AcademicsPage> {
   }
 
   Widget _buildExamList() {
+    if (_isLoadingExams) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_exams.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: const Center(child: Text("No exams data available")),
+      );
+    }
+
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: mockExams.length,
+      itemCount: _exams.length,
       itemBuilder: (context, index) {
-        final exam = mockExams[index];
+        final exam = _exams[index];
         final scoreColor = _getScoreColor(exam.score);
 
         return MouseRegion(

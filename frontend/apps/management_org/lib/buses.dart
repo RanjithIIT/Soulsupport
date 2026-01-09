@@ -1447,10 +1447,8 @@ class _StatCard extends StatelessWidget {
       elevation: 5,
       shadowColor: Colors.black.withValues(alpha: 0.1),
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Column(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(icon, style: TextStyle(fontSize: 40, color: color)),
@@ -1476,7 +1474,6 @@ class _StatCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
       ),
     );
   }
@@ -1930,4 +1927,3 @@ class _StudentListForStopState extends State<_StudentListForStop> {
     );
   }
 }
-
