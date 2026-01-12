@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:main_login/main.dart' as main_login;
+import 'services/api_service.dart' as api;
+import 'dart:convert';
 
 // --- UTILITY FUNCTION TO CREATE CUSTOM MATERIAL COLOR ---
 MaterialColor createMaterialColor(Color color) {
@@ -198,8 +200,76 @@ class SchoolApp extends StatelessWidget {
   }
 }
 
-class ActivityScreen extends StatelessWidget {
+class ActivityScreen extends StatefulWidget {
   const ActivityScreen({super.key});
+
+  @override
+  State<ActivityScreen> createState() => _ActivityScreenState();
+}
+
+class _ActivityScreenState extends State<ActivityScreen> {
+  List<Achievement> _realAchievements = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final studentData = await api.ApiService.fetchStudentProfile();
+      if (studentData != null && studentData['awards'] != null) {
+        final List<dynamic> awardsJson = studentJsonToAwards(studentData);
+        
+        setState(() {
+          _realAchievements = awardsJson.map((a) {
+            return Achievement(
+              title: _safeString(a['title']),
+              level: _safeString(a['level']),
+              date: _safeString(a['date']),
+              description: '${_safeString(a['category'])} - ${_safeString(a['description'])}',
+            );
+          }).toList();
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+          _realAchievements = []; // Fallback to empty if no awards
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = 'Failed to load data: $e';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  List<dynamic> studentJsonToAwards(Map<String, dynamic> data) {
+    if (data['awards'] == null || data['awards'] is! List) return [];
+    final list = List<dynamic>.from(data['awards']);
+    
+    // SORT LATEST-FIRST (ID primary, Date secondary)
+    list.sort((a, b) {
+      final idA = int.tryParse(a['id']?.toString() ?? '0') ?? 0;
+      final idB = int.tryParse(b['id']?.toString() ?? '0') ?? 0;
+      if (idB != idA) return idB.compareTo(idA);
+      
+      final dateA = a['date']?.toString() ?? '';
+      final dateB = b['date']?.toString() ?? '';
+      return dateB.compareTo(dateA);
+    });
+    
+    return list;
+  }
+
+  String _safeString(dynamic val) => val?.toString() ?? '';
 
   int _calculateAvgAttendance() {
     if (mockActivities.isEmpty) return 0;
@@ -257,7 +327,6 @@ class ActivityScreen extends StatelessWidget {
         onPressed: () => Navigator.pop(context),
       ),
       actions: [
-        // Quick shortcut to open the full Activity Schedule screen
         IconButton(
           icon: const Icon(Icons.schedule),
           tooltip: 'Activity Schedule',
@@ -284,14 +353,20 @@ class ActivityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: _buildAppBar(context),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final activeActivitiesCount = mockActivities
         .where((a) => a.status == 'active')
         .length;
-    final achievementsCount = mockAchievements.length;
+    final achievementsCount = _realAchievements.isEmpty ? mockAchievements.length : _realAchievements.length;
     final skillsCount = mockSkills.length;
     final avgAttendance = _calculateAvgAttendance();
 
-    // The list of stat cards using the custom design and original data
     final List<Map<String, dynamic>> originalStats = [
       {
         'number': activeActivitiesCount.toString(),
@@ -454,8 +529,9 @@ class ActivityScreen extends StatelessWidget {
                     child: ListView.separated(
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
                       physics: const BouncingScrollPhysics(),
+                      itemCount: _realAchievements.isEmpty ? mockAchievements.length : _realAchievements.length,
                       itemBuilder: (context, index) {
-                        final a = mockAchievements[index];
+                        final a = _realAchievements.isEmpty ? mockAchievements[index] : _realAchievements[index];
                         return _AchievementListTile(
                           achievement: a,
                           onTap: () {
@@ -471,7 +547,6 @@ class ActivityScreen extends StatelessWidget {
                       },
                       separatorBuilder: (context, index) =>
                           const Divider(height: 1, indent: 72, endIndent: 16),
-                      itemCount: mockAchievements.length,
                     ),
                   ),
 
@@ -545,7 +620,7 @@ class _StatCard extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: Colors.black.withOpacity(0.05),
               blurRadius: 5,
               offset: const Offset(0, 3),
             ),
@@ -666,7 +741,7 @@ class _ActivityListTile extends StatelessWidget {
             vertical: 8.0,
           ),
           leading: CircleAvatar(
-            backgroundColor: statusColor.withValues(alpha: 0.1),
+            backgroundColor: statusColor.withOpacity(0.1),
             child: Icon(icon, color: statusColor),
           ),
           title: Text(
@@ -719,7 +794,7 @@ class _ActivityScheduleTile extends StatelessWidget {
         vertical: 8.0,
       ),
       leading: CircleAvatar(
-        backgroundColor: accent.withValues(alpha: 0.12),
+        backgroundColor: accent.withOpacity(0.12),
         child: Icon(Icons.event, color: accent),
       ),
       title: Text(
@@ -771,45 +846,38 @@ class _AchievementListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color color = getLevelColor();
-    return Column(
-      children: [
-        ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16.0,
-            vertical: 8.0,
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 16.0,
+        vertical: 8.0,
+      ),
+      leading: CircleAvatar(
+        backgroundColor: color.withOpacity(0.1),
+        child: Icon(Icons.star, color: color),
+      ),
+      title: Text(
+        achievement.title,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+      ),
+      subtitle: Text(
+        'Awarded: ${achievement.date}',
+        style: const TextStyle(color: Colors.grey, fontSize: 13),
+      ),
+      trailing: Chip(
+        label: Text(
+          achievement.level.toUpperCase(),
+          style: TextStyle(
+            color: achievement.level == 'school'
+                ? Colors.black87
+                : Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 10,
           ),
-          leading: CircleAvatar(
-            backgroundColor: color.withValues(alpha: 0.1),
-            child: Icon(Icons.star, color: color),
-          ),
-          title: Text(
-            achievement.title,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-          ),
-          subtitle: Text(
-            'Awarded: ${achievement.date}',
-            style: const TextStyle(color: Colors.grey, fontSize: 13),
-          ),
-          trailing: Chip(
-            label: Text(
-              achievement.level.toUpperCase(),
-              style: TextStyle(
-                color: achievement.level == 'school'
-                    ? Colors.black87
-                    : Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 10,
-              ),
-            ),
-            backgroundColor: color,
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-          ),
-          onTap: onTap,
         ),
-        if (mockAchievements.indexOf(achievement) !=
-            mockAchievements.length - 1)
-          const Divider(height: 1, indent: 72, endIndent: 16),
-      ],
+        backgroundColor: color,
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+      ),
+      onTap: onTap,
     );
   }
 }
@@ -835,49 +903,43 @@ class _SkillListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color color = getLevelColor();
-    return Column(
-      children: [
-        ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16.0,
-            vertical: 8.0,
-          ),
-          leading: CircleAvatar(
-            backgroundColor: color.withValues(alpha: 0.1),
-            child: Icon(Icons.psychology_outlined, color: color),
-          ),
-          title: Text(
-            skill.name,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-          ),
-          // Subtitle showing progress bar
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 4.0),
-            child: LinearProgressIndicator(
-              value: skill.progress / 100,
-              backgroundColor: Colors.grey.shade300,
-              color: color,
-              minHeight: 5,
-              borderRadius: BorderRadius.circular(5),
-            ),
-          ),
-          trailing: Chip(
-            label: Text(
-              skill.level.toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 10,
-              ),
-            ),
-            backgroundColor: color,
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-          ),
-          onTap: onTap,
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 16.0,
+        vertical: 8.0,
+      ),
+      leading: CircleAvatar(
+        backgroundColor: color.withOpacity(0.1),
+        child: Icon(Icons.psychology_outlined, color: color),
+      ),
+      title: Text(
+        skill.name,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+      ),
+      // Subtitle showing progress bar
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 4.0),
+        child: LinearProgressIndicator(
+          value: skill.progress / 100,
+          backgroundColor: Colors.grey.shade300,
+          color: color,
+          minHeight: 5,
+          borderRadius: BorderRadius.circular(5),
         ),
-        if (mockSkills.indexOf(skill) != mockSkills.length - 1)
-          const Divider(height: 1, indent: 72, endIndent: 16),
-      ],
+      ),
+      trailing: Chip(
+        label: Text(
+          skill.level.toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 10,
+          ),
+        ),
+        backgroundColor: color,
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+      ),
+      onTap: onTap,
     );
   }
 }
@@ -914,7 +976,7 @@ class _GradientActionButton extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF667EEA).withValues(alpha: 0.4),
+            color: const Color(0xFF667EEA).withOpacity(0.4),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

@@ -188,8 +188,8 @@ class StudentData {
         emergencyContactName = _safeString(studentJson['emergency_contact']),
         emergencyContactPhone = '', // Not available in current schema
         currentSubjects = [], // TODO: Fetch from timetable/classes
-        awards = List<Map<String, dynamic>>.from(studentJson['awards'] ?? []),
-        achievementsList = _parseAwardsToAchievements(studentJson['awards']),
+        awards = _getSortedAwards(studentJson['awards']),
+        achievementsList = _parseAwardsToAchievements(_getSortedAwards(studentJson['awards'])),
         achievementsCount = (studentJson['awards'] as List?)?.length.toString() ?? '0',
         activities = _safeString(studentJson['activities']),
         leadership = _safeString(studentJson['leadership']),
@@ -202,12 +202,32 @@ class StudentData {
   static List<Map<String, String>> _parseAwardsToAchievements(dynamic awardsJson) {
     if (awardsJson == null || awardsJson is! List) return [];
     return awardsJson.map((award) {
+      if (award is! Map) return {'title': '', 'date': '', 'description': ''};
       return {
         'title': _safeString(award['title']),
         'date': _safeString(award['date']),
         'description': '${_safeString(award['category'])} - ${_safeString(award['level'])}\n${_safeString(award['description'])}',
       };
     }).toList().cast<Map<String, String>>();
+  }
+
+  static List<Map<String, dynamic>> _getSortedAwards(dynamic awardsJson) {
+    if (awardsJson == null || awardsJson is! List) return [];
+    final list = List<Map<String, dynamic>>.from(awardsJson);
+    
+    list.sort((a, b) {
+      // Primary: ID (Latest addition)
+      final idA = int.tryParse(a['id']?.toString() ?? '0') ?? 0;
+      final idB = int.tryParse(b['id']?.toString() ?? '0') ?? 0;
+      if (idB != idA) return idB.compareTo(idA);
+      
+      // Secondary: Date
+      final dateA = a['date']?.toString() ?? '';
+      final dateB = b['date']?.toString() ?? '';
+      return dateB.compareTo(dateA);
+    });
+    
+    return list;
   }
 
 
@@ -727,8 +747,28 @@ void _showAchievementDetailsModal(
 }
 
 // In-app certificate viewer (similar to management portal for consistency)
-void _showCertificateDialog(BuildContext context, Map<String, dynamic> award) {
-  final docUrl = award['document_url'] ?? award['document'];
+void _showCertificateDialog(BuildContext context, Map<String, dynamic> award, {String? studentId}) {
+  String? docUrl;
+  
+  // 1. Try to find a specific certificate for this student in a team award
+  if (studentId != null && award['certificates'] is List) {
+    try {
+      final certs = award['certificates'] as List;
+      final studentCert = certs.firstWhere(
+        (c) => c is Map && c['student_id']?.toString() == studentId,
+        orElse: () => null,
+      );
+      if (studentCert != null) {
+        docUrl = studentCert['document_url'] ?? studentCert['document'];
+      }
+    } catch (e) {
+      debugPrint("Error finding student specific certificate: $e");
+    }
+  }
+
+  // 2. Fallback to main award document
+  docUrl ??= award['document_url'] ?? award['document'];
+
   if (docUrl == null || docUrl.toString().isEmpty) {
     _showSnackbar(context, "No certificate document available");
     return;
@@ -1143,7 +1183,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
             itemCount: data.awards.length,
             itemBuilder: (context, index) {
               final award = data.awards[index];
-              return _buildDetailedAwardCard(context, award);
+              return _buildDetailedAwardCard(context, award, data.id);
             },
           ),
           if (data.awards.isEmpty && data.achievementsList.isNotEmpty)
@@ -1172,7 +1212,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
     );
   }
 
-  Widget _buildDetailedAwardCard(BuildContext context, Map<String, dynamic> award) {
+  Widget _buildDetailedAwardCard(BuildContext context, Map<String, dynamic> award, String studentId) {
     bool hasDoc = award['document'] != null && award['document'].toString().isNotEmpty;
     
     return Container(
@@ -1214,11 +1254,22 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
             '${award['date'] ?? 'N/A'} • ${award['category'] ?? 'General'}',
             style: const TextStyle(color: Color(0xff666666), fontSize: 13),
           ),
-          const SizedBox(height: 8),
-          Text(
-            award['description'] ?? '',
-            style: const TextStyle(color: Color(0xff666666), fontSize: 14),
-          ),
+          if ((award['description'] ?? '').toString().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(
+                award['description'],
+                style: const TextStyle(color: Color(0xff666666), fontSize: 14),
+              ),
+            ),
+          if ((award['presented_by'] ?? '').toString().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4.0),
+              child: Text(
+                'Presented by: ${award['presented_by']}',
+                style: const TextStyle(color: Color(0xff666666), fontSize: 13, fontStyle: FontStyle.italic),
+              ),
+            ),
           if (hasDoc) ...[
             const SizedBox(height: 10),
             SizedBox(
@@ -1226,7 +1277,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
               child: TextButton.icon(
                 icon: const Icon(Icons.visibility, size: 16),
                 label: const Text("View Certificate", style: TextStyle(fontSize: 12)),
-                onPressed: () => _showCertificateDialog(context, award),
+                onPressed: () => _showCertificateDialog(context, award, studentId: studentId),
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   backgroundColor: Colors.blue.withValues(alpha: 0.1),

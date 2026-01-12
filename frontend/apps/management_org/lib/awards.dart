@@ -35,6 +35,8 @@ class Award {
   final String? documentUrl;
   final List<String> certificateUrls;
 
+  final List<Map<String, String>> studentDetails;
+  
   Award({
     required this.id,
     required this.title,
@@ -47,24 +49,35 @@ class Award {
     required this.presentedBy,
     this.documentUrl,
     required this.certificateUrls,
+    required this.studentDetails,
   });
 
   factory Award.fromJson(Map<String, dynamic> json) {
     return Award(
-      id: json['id'] as int,
-      title: json['title'] ?? '',
-      category: json['category'] ?? '',
-      recipient: json['recipient'] ?? '',
-      studentId: json['student_ids'],
-      date: json['date'] != null ? DateTime.parse(json['date']) : DateTime.now(),
-      description: json['description'] ?? '',
-      level: json['level'] ?? '',
-      presentedBy: json['presented_by'] ?? '',
-      documentUrl: json['document_url'] as String?,
+      id: json['id'] is int ? json['id'] : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      title: json['title']?.toString() ?? '',
+      category: json['category']?.toString() ?? '',
+      recipient: json['recipient']?.toString() ?? '',
+      studentId: json['student_ids']?.toString(),
+      date: json['date'] != null ? (DateTime.tryParse(json['date'].toString()) ?? DateTime.now()) : DateTime.now(),
+      description: json['description']?.toString() ?? '',
+      level: json['level']?.toString() ?? '',
+      presentedBy: json['presented_by']?.toString() ?? '',
+      documentUrl: json['document_url']?.toString(),
       certificateUrls: (json['certificates'] as List? ?? [])
-          .map((c) => c['document_url'] as String)
+          .map((c) => c is Map ? (c['document_url']?.toString()) : null)
           .where((url) => url != null)
+          .map((url) => url!)
           .toList(),
+      studentDetails: (json['student_details'] is List)
+          ? (json['student_details'] as List).map<Map<String, String>>((d) {
+              if (d is! Map) return {'student_id': '', 'student_name': ''};
+              return {
+                'student_id': (d['student_id'] ?? '').toString(),
+                'student_name': (d['student_name'] ?? '').toString(),
+              };
+            }).toList()
+          : [],
     );
   }
 }
@@ -185,6 +198,8 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
         
         setState(() {
           _awards = awardsJson.map((json) => Award.fromJson(json)).toList();
+          // Ensure latest awards are ALWAYS at the top (sorting by ID descending as fallback)
+          _awards.sort((a, b) => b.id.compareTo(a.id));
           _filterData();
           _isLoading = false;
         });
@@ -248,16 +263,32 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
             if (_awardType == 'single' && names.length == 1) {
               _recipientController.text = names.first;
             }
-            // For team mode, we don't overwrite the team name (recipient) automatically unless empty? 
-            // Better to keep Recipient Name as "Team Name" and just show members list.
             
             _isSearchingStudent = false;
           });
+
+          // Check if some IDs were not found (count mismatch)
+          if (names.length < ids.length && mounted) {
+             ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Some student IDs were not found."),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
         } else {
            setState(() {
              _verifiedStudentNames = [];
              _isSearchingStudent = false;
            });
+           if (mounted && ids.isNotEmpty) {
+             ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Student ID not found. Please check and try again."),
+                backgroundColor: Colors.red,
+              ),
+            );
+           }
         }
     } catch (e) {
       if (mounted) setState(() => _isSearchingStudent = false);
@@ -331,6 +362,10 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
                 _documentBytes = null;
                 _documentName = null;
                 _verifiedStudentNames = [];
+                // Reset filters to show the new data
+                _searchController.clear();
+                _filterCategory = "All Categories";
+                _filterLevel = "All Levels";
             });
           }
           
@@ -1499,6 +1534,128 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
     );
   }
 
+  String _formatRecipient(String recipient) {
+    if (recipient.isEmpty) return recipient;
+    
+    // Check if it already has " " and X others"
+    if (recipient.contains(" and ") && recipient.contains(" others")) {
+      // It likely already has the format from backend. 
+      // If we see 3 names (comma list before " and "), we'll force it to 2.
+      final parts = recipient.split(" and ");
+      if (parts.length < 2) return recipient;
+      
+      final namesPart = parts[0]; // e.g., "A, B, C"
+      final othersPart = parts[1]; // e.g., "3 others"
+      
+      final names = namesPart.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      if (names.length > 2) {
+        final totalOthers = int.tryParse(othersPart.split(' ')[0]) ?? 0;
+        final newOthers = totalOthers + (names.length - 2);
+        return "${names.take(2).join(", ")} and $newOthers others";
+      }
+      return recipient;
+    }
+
+    // Otherwise, handle raw comma separated names
+    final names = recipient.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    if (names.length > 2) {
+      return "${names.take(2).join(", ")} and ${names.length - 2} others";
+    }
+    return recipient;
+  }
+
+  void _showAllStudentIds(Award award) {
+    if (!mounted) return;
+    
+    final details = award.studentDetails;
+    final rawIdString = award.studentId ?? '';
+    final fallbackIds = rawIdString.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    final displayCount = details.isNotEmpty ? details.length : fallbackIds.length;
+
+    if (displayCount == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No student IDs associated with this award.")),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Full Student List"),
+        content: SizedBox(
+          width: 350,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: displayCount,
+              separatorBuilder: (context, index) => const Divider(),
+              itemBuilder: (context, index) {
+                String id = "";
+                String name = "";
+                
+                try {
+                  if (index < details.length) {
+                    id = details[index]['student_id'] ?? '';
+                    name = details[index]['student_name'] ?? '';
+                  } else if (index < fallbackIds.length) {
+                    id = fallbackIds[index];
+                  }
+                } catch (e) {
+                  id = "Error";
+                }
+
+                return ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFF667EEA),
+                    child: Icon(Icons.person, color: Colors.white, size: 20),
+                  ),
+                  title: Text(id.isEmpty ? "Unknown ID" : id, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: name.isNotEmpty ? Text(name, style: const TextStyle(fontSize: 12, color: Colors.grey)) : null,
+                  dense: true,
+                );
+              },
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Close")),
+        ],
+      ),
+    );
+  }
+
+  void _showAllNames(String recipient) {
+    final names = recipient.split(',').expand((e) => e.split(' and ')).map((e) => e.trim()).where((e) => e.isNotEmpty && !e.contains('others')).toList();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Full Recipient List"),
+        content: SizedBox(
+          width: 300,
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: names.length,
+            separatorBuilder: (context, index) => const Divider(),
+            itemBuilder: (context, index) => ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: Color(0xFF764BA2),
+                child: Icon(Icons.person_outline, color: Colors.white, size: 20),
+              ),
+              title: Text(names[index], style: const TextStyle(fontWeight: FontWeight.w600)),
+              dense: true,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Close")),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFilterSection() {
     return Container(
       padding: const EdgeInsets.all(25),
@@ -1703,19 +1860,41 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
                 children: [
                   const Text("🎓 Student IDs", style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 2),
-                  Wrap(
-                    spacing: 4,
-                    children: award.studentId!.split(',').map((id) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F3F9),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        id.trim(),
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF667EEA), fontWeight: FontWeight.bold),
-                      ),
-                    )).toList(),
+                  Builder(
+                    builder: (context) {
+                      final ids = (award.studentId ?? '').split(',').map((id) => id.trim()).where((id) => id.isNotEmpty).toList();
+                      final displayIds = ids.take(2).toList();
+                      final othersCount = ids.length - displayIds.length;
+                      
+                      return Wrap(
+                        spacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          ...displayIds.map((id) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F3F9),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              id,
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF667EEA), fontWeight: FontWeight.bold),
+                            ),
+                          )),
+                          if (othersCount > 0)
+                            InkWell(
+                              onTap: () => _showAllStudentIds(award),
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 4),
+                                child: Text(
+                                  "and $othersCount others",
+                                  style: const TextStyle(fontSize: 11, color: Color(0xFF667EEA), fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
@@ -1724,10 +1903,13 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Text(
-                  "👤 ${award.recipient}",
-                  style: const TextStyle(fontSize: 13, color: Color(0xFF888888), fontStyle: FontStyle.italic),
-                  overflow: TextOverflow.ellipsis,
+                child: InkWell(
+                  onTap: () => _showAllStudentIds(award),
+                  child: Text(
+                    "👤 ${_formatRecipient(award.recipient)}",
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF888888), fontStyle: FontStyle.italic),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
               Text(

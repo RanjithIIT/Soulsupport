@@ -83,13 +83,13 @@ class AwardCertificateAdmin(admin.ModelAdmin):
 
 @admin.register(Activity)
 class ActivityAdmin(admin.ModelAdmin):
-    list_display = ['title', 'status', 'created_at']
+    list_display = ['name', 'status', 'created_at']
     list_filter = ['status']
     search_fields = ['title']
 
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
-    list_display = ['title', 'date', 'time', 'location']
+    list_display = ['name', 'date', 'time', 'location']
     list_filter = ['date']
     search_fields = ['title', 'location']
 

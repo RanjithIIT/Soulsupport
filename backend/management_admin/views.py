@@ -1741,9 +1741,8 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         
         # If school_id not provided, try to get it from the logged-in user
         if not school_id:
-            if request.user.is_authenticated:
-                from main_login.utils import get_user_school_id
-                school_id = get_user_school_id(request.user)
+            from main_login.utils import get_user_school_id
+            school_id = get_user_school_id(request.user)
             
             # For development/unauthenticated, get first school
             if not school_id:
@@ -1752,22 +1751,45 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                 if school:
                     school_id = school.school_id
         
-        # Add school_id to data
-        mutable_data = request.data.copy()
+        # FIX for TypeError: cannot pickle 'BufferedRandom' instances
+        # We avoid request.data.copy() which calls deepcopy
+        data = request.data.dict() if hasattr(request.data, 'dict') else dict(request.data)
+        
         if school_id:
-            mutable_data['school_id'] = school_id
-            
-            # Also try to set school_name
+            data['school_id'] = school_id
+            data['team_id'] = "" # Consistency with Excel import
             from super_admin.models import School
             try:
                 school = School.objects.get(school_id=school_id)
-                mutable_data['school_name'] = school.school_name
+                data['school_name'] = school.school_name
             except School.DoesNotExist:
                 pass
         
-        serializer = self.get_serializer(data=mutable_data)
+        # Handle recipient logic (manual team data)
+        # If student_ids provided but recipient is empty, auto-populate from student names
+        s_ids = data.get('student_ids', '')
+        if s_ids and not data.get('recipient'):
+            ids = [i.strip() for i in str(s_ids).split(',') if i.strip()]
+            from .models import Student
+            students = Student.objects.filter(student_id__in=ids, school_id=school_id)
+            if students.exists():
+                name_map = {s.student_id: s.student_name for s in students}
+                names = [name_map.get(sid) for sid in ids if name_map.get(sid)]
+                data['recipient'] = ", ".join(names)
+
+        # Merge files back into data if they were lost (dict() handles this usually)
+        if request.FILES:
+            for key, file in request.FILES.items():
+                data[key] = file
+
+        serializer = self.get_serializer(data=data)
         if serializer.is_valid():
-            self.perform_create(serializer)
+            # Pass school info explicitly to save() via perform_create
+            self.perform_create(
+                serializer, 
+                school_id=school_id, 
+                school_name=data.get('school_name')
+            )
             return Response(
                 {
                     'success': True,
@@ -1796,7 +1818,7 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         headers = [
             'Team Number', 'Award Title', 'Category', 'Student ID', 
             'Date (YYYY-MM-DD)', 'Description', 'Level', 'Presented By', 
-            'Recipient Name', 'Award Document'
+            'Award Document'
         ]
         ws.append(headers)
         
@@ -1813,7 +1835,6 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         ws_inst.append(['Description', 'Brief details about the achievement', 'No'])
         ws_inst.append(['Level', 'School, District, State, etc. (First row of team is used)', 'Yes'])
         ws_inst.append(['Presented By', 'Name of the person or organization', 'No'])
-        ws_inst.append(['Recipient Name', 'Team Name or Student Name (Optional)', 'No'])
         ws_inst.append(['Award Document', 'Place/Paste the certificate image for THIS student in this row', 'No'])
         
         # Instructions for Images
@@ -2114,7 +2135,6 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                     'desc': row[5],
                     'level': row[6],
                     'presented_by': row[7],
-                    'recipient': row[8],
                 }
                 
                 # Find if group already exists
@@ -2181,12 +2201,10 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                         date_obj = timezone.now().date()
 
                     # Final recipient logic
-                    final_recipient = first_row['recipient']
+                    final_recipient = None
                     if not final_recipient:
                         # If multiple students and no team name, use comma list
-                        final_recipient = ", ".join([s.student_name for s in valid_students[:3]])
-                        if len(valid_students) > 3:
-                            final_recipient += f" and {len(valid_students)-3} others"
+                        final_recipient = ", ".join([s.student_name for s in valid_students])
                     
                     final_student_ids = ",".join(list(set([s.student_id for s in valid_students])))
 
@@ -2207,11 +2225,22 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                     save_award.save()
                     award = save_award
                     
+                    # Collect all images for this group to share if some rows are missing images
+                    group_images = {}
+                    for r_data in group['rows']:
+                        ridx = r_data['row_idx']
+                        if ridx in image_map:
+                            group_images[ridx] = image_map[ridx]
+                    
+                    first_group_image = list(group_images.values())[0] if group_images else None
+
                     # Create Certificates for each row in group
                     for r_data in group['rows']:
                         abs_row_idx = r_data['row_idx']
-                        if abs_row_idx in image_map:
-                            image_content = image_map[abs_row_idx]
+                        # Use specific row image or fallback to the first image found in the group
+                        image_content = group_images.get(abs_row_idx) or first_group_image
+                        
+                        if image_content:
                             import time
                             ts = int(time.time() * 1000)
                             # Create Certificate object
@@ -2223,10 +2252,11 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                             file_name = f"{r_data['student_id']}_{ts}_cert.png"
                             cert.document.save(file_name, ContentFile(image_content), save=True)
                             
-                            # Also set as main document if it's the first row
-                            if r_data == first_row:
-                                award.document.save(file_name, ContentFile(image_content), save=False)
-                                award.save()
+                            # Also set as main document if it's the first row WITH an image OR the first row of group if it's the only image
+                            if (r_data == first_row) or (not award.document and image_content == first_group_image):
+                                if not award.document:
+                                    award.document.save(file_name, ContentFile(image_content), save=False)
+                                    award.save()
                     
                     success_count += 1
             
@@ -2249,9 +2279,9 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                 'trace': traceback.format_exc()
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def perform_create(self, serializer):
-        """Set school reference when creating award"""
-        serializer.save()
+    def perform_create(self, serializer, **kwargs):
+        """Set school reference for the award"""
+        serializer.save(**kwargs)
 
     def perform_update(self, serializer):
         """Update award"""

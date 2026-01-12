@@ -13,6 +13,25 @@ from super_admin.models import School
 
 
 
+
+class AwardCertificateSerializer(serializers.ModelSerializer):
+    """Serializer for AwardCertificate model"""
+    document_url = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = AwardCertificate
+        fields = ['id', 'document', 'document_url', 'student_id', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+    def get_document_url(self, obj):
+        if obj.document:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.document.url)
+            return obj.document.url
+        return None
+
+
 class FileSerializer(serializers.ModelSerializer):
     """Serializer for File model"""
     file_url = serializers.SerializerMethodField()
@@ -296,13 +315,33 @@ class StudentSerializer(serializers.ModelSerializer):
 
     def get_awards(self, obj):
         from .models import Award
-        from .serializers import AwardSerializer
         try:
              # Find awards where student_ids contains the student_id
              if not obj.student_id: return []
-             awards = Award.objects.filter(student_ids__icontains=obj.student_id)
-             # Use AwardSerializer to get fully qualified URLs
-             return AwardSerializer(awards, many=True, context=self.context).data
+             awards = Award.objects.filter(student_ids__icontains=obj.student_id).order_by('-date', '-created_at')
+             
+             request = self.context.get('request')
+             
+             # Return needed fields manually to avoid heavy nested serialization (no student_details)
+             result = []
+             for a in awards:
+                 award_data = {
+                     'id': a.id,
+                     'title': a.title,
+                     'category': a.category,
+                     'level': a.level,
+                     'date': a.date.isoformat() if a.date else None,
+                     'description': a.description,
+                     'presented_by': a.presented_by,
+                     'recipient': a.recipient,
+                     'team_id': a.team_id,
+                     'student_ids': a.student_ids,
+                     'document': a.document.url if a.document else None,
+                     'document_url': request.build_absolute_uri(a.document.url) if a.document and request else (a.document.url if a.document else None),
+                     'certificates': AwardCertificateSerializer(a.certificates.all(), many=True, context=self.context).data
+                 }
+                 result.append(award_data)
+             return result
         except:
             return []
 
@@ -549,35 +588,20 @@ class CampusFeatureSerializer(serializers.ModelSerializer):
         return instance
 
 
-class AwardCertificateSerializer(serializers.ModelSerializer):
-    """Serializer for AwardCertificate model"""
-    document_url = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = AwardCertificate
-        fields = ['id', 'document', 'document_url', 'student_id', 'created_at']
-        read_only_fields = ['id', 'created_at']
-
-    def get_document_url(self, obj):
-        if obj.document:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.document.url)
-            return obj.document.url
-        return None
 
 
 class AwardSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Award model"""
     document_url = serializers.SerializerMethodField()
     certificates = AwardCertificateSerializer(many=True, read_only=True)
+    student_details = serializers.SerializerMethodField()
     
     class Meta:
         model = Award
         fields = [
             'id', 'school_id', 'school_name', 'title', 'category', 'recipient', 
             'student_ids', 'date', 'description', 'level', 'presented_by', 'document',
-            'document_url', 'certificates', 'team_id', 'created_at', 'updated_at'
+            'document_url', 'certificates', 'team_id', 'student_details', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'school_id', 'school_name', 'created_at', 'updated_at']
 
@@ -588,6 +612,16 @@ class AwardSerializer(SchoolIdMixin, serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.document.url)
             return obj.document.url
         return None
+
+    def get_student_details(self, obj):
+        if not obj.student_ids:
+            return []
+        ids = [i.strip() for i in obj.student_ids.split(',') if i.strip()]
+        # Fetch students. We can't import at top to avoid circular dependency if any, 
+        # but Student is already imported at line 5.
+        students = Student.objects.filter(student_id__in=ids)
+        name_map = {s.student_id: s.student_name for s in students}
+        return [{"student_id": id, "student_name": name_map.get(id, "")} for id in ids]
 
     def update(self, instance, validated_data):
         """Update award instance"""
