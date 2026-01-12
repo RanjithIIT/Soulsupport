@@ -198,8 +198,12 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
         
         setState(() {
           _awards = awardsJson.map((json) => Award.fromJson(json)).toList();
-          // Ensure latest awards are ALWAYS at the top (sorting by ID descending as fallback)
-          _awards.sort((a, b) => b.id.compareTo(a.id));
+          // Ensure latest awards are ALWAYS at the top (sorting by Date then ID descending as fallback)
+          _awards.sort((a, b) {
+            final dateCompare = b.date.compareTo(a.date);
+            if (dateCompare != 0) return dateCompare;
+            return b.id.compareTo(a.id);
+          });
           _filterData();
           _isLoading = false;
         });
@@ -218,7 +222,12 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
   }
 
   Future<void> _fetchStudentNames(String studentIds) async {
-    if (studentIds.isEmpty) return;
+    if (studentIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please enter a Student ID"), backgroundColor: Colors.amber),
+      );
+      return;
+    }
     
     setState(() => _isSearchingStudent = true);
     try {
@@ -232,6 +241,8 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
       await apiService.initialize();
       
       List<String> names = [];
+      List<String> notFoundIds = [];
+
       for (final id in ids) {
         // Look up each student by ID using query parameter filtering
         final response = await apiService.get('${Endpoints.students}?student_id=$id');
@@ -250,48 +261,49 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
             final name = studentData['student_name'] ?? studentData['name'] ?? '';
             if (name.isNotEmpty) {
               names.add(name);
+            } else {
+              notFoundIds.add(id);
             }
+          } else {
+            notFoundIds.add(id);
           }
+        } else {
+          notFoundIds.add(id);
         }
       }
 
-        if (names.isNotEmpty && mounted) {
-          setState(() {
-            _verifiedStudentNames = names;
-            
-            // Auto-fill recipient name if in single mode and only 1 student
-            if (_awardType == 'single' && names.length == 1) {
-              _recipientController.text = names.first;
-            }
-            
-            _isSearchingStudent = false;
-          });
-
-          // Check if some IDs were not found (count mismatch)
-          if (names.length < ids.length && mounted) {
-             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Some student IDs were not found."),
-                backgroundColor: Colors.orange,
-              ),
-            );
+      if (mounted) {
+        setState(() {
+          _verifiedStudentNames = names;
+          if (_awardType == 'single' && names.length == 1) {
+            _recipientController.text = names.first;
           }
-        } else {
-           setState(() {
-             _verifiedStudentNames = [];
-             _isSearchingStudent = false;
-           });
-           if (mounted && ids.isNotEmpty) {
-             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Student ID not found. Please check and try again."),
-                backgroundColor: Colors.red,
-              ),
-            );
-           }
+          _isSearchingStudent = false;
+        });
+
+        if (notFoundIds.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Student ID(s) not found: ${notFoundIds.join(', ')}"),
+              backgroundColor: Colors.red,
+            ),
+          );
+        } else if (names.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Student ID(s) verified!"),
+              backgroundColor: Colors.green,
+            ),
+          );
         }
+      }
     } catch (e) {
-      if (mounted) setState(() => _isSearchingStudent = false);
+      if (mounted) {
+        setState(() => _isSearchingStudent = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error verifying student: $e"), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -300,10 +312,12 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
 
   void _filterData() {
     setState(() {
+      final query = _searchController.text.toLowerCase().trim();
       _filteredAwards = _awards.where((award) {
-        final matchesSearch = award.title.toLowerCase().contains(_searchController.text.toLowerCase()) ||
-            award.recipient.toLowerCase().contains(_searchController.text.toLowerCase()) ||
-            award.description.toLowerCase().contains(_searchController.text.toLowerCase());
+        final matchesSearch = award.title.toLowerCase().contains(query) ||
+            award.recipient.toLowerCase().contains(query) ||
+            award.description.toLowerCase().contains(query) ||
+            (award.studentId != null && award.studentId!.toLowerCase().contains(query));
         
         final matchesCategory = _filterCategory == "All Categories" || award.category == _filterCategory;
         final matchesLevel = _filterLevel == "All Levels" || award.level == _filterLevel;
@@ -398,20 +412,28 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
   }
 
   void _onStudentIdChanged(String value) {
-    // Validate student ID format
+    // Validate student ID format only
     setState(() {
-      final validPattern = RegExp(r'^[A-Za-z0-9\-,\s]*$');
+      final validPattern = RegExp(r'^[A-Za-z0-9\-, \s]*$');
       _studentIdHasError = value.isNotEmpty && !validPattern.hasMatch(value);
     });
+  }
 
-    if (_studentIdHasError || value.isEmpty) {
-      _debounceTimer?.cancel();
-      return;
-    }
-
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 800), () {
-      _fetchStudentNames(value);
+  void _resetAddAwardForm() {
+    setState(() {
+      _titleController.clear();
+      _recipientController.clear();
+      _studentIdController.clear();
+      _descController.clear();
+      _presentedByController.clear();
+      _selectedDate = null;
+      _selectedCategory = null;
+      _selectedLevel = null;
+      _studentIdHasError = false;
+      _documentBytes = null;
+      _documentName = null;
+      _verifiedStudentNames = [];
+      _formKey.currentState?.reset();
     });
   }
 
@@ -1249,11 +1271,13 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
       elevation: 5,
       shadowColor: Colors.black.withValues(alpha: 0.1),
       child: Stack(
+        alignment: Alignment.center,
         children: [
           Padding(
             padding: const EdgeInsets.all(20.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(icon, style: TextStyle(fontSize: 40, color: color)),
                 const SizedBox(height: 10),
@@ -1343,12 +1367,12 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
                         value: 'single',
                         groupValue: _awardType,
                         onChanged: (val) {
-                          setState(() {
-                            _awardType = val!;
-                            _verifiedStudentNames = [];
-                            _studentIdController.clear();
-                            _recipientController.clear();
-                          });
+                          if (_awardType != val) {
+                            _resetAddAwardForm();
+                            setState(() {
+                              _awardType = val!;
+                            });
+                          }
                         },
                       ),
                       const Text("Single Student"),
@@ -1357,12 +1381,12 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
                         value: 'team',
                         groupValue: _awardType,
                         onChanged: (val) {
-                          setState(() {
-                            _awardType = val!;
-                            _verifiedStudentNames = [];
-                            _studentIdController.clear();
-                            _recipientController.clear();
-                          });
+                          if (_awardType != val) {
+                            _resetAddAwardForm();
+                            setState(() {
+                              _awardType = val!;
+                            });
+                          }
                         },
                       ),
                       const Text("Team"),
@@ -1677,13 +1701,26 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
               Expanded(
                 child: TextField(
                   controller: _searchController,
-                  onChanged: (val) => _filterData(),
+                  onSubmitted: (val) => _filterData(),
                   decoration: InputDecoration(
-                    hintText: "Search awards...",
+                    hintText: "Search awards by title, recipient, or student ID...",
+                    prefixIcon: const Icon(Icons.search),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE0E0E0))),
                     enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 2)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
                   ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton.icon(
+                onPressed: _filterData,
+                icon: const Icon(Icons.search_sharp),
+                label: const Text("Search"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF667EEA),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
               const SizedBox(width: 15),
@@ -2071,13 +2108,27 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
             hintText: hint,
             helperText: _awardType == 'team' ? "Add multiple IDs (comma-separated)" : "Enter unique Student ID",
             helperStyle: const TextStyle(color: Color(0xFF666666), fontSize: 12),
-            suffixIcon: _isSearchingStudent 
-                ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(10), child: CircularProgressIndicator(strokeWidth: 2)))
-                : (_studentIdHasError
-                    ? const Icon(Icons.error_outline, color: Colors.red)
-                    : (_studentIdController.text.isNotEmpty
-                        ? const Icon(Icons.check_circle_outline, color: Colors.green)
-                        : null)),
+            suffixIcon: Container(
+              margin: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF667EEA),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: _isSearchingStudent 
+                ? const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: SizedBox(
+                      width: 20, 
+                      height: 20, 
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    ),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.search, color: Colors.white, size: 20),
+                    onPressed: () => _fetchStudentNames(_studentIdController.text),
+                    tooltip: 'Search Student',
+                  ),
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(

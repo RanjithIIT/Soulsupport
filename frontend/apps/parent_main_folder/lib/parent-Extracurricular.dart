@@ -255,15 +255,19 @@ class _ActivityScreenState extends State<ActivityScreen> {
     if (data['awards'] == null || data['awards'] is! List) return [];
     final list = List<dynamic>.from(data['awards']);
     
-    // SORT LATEST-FIRST (ID primary, Date secondary)
+    // SORT LATEST-FIRST (Date primary, ID secondary)
     list.sort((a, b) {
+      final dateAStr = a['date']?.toString() ?? '';
+      final dateBStr = b['date']?.toString() ?? '';
+      final dateA = DateTime.tryParse(dateAStr) ?? DateTime(1900);
+      final dateB = DateTime.tryParse(dateBStr) ?? DateTime(1900);
+      
+      final dateCompare = dateB.compareTo(dateA);
+      if (dateCompare != 0) return dateCompare;
+
       final idA = int.tryParse(a['id']?.toString() ?? '0') ?? 0;
       final idB = int.tryParse(b['id']?.toString() ?? '0') ?? 0;
-      if (idB != idA) return idB.compareTo(idA);
-      
-      final dateA = a['date']?.toString() ?? '';
-      final dateB = b['date']?.toString() ?? '';
-      return dateB.compareTo(dateA);
+      return idB.compareTo(idA);
     });
     
     return list;

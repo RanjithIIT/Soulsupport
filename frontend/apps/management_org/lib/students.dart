@@ -548,6 +548,26 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
   }
 
   Widget _buildProfileDetails(Student student) {
+    // Sort awards by date descending (latest first)
+    final sortedAwards = List<Map<String, dynamic>>.from(student.awards);
+    if (sortedAwards.isNotEmpty) {
+      sortedAwards.sort((a, b) {
+        // Primary sort: Date descending
+        final dateAStr = a['date']?.toString() ?? '';
+        final dateBStr = b['date']?.toString() ?? '';
+        final dateA = DateTime.tryParse(dateAStr) ?? DateTime(1900);
+        final dateB = DateTime.tryParse(dateBStr) ?? DateTime(1900);
+        
+        final dateCompare = dateB.compareTo(dateA);
+        if (dateCompare != 0) return dateCompare;
+
+        // Secondary sort: ID descending (newest first for same date)
+        final idA = int.tryParse(a['id']?.toString() ?? '0') ?? 0;
+        final idB = int.tryParse(b['id']?.toString() ?? '0') ?? 0;
+        return idB.compareTo(idA);
+      });
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isCompact = constraints.maxWidth < 600;
@@ -643,13 +663,13 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                 ],
               ),
             ),
-            if (student.awards.isNotEmpty)
+            if (sortedAwards.isNotEmpty)
               SizedBox(
                 width: itemWidth,
                 child: _DetailCard(
                   title: 'Awards & Achievements',
                   showNumbers: true,
-                  items: student.awards.map((award) =>
+                  items: sortedAwards.map((award) =>
                     '${award['title']} (${award['level']})\n${award['category']} • ${award['date'] != null ? award['date'].toString().split(' ')[0] : ''}'
                   ).toList(),
                 ),

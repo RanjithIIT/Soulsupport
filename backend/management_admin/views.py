@@ -1734,6 +1734,12 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     ordering_fields = ['date', 'created_at', 'title']
     ordering = ['-date', '-created_at']
     
+    def get_permissions(self):
+        """Allow read/create/update/delete without auth for development - can be adjusted"""
+        if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy', 'import_excel', 'download_template']:
+            return [AllowAny()]
+        return [IsAuthenticated(), IsManagementAdmin()]
+    
     def create(self, request, *args, **kwargs):
         """Override create to handle school assignment and validation"""
         # Get school from request data if provided
