@@ -318,7 +318,7 @@ class StudentSerializer(serializers.ModelSerializer):
         try:
              # Find awards where student_ids contains the student_id
              if not obj.student_id: return []
-             awards = Award.objects.filter(student_ids__icontains=obj.student_id).order_by('-date', '-created_at')
+             awards = Award.objects.filter(student_ids__icontains=obj.student_id).order_by('-id')
              
              request = self.context.get('request')
              

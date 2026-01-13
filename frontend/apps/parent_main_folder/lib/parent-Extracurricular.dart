@@ -209,6 +209,7 @@ class ActivityScreen extends StatefulWidget {
 
 class _ActivityScreenState extends State<ActivityScreen> {
   List<Achievement> _realAchievements = [];
+  int _totalSchoolAwardsCount = 0;
   bool _isLoading = true;
   String? _error;
 
@@ -220,6 +221,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
 
   Future<void> _loadData() async {
     try {
+      // Fetch student-specific awards for display
       final studentData = await api.ApiService.fetchStudentProfile();
       if (studentData != null && studentData['awards'] != null) {
         final List<dynamic> awardsJson = studentJsonToAwards(studentData);
@@ -233,14 +235,19 @@ class _ActivityScreenState extends State<ActivityScreen> {
               description: '${_safeString(a['category'])} - ${_safeString(a['description'])}',
             );
           }).toList();
-          _isLoading = false;
         });
       } else {
         setState(() {
-          _isLoading = false;
           _realAchievements = []; // Fallback to empty if no awards
         });
       }
+      
+      // Fetch all school awards for stat card count
+      final allAwards = await api.ApiService.fetchAllAwards();
+      setState(() {
+        _totalSchoolAwardsCount = allAwards.length;
+        _isLoading = false;
+      });
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -255,19 +262,17 @@ class _ActivityScreenState extends State<ActivityScreen> {
     if (data['awards'] == null || data['awards'] is! List) return [];
     final list = List<dynamic>.from(data['awards']);
     
-    // SORT LATEST-FIRST (Date primary, ID secondary)
+    // SORT LATEST-FIRST (ID primary for newest additions, Date secondary)
     list.sort((a, b) {
+      final idA = int.tryParse(a['id']?.toString() ?? '0') ?? 0;
+      final idB = int.tryParse(b['id']?.toString() ?? '0') ?? 0;
+      if (idB != idA) return idB.compareTo(idA);
+
       final dateAStr = a['date']?.toString() ?? '';
       final dateBStr = b['date']?.toString() ?? '';
       final dateA = DateTime.tryParse(dateAStr) ?? DateTime(1900);
       final dateB = DateTime.tryParse(dateBStr) ?? DateTime(1900);
-      
-      final dateCompare = dateB.compareTo(dateA);
-      if (dateCompare != 0) return dateCompare;
-
-      final idA = int.tryParse(a['id']?.toString() ?? '0') ?? 0;
-      final idB = int.tryParse(b['id']?.toString() ?? '0') ?? 0;
-      return idB.compareTo(idA);
+      return dateB.compareTo(dateA);
     });
     
     return list;
@@ -367,7 +372,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     final activeActivitiesCount = mockActivities
         .where((a) => a.status == 'active')
         .length;
-    final achievementsCount = _realAchievements.isEmpty ? mockAchievements.length : _realAchievements.length;
+    final achievementsCount = _totalSchoolAwardsCount > 0 ? _totalSchoolAwardsCount : (_realAchievements.isEmpty ? mockAchievements.length : _realAchievements.length);
     final skillsCount = mockSkills.length;
     final avgAttendance = _calculateAvgAttendance();
 

@@ -196,4 +196,27 @@ class ApiService {
       return null; // Return null instead of throwing to allow fallback handling
     }
   }
+
+  /// Fetch all awards for the school
+  static Future<List<dynamic>> fetchAllAwards() async {
+    try {
+      final headers = await _getAuthHeaders();
+      final resp = await http
+          .get(Uri.parse('$_base/awards/'), headers: headers)
+          .timeout(const Duration(seconds: 10));
+      
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        if (data is List) return data;
+        if (data is Map && data.containsKey('results')) {
+          return data['results'] as List;
+        }
+        return [];
+      }
+      return [];
+    } catch (e) {
+      print('Exception fetching all awards: $e');
+      return [];
+    }
+  }
 }
