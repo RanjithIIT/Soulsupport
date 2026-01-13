@@ -216,8 +216,8 @@ class Teacher(models.Model):
     address = models.TextField(null=True, blank=True, help_text='Address')
     
     # Class teacher assignment fields
-    class_teacher_class = models.CharField(max_length=50, null=True, blank=True, help_text='Class name for class teacher assignment (e.g., Grade 9, 10)')
-    class_teacher_grade = models.CharField(max_length=10, null=True, blank=True, help_text='Grade level for class teacher assignment (e.g., A, B, C, D)')
+    class_teacher_class = models.CharField(max_length=50, null=True, blank=True, help_text='Class name for class teacher assignment (e.g., Nursery, 10, 12)')
+    class_teacher_section = models.CharField(max_length=10, null=True, blank=True, help_text='Section name for class teacher assignment (e.g., A, B, Lotus)')
     subject_specialization = models.TextField(null=True, blank=True, help_text='Subject specialization details')
     emergency_contact = models.CharField(max_length=20, null=True, blank=True, help_text='Emergency contact number')
     emergency_contact_relation = models.CharField(max_length=50, null=True, blank=True, help_text='Relationship with emergency contact')
@@ -332,7 +332,7 @@ class Student(models.Model):
     date_of_birth = models.DateField(default=date(2000, 1, 1))
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, default="Male")
     applying_class = models.CharField(max_length=50, default="")
-    grade = models.CharField(max_length=50, null=True, blank=True, help_text="Grade/Level of the student")
+    section = models.CharField(max_length=50, null=True, blank=True, help_text="Section/Grade of the student")
     address = models.TextField(default="Address not provided")
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default="General")
     
@@ -419,20 +419,15 @@ class NewAdmission(models.Model):
         ('Other', 'Other'),
     ]
     
-    GRADE_CHOICES = [
-        ('A', 'A'),
-        ('B', 'B'),
-        ('C', 'C'),
-        ('D', 'D'),
-    ]
-    
     # Same fields as Student model
     student_name = models.CharField(max_length=255)
     parent_name = models.CharField(max_length=255)
     date_of_birth = models.DateField()
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
     applying_class = models.CharField(max_length=50)
-    grade = models.CharField(max_length=1, choices=GRADE_CHOICES, null=True, blank=True, help_text="Grade of the student (A, B, C, or D)")
+    
+    # section field (formerly grade)
+    section = models.CharField(max_length=50, null=True, blank=True, help_text="Section/Grade of the student")
     address = models.TextField(default="Address not provided")
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='General')
     
@@ -586,7 +581,7 @@ class NewAdmission(models.Model):
             if existing_student:
                 # Student already exists, update it with latest admission data
                 for field in ['student_name', 'parent_name', 'date_of_birth', 'gender', 
-                             'applying_class', 'grade', 'address', 'category',
+                             'applying_class', 'section', 'address', 'category',
                              'parent_phone', 'emergency_contact', 'medical_information',
                              'blood_group', 'previous_school', 'remarks']:
                     if hasattr(self, field):
@@ -673,7 +668,7 @@ class NewAdmission(models.Model):
             'date_of_birth': self.date_of_birth,
             'gender': self.gender,
             'applying_class': self.applying_class,
-            'grade': self.grade if hasattr(self, 'grade') else None,
+            'section': self.section if hasattr(self, 'section') else None,
             'address': self.address or "Address not provided",
             'category': self.category or "General",
             'admission_number': admission_number,
@@ -847,7 +842,7 @@ class Fee(models.Model):
     student_name = models.CharField(max_length=255, blank=True, help_text='Student name (auto-populated from student)')
     applying_class = models.CharField(max_length=50, blank=True, help_text='Student class (auto-populated from student)')
     fee_type = models.CharField(max_length=50, choices=FEE_TYPE_CHOICES, default='tuition')
-    grade = models.CharField(max_length=50, help_text='Grade of the student (A, B, C, D)')
+    section = models.CharField(max_length=50, blank=True, null=True, help_text='Section of the student (e.g., A, B, Lotus)')
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, help_text='Total amount of the fee')
     frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES, default='monthly')
     due_date = models.DateField()
@@ -871,9 +866,9 @@ class Fee(models.Model):
                 self.student_name = self.student.student_name or ''
             if not self.applying_class:
                 self.applying_class = self.student.applying_class or ''
-            # Auto-populate grade from student if not set
-            if not self.grade and hasattr(self.student, 'grade') and self.student.grade:
-                self.grade = self.student.grade
+            # Auto-populate section from student if not set
+            if not self.section and hasattr(self.student, 'section') and self.student.section:
+                self.section = self.student.section
             # Auto-populate school_id and school_name from student's school
             if self.student.school:
                 if not self.school_id or self.school_id != self.student.school.school_id:
@@ -1037,7 +1032,7 @@ class BusStopStudent(models.Model):
     student_id_string = models.CharField(max_length=100, blank=True, help_text='Student ID as string (cached from student table)')
     student_name = models.CharField(max_length=255, blank=True, help_text='Student name (cached from student table)')
     student_class = models.CharField(max_length=50, blank=True, help_text='Student class (cached from student table)')
-    student_grade = models.CharField(max_length=50, blank=True, help_text='Student grade (cached from student table)')
+    student_section = models.CharField(max_length=50, blank=True, help_text='Student section (cached from student table)')
     pickup_time = models.TimeField(null=True, blank=True, help_text='Pickup time for this student at this stop')
     dropoff_time = models.TimeField(null=True, blank=True, help_text='Dropoff time for this student at this stop')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1052,8 +1047,8 @@ class BusStopStudent(models.Model):
                 self.student_name = self.student.student_name or ''
             if not self.student_class:
                 self.student_class = self.student.applying_class or ''
-            if not self.student_grade:
-                self.student_grade = self.student.grade or ''
+            if not self.student_section:
+                self.student_section = self.student.section or ''
             
             # Get school_id and school_name from student's school
             if self.student.school:

@@ -189,7 +189,7 @@ class Grade(models.Model):
 class Timetable(models.Model):
     """Timetable model"""
     class_obj = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='timetables')
-    teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='timetables')
+    teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='teacher_timetables')
     school_id = models.CharField(max_length=100, db_index=True, null=True, blank=True, editable=False, help_text='School ID for filtering (read-only, fetched from schools table)')
     school_name = models.CharField(max_length=255, null=True, blank=True, editable=False, help_text='School name (read-only, auto-populated from schools table)')
     day_of_week = models.IntegerField(choices=[
@@ -204,14 +204,24 @@ class Timetable(models.Model):
     start_time = models.TimeField()
     end_time = models.TimeField()
     subject = models.CharField(max_length=100)
+    room = models.CharField(max_length=50, blank=True, null=True, help_text='Room number or location')
+    color = models.CharField(max_length=7, default='#667EEA', help_text='Color code for the subject (hex format)')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     def save(self, *args, **kwargs):
         """Auto-populate school_id and school_name from teacher's department's school"""
-        if self.teacher and self.teacher.department and self.teacher.department.school and not self.school_id:
-            self.school_id = self.teacher.department.school.school_id
-            self.school_name = self.teacher.department.school.school_name
+        # Check if teacher_id is available
+        if self.teacher_id:
+            try:
+                # Retrieve the teacher instance using the ID
+                teacher = Teacher.objects.get(pk=self.teacher_id)
+                if teacher.department and teacher.department.school and not self.school_id:
+                    self.school_id = teacher.department.school.school_id
+                    self.school_name = teacher.department.school.school_name
+            except Exception:
+                # Safely ignore if teacher/department/school missing
+                pass
         super().save(*args, **kwargs)
     
     class Meta:
@@ -246,4 +256,3 @@ class StudyMaterial(models.Model):
         verbose_name = 'Study Material'
         verbose_name_plural = 'Study Materials'
         ordering = ['-created_at']
-

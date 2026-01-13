@@ -26,6 +26,7 @@ router.register(r'awards', views.AwardViewSet, basename='award')
 router.register(r'campus-features', views.CampusFeatureViewSet, basename='campusfeature')
 router.register(r'activities', views.ActivityViewSet, basename='activity')
 router.register(r'galleries', views.GalleryViewSet, basename='gallery')
+router.register(r'timetables', views.TimetableViewSet, basename='timetable')
 
 urlpatterns = [
     path('', include(router.urls)),

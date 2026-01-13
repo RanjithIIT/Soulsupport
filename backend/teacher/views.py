@@ -12,11 +12,11 @@ from .models import (
     Exam, Grade, Timetable, StudyMaterial
 )
 from .serializers import (
-    ClassSerializer, ClassStudentSerializer, AttendanceSerializer,
+    ClassSerializer, ClassListSerializer, ClassStudentSerializer, AttendanceSerializer,
     AssignmentSerializer, ExamSerializer, GradeSerializer,
     TimetableSerializer, StudyMaterialSerializer
 )
-from main_login.permissions import IsTeacher
+from main_login.permissions import IsTeacher, IsAdminOrTeacher
 from main_login.mixins import SchoolFilterMixin
 from management_admin.models import Teacher
 from management_admin.serializers import TeacherSerializer
@@ -29,7 +29,7 @@ class ClassViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     """ViewSet for Class management"""
     queryset = Class.objects.all()
     serializer_class = ClassSerializer
-    permission_classes = [IsAuthenticated, IsTeacher]
+    permission_classes = [IsAuthenticated, IsAdminOrTeacher]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['teacher', 'department', 'academic_year']
     search_fields = ['name', 'section']
@@ -37,6 +37,7 @@ class ClassViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     ordering = ['-created_at']
     
     def get_queryset(self):
+<<<<<<< Updated upstream
         """Filter classes by current teacher"""
         user = self.request.user
         try:
@@ -44,6 +45,16 @@ class ClassViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
             return Class.objects.filter(teacher=teacher)
         except Teacher.DoesNotExist:
             return Class.objects.none()
+=======
+        """Filter classes by school_id (handled by mixin)"""
+        return Class.objects.all()
+    
+    def get_serializer_class(self):
+        """Use lightweight serializer for list action"""
+        if self.action == 'list':
+            return ClassListSerializer
+        return ClassSerializer
+>>>>>>> Stashed changes
 
 
 class ClassStudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
@@ -55,6 +66,7 @@ class ClassStudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     filterset_fields = ['class_obj', 'student']
     
     def get_queryset(self):
+        # Force reload
         """Filter class students by teacher's school"""
         queryset = super().get_queryset()
         

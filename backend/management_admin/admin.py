@@ -54,9 +54,9 @@ class ExaminationManagementAdmin(admin.ModelAdmin):
 
 @admin.register(Fee)
 class FeeAdmin(admin.ModelAdmin):
-    list_display = ['student', 'fee_type', 'grade', 'total_amount', 'frequency', 'due_date', 'status', 'paid_amount', 'due_amount', 'created_at']
-    list_filter = ['fee_type', 'status', 'frequency', 'grade', 'due_date']
-    search_fields = ['student__student_name', 'description', 'fee_type', 'grade']
+    list_display = ['student', 'fee_type', 'section', 'total_amount', 'frequency', 'due_date', 'status', 'paid_amount', 'due_amount', 'created_at']
+    list_filter = ['fee_type', 'status', 'frequency', 'section', 'due_date']
+    search_fields = ['student__student_name', 'description', 'fee_type', 'section']
     readonly_fields = ['created_at', 'updated_at']
     date_hierarchy = 'due_date'
 

@@ -77,10 +77,15 @@ class TeacherSerializer(SchoolIdMixin, serializers.ModelSerializer):
             'first_name', 'last_name', 'qualification',
             'joining_date', 'dob', 'gender',
             'blood_group', 'nationality', 'mobile_no', 'email', 'address',
+<<<<<<< Updated upstream
             'class_teacher_class', 'class_teacher_grade', 'subject_specialization',
             'emergency_contact', 'emergency_contact_relation', 'experience', 'salary',
             'marital_status', 'permanent_address',
             'profile_photo', 'profile_photo_url', 
+=======
+            'class_teacher_class', 'class_teacher_section', 'subject_specialization',
+            'emergency_contact', 'profile_photo', 'profile_photo_url', 
+>>>>>>> Stashed changes
             'is_class_teacher', 'is_active',
             'created_at', 'updated_at'
         ]
@@ -227,7 +232,7 @@ class StudentSerializer(serializers.ModelSerializer):
         fields = [
             'email', 'user', 'school', 'school_id', 'school_name', 'student_id',
             'student_name', 'parent_name', 'date_of_birth', 'gender',
-            'applying_class', 'grade', 'address', 'category', 'admission_number',
+            'applying_class', 'section', 'address', 'category', 'admission_number',
             'parent_phone', 'emergency_contact', 'medical_information',
             'blood_group', 'previous_school', 'remarks',
             'profile_photo', 'profile_photo_url',
@@ -295,7 +300,7 @@ class NewAdmissionSerializer(SchoolIdMixin, serializers.ModelSerializer):
         model = NewAdmission
         fields = [
             'student_id', 'school_id', 'student_name', 'parent_name',
-            'date_of_birth', 'gender', 'applying_class', 'grade',
+            'date_of_birth', 'gender', 'applying_class', 'section',
             'address', 'category', 'status',
             'admission_number', 'email', 'parent_phone', 'emergency_contact',
             'medical_information', 'blood_group', 'previous_school', 'remarks',
@@ -437,7 +442,7 @@ class BusSerializer(SchoolIdMixin, serializers.ModelSerializer):
                     'student_id_string': student_link.student_id_string or '',
                     'student_name': student_link.student_name or '',
                     'student_class': student_link.student_class or '',
-                    'student_grade': student_link.student_grade or '',
+                    'student_section': student_link.student_section or '',
                     'pickup_time': student_link.pickup_time.strftime('%H:%M:%S') if student_link.pickup_time else None,
                     'dropoff_time': student_link.dropoff_time.strftime('%H:%M:%S') if student_link.dropoff_time else None,
                     'bus_stop_name': stop.stop_name,

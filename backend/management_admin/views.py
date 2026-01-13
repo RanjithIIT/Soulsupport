@@ -30,6 +30,10 @@ from .serializers import (
     GalleryImageSerializer
 )
 
+# Import Timetable model and serializer from teacher app
+from teacher.models import Timetable
+from teacher.serializers import TimetableSerializer
+
 
 from main_login.permissions import IsManagementAdmin
 from main_login.mixins import SchoolFilterMixin
@@ -665,7 +669,7 @@ class FeeViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     serializer_class = FeeSerializer
     permission_classes = [IsAuthenticated, IsManagementAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['fee_type', 'status', 'frequency', 'grade', 'student']
+    filterset_fields = ['fee_type', 'status', 'frequency', 'section', 'student']
     search_fields = ['student__student_name', 'description', 'fee_type']
     ordering_fields = ['due_date', 'created_at', 'total_amount']
     ordering = ['-due_date']
@@ -1119,19 +1123,19 @@ class FeeViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
             # Sort payment history by date (newest first)
             all_payment_history.sort(key=lambda x: x['payment_date'], reverse=True)
             
-            # Get student grade if available
-            student_grade = ''
-            if hasattr(student, 'grade'):
-                student_grade = student.grade
-            elif hasattr(student, 'student_grade'):
-                student_grade = student.student_grade
+            # Get student section if available
+            student_section = ''
+            if hasattr(student, 'section'):
+                student_section = student.section
+            elif hasattr(student, 'student_section'):
+                student_section = student.student_section
             
             return Response({
                 'student': {
                     'student_id': str(student.student_id) if hasattr(student, 'student_id') else student_id,
                     'student_name': student.student_name,
                     'applying_class': student.applying_class,
-                    'grade': student_grade,
+                    'section': student_section,
                     'email': student.email,
                 },
                 'summary': {
@@ -1751,6 +1755,72 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                 Award.objects.filter(pk=award.pk).update(school_name=school.school_name)
             except School.DoesNotExist:
                 pass
+<<<<<<< Updated upstream
+=======
+
+    @action(detail=False, methods=['get'], url_path='validate-student')
+    def validate_student(self, request):
+        """
+        Validate student ID and return student details if found in the user's school.
+        """
+        student_id = request.query_params.get('student_id')
+        if not student_id:
+            return Response(
+                {'error': 'Student ID is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Get school_id from authenticated user
+        school_id = self.get_school_id()
+        if not school_id:
+             if request.user.role.name == 'super_admin':
+                 pass 
+             else:
+                return Response(
+                    {'error': 'User is not associated with any school'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        try:
+            # Filter by student_id
+            query = Student.objects.filter(student_id=student_id)
+            
+            # If school_id is available, enforce school scoping
+            if school_id:
+                query = query.filter(school__school_id=school_id)
+                
+            student = query.first()
+            
+            if not student:
+                # Check if student exists in another school for specific error message
+                if Student.objects.filter(student_id=student_id).exists():
+                     return Response(
+                        {'error': 'There is no student on this id in your school'},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+                return Response(
+                    {'error': 'There is no student on this id'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+                
+            return Response({
+                'valid': True,
+                'student_id': student.student_id,
+                'student_name': student.student_name,
+                'class': student.applying_class,
+                'section': student.section,
+                'school_id': student.school.school_id,
+                'school_name': student.school.school_name
+            })
+            
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+>>>>>>> Stashed changes
     
     def perform_update(self, serializer):
         """Update award - school_id should already be set"""
@@ -1831,6 +1901,7 @@ class GalleryViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
             caption=caption
         )
         
+<<<<<<< Updated upstream
         return Response(GalleryImageSerializer(gallery_image).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path='toggle-favorite')
@@ -1840,3 +1911,33 @@ class GalleryViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         gallery.is_favorite = not gallery.is_favorite
         gallery.save()
         return Response({'is_favorite': gallery.is_favorite})
+=======
+        serializer = GalleryImageSerializer(gallery_image)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class TimetableViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
+    """ViewSet for Timetable management - uses teacher app's Timetable model"""
+    queryset = Timetable.objects.all()
+    serializer_class = TimetableSerializer
+    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['teacher', 'class_obj', 'day_of_week', 'subject']
+    search_fields = ['teacher__first_name', 'teacher__last_name', 'subject', 'room']
+    ordering_fields = ['day_of_week', 'start_time']
+    ordering = ['day_of_week', 'start_time']
+    
+    def get_permissions(self):
+        """Allow read/create/update/delete without auth for development"""
+        if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
+            return [AllowAny()]
+        return [IsAuthenticated(), IsManagementAdmin()]
+    
+    def get_queryset(self):
+        """Filter timetables by teacher if provided"""
+        queryset = super().get_queryset()
+        teacher_id = self.request.query_params.get('teacher_id')
+        if teacher_id:
+            queryset = queryset.filter(teacher__employee_no=teacher_id)
+        return queryset
+>>>>>>> Stashed changes

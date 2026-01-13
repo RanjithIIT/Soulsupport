@@ -81,7 +81,6 @@ class _AddTeacherPageState extends State<AddTeacherPage> {
         mobileNo: _mobileNoController.text,
         email: _emailController.text,
         address: _addressController.text,
-        qualification: _qualificationController.text,
         subjectSpecialization: _subjectSpecializationController.text,
       );
 

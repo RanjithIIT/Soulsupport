@@ -5,6 +5,7 @@ import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
 import 'main.dart' as app;
 import 'dashboard.dart';
+import 'teacher_timetable.dart';
 import 'widgets/school_profile_header.dart';
 import 'widgets/management_sidebar.dart';
 
@@ -481,6 +482,25 @@ class _TeachersManagementPageState extends State<TeachersManagementPage> {
                                         ],
                                         onTap: () {
                                           _editTeacher(teacher);
+                                        },
+                                      ),
+                                      _GradientButton(
+                                        label: 'Timetable',
+                                        colors: const [
+                                          Color(0xFF48BB78),
+                                          Color(0xFF38A169)
+                                        ],
+                                        onTap: () {
+                                          Navigator.of(context).pop();
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => TeacherTimetablePage(
+                                                teacherId: teacher.employeeNo,
+                                                teacherName: teacher.name,
+                                              ),
+                                            ),
+                                          );
                                         },
                                       ),
                                       _GradientButton(

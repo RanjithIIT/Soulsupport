@@ -24,6 +24,15 @@ class ClassSerializer(SchoolIdMixin, serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
+class ClassListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for Class list/dropdown - only essential fields"""
+    
+    class Meta:
+        model = Class
+        fields = ['id', 'name', 'section']
+        read_only_fields = ['id']
+
+
 class ClassStudentSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for ClassStudent model"""
     class_obj = ClassSerializer(read_only=True)
@@ -94,15 +103,30 @@ class GradeSerializer(SchoolIdMixin, serializers.ModelSerializer):
 class TimetableSerializer(SchoolIdMixin, serializers.ModelSerializer):
     """Serializer for Timetable model"""
     class_obj = ClassSerializer(read_only=True)
+    class_id = serializers.PrimaryKeyRelatedField(
+        queryset=Class.objects.all(), source='class_obj', write_only=True
+    )
     teacher = TeacherSerializer(read_only=True)
+    teacher_id = serializers.PrimaryKeyRelatedField(
+        queryset=Teacher.objects.all(), source='teacher', write_only=True
+    )
     
     class Meta:
         model = Timetable
         fields = [
-            'id', 'school_id', 'class_obj', 'teacher', 'day_of_week',
-            'start_time', 'end_time', 'subject', 'created_at', 'updated_at'
+            'id', 'school_id', 'class_obj', 'class_id', 'teacher', 'teacher_id',
+            'day_of_week', 'start_time', 'end_time', 'subject', 'room', 'color',
+            'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def to_representation(self, instance):
+        """Show full details for reading"""
+        representation = super().to_representation(instance)
+        # Ensure nested serializers are used for output
+        representation['class_obj'] = ClassSerializer(instance.class_obj).data
+        representation['teacher'] = TeacherSerializer(instance.teacher).data
+        return representation
 
 
 class StudyMaterialSerializer(SchoolIdMixin, serializers.ModelSerializer):

@@ -35,22 +35,23 @@ class Endpoints {
   static const String awards = '/management-admin/awards/';
   static const String campusFeatures = '/management-admin/campus-features/';
   static const String gallery = '/management-admin/galleries/';
+  static const String timetables = '/management-admin/timetables/';
   static const String notifications = '/management/notifications';
   static const String calendar = '/management/calendar';
   static const String campusLife = '/management/campus-life';
 
   // Teacher endpoints
-  static const String teacherClasses = '/teacher/classes';
-  static const String teacherStudents = '/teacher/students';
-  static const String teacherTimetable = '/teacher/timetable';
-  static const String teacherExams = '/teacher/exams';
-  static const String teacherGrades = '/teacher/grades';
-  static const String teacherAttendance = '/teacher/attendance';
-  static const String teacherAssignment = '/teacher/assignments';
-  static const String teacherStudyMaterial = '/teacher/study-material';
-  static const String teacherCommunication = '/teacher/communication';
-  static const String teacherResults = '/teacher/results';
-  static const String teacherProfile = '/teacher/profile';
+  static const String teacherClasses = '/teacher/classes/';
+  static const String teacherStudents = '/teacher/students/';
+  static const String teacherTimetable = '/teacher/timetable/';
+  static const String teacherExams = '/teacher/exams/';
+  static const String teacherGrades = '/teacher/grades/';
+  static const String teacherAttendance = '/teacher/attendance/';
+  static const String teacherAssignment = '/teacher/assignments/';
+  static const String teacherStudyMaterial = '/teacher/study-material/';
+  static const String teacherCommunication = '/teacher/communication/';
+  static const String teacherResults = '/teacher/results/';
+  static const String teacherProfile = '/teacher/profile/';
 
   // Parent endpoints
   static const String parentDashboard = '/parent/dashboard';

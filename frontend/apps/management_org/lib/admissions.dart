@@ -38,6 +38,7 @@ class Admission {
   final String? bloodGroup;
   final String? previousSchool;
   final String? remarks;
+  final String? section;
 
   Admission({
     required this.id,
@@ -58,6 +59,7 @@ class Admission {
     this.bloodGroup,
     this.previousSchool,
     this.remarks,
+    this.section,
   });
 
   Admission copyWith({
@@ -79,6 +81,7 @@ class Admission {
     String? bloodGroup,
     String? previousSchool,
     String? remarks,
+    String? section,
   }) {
     return Admission(
       id: id ?? this.id,
@@ -99,6 +102,7 @@ class Admission {
       bloodGroup: bloodGroup ?? this.bloodGroup,
       previousSchool: previousSchool ?? this.previousSchool,
       remarks: remarks ?? this.remarks,
+      section: section ?? this.section,
     );
   }
 }
@@ -138,7 +142,7 @@ class _AdmissionsManagementPageState extends State<AdmissionsManagementPage> {
   String? _selectedClass;
   String? _selectedCategory;
   String? _selectedBloodGroup;
-  String? _selectedGrade;
+  String? _selectedSection;
   DateTime? _selectedDob;
 
   String _filterStatus = "";
@@ -347,6 +351,7 @@ class _AdmissionsManagementPageState extends State<AdmissionsManagementPage> {
         bloodGroup: json['blood_group'],
         previousSchool: json['previous_school'],
         remarks: json['remarks'],
+        section: json['section'] ?? json['grade'],
       );
     } catch (e) {
       print('Error parsing admission: $e');
@@ -405,8 +410,8 @@ class _AdmissionsManagementPageState extends State<AdmissionsManagementPage> {
           // student_id is optional - backend will auto-generate if not provided
           if (_studentIdController.text.trim().isNotEmpty)
             'student_id': _studentIdController.text.trim(),
-          if (_selectedGrade != null && _selectedGrade!.isNotEmpty)
-            'grade': _selectedGrade!,
+          if (_selectedSection != null && _selectedSection!.isNotEmpty)
+            'section': _selectedSection!,
           if (_parentPhoneController.text.trim().isNotEmpty)
             'parent_phone': _parentPhoneController.text.trim(),
           if (_emergencyContactController.text.trim().isNotEmpty)
@@ -466,7 +471,7 @@ class _AdmissionsManagementPageState extends State<AdmissionsManagementPage> {
           _selectedClass = null;
           _selectedCategory = null;
           _selectedBloodGroup = null;
-          _selectedGrade = null;
+          _selectedSection = null;
           _selectedDob = null;
 
           // Reload admissions from server
@@ -583,6 +588,7 @@ class _AdmissionsManagementPageState extends State<AdmissionsManagementPage> {
         if (updatedAdmission.email != null) 'email': updatedAdmission.email,
         if (updatedAdmission.previousSchool != null) 'previous_school': updatedAdmission.previousSchool,
         if (updatedAdmission.remarks != null) 'remarks': updatedAdmission.remarks,
+        if (updatedAdmission.section != null) 'section': updatedAdmission.section,
       };
 
       // Call backend API to update using student_id as PK
@@ -746,6 +752,8 @@ class _AdmissionsManagementPageState extends State<AdmissionsManagementPage> {
               'address': admission.address,
               'email': admission.email,
               'parent_name': admission.parentName,
+              'applying_class': admission.applyingClass,
+              'section': admission.section,
               if (admission.parentPhone != null)
                 'parent_phone': admission.parentPhone,
               if (admission.emergencyContact != null)
@@ -1311,13 +1319,13 @@ class _AdmissionsManagementPageState extends State<AdmissionsManagementPage> {
                       fillColor: Colors.grey[50],
                     ),
                     initialValue: _selectedClass,
-                    items: List.generate(12, (i) {
-                      final className = 'Class ${i + 1}';
-                      return DropdownMenuItem(
-                        value: className,
-                        child: Text(className),
-                      );
-                    }),
+                    items: [
+                      'Nursery', 'LKG', 'UKG',
+                      ...List.generate(12, (i) => 'Class ${i + 1}')
+                    ].map((className) => DropdownMenuItem(
+                      value: className,
+                      child: Text(className),
+                    )).toList(),
                     onChanged: (value) {
                       setState(() {
                         _selectedClass = value;
@@ -1327,25 +1335,19 @@ class _AdmissionsManagementPageState extends State<AdmissionsManagementPage> {
                 ),
                 const SizedBox(width: 15),
                 Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _selectedGrade,
+                  child: TextFormField(
+                    initialValue: _selectedSection,
                     decoration: InputDecoration(
-                      labelText: 'Grade (Optional)',
+                      labelText: 'Section (Optional)',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                       filled: true,
                       fillColor: Colors.grey[50],
                     ),
-                    items: const [
-                      DropdownMenuItem(value: 'A', child: Text('A')),
-                      DropdownMenuItem(value: 'B', child: Text('B')),
-                      DropdownMenuItem(value: 'C', child: Text('C')),
-                      DropdownMenuItem(value: 'D', child: Text('D')),
-                    ],
                     onChanged: (value) {
                       setState(() {
-                        _selectedGrade = value;
+                        _selectedSection = value;
                       });
                     },
                   ),

@@ -109,6 +109,11 @@ class _DashboardPageState extends State<DashboardPage> {
               if (item['images'] != null && (item['images'] as List).isNotEmpty) {
                 final firstImage = (item['images'] as List).first;
                 imageUrl = firstImage['image'] ?? '';
+                // Fix relative URLs from backend
+                if (imageUrl.isNotEmpty && !imageUrl.startsWith('http')) {
+                  final baseUrl = Endpoints.baseUrl.split('/api')[0];
+                  imageUrl = '$baseUrl$imageUrl';
+                }
               }
               
               return {
@@ -127,6 +132,90 @@ class _DashboardPageState extends State<DashboardPage> {
       debugPrint('Error fetching dashboard data: $e');
        if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showImageDialog(BuildContext context, Map<String, dynamic> item) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(20),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.7),
+                width: double.infinity,
+                height: double.infinity,
+              ),
+            ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.8,
+                    maxHeight: MediaQuery.of(context).size.height * 0.7,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(15),
+                    child: Image.network(
+                      item['image'],
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: Colors.white,
+                        padding: const EdgeInsets.all(40),
+                        child: const Icon(Icons.image_not_supported, size: 64, color: Colors.grey),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        item['title'],
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                      ),
+                      Text(
+                        '${item['category']} • ${item['date']}',
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   final List<Map<String, dynamic>> _recentActivities = [
@@ -402,6 +491,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           const SizedBox(height: 24),
                           _GallerySection(
                             galleryItems: _galleryItems,
+                            onItemTap: (item) => _showImageDialog(context, item),
                           ),
                           const SizedBox(height: 24),
                           _RecentAdmissionsSection(
@@ -1794,8 +1884,9 @@ class _RecentAwardsSection extends StatelessWidget {
 
 class _GallerySection extends StatelessWidget {
   final List<Map<String, dynamic>> galleryItems;
+  final Function(Map<String, dynamic>) onItemTap;
 
-  const _GallerySection({required this.galleryItems});
+  const _GallerySection({required this.galleryItems, required this.onItemTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1878,6 +1969,7 @@ class _GallerySection extends StatelessWidget {
                 itemCount: galleryItems.length,
                 itemBuilder: (context, index) => _GalleryItem(
                   item: galleryItems[index],
+                  onTap: () => onItemTap(galleryItems[index]),
                 ),
               );
             },
@@ -1890,8 +1982,9 @@ class _GallerySection extends StatelessWidget {
 
 class _GalleryItem extends StatefulWidget {
   final Map<String, dynamic> item;
+  final VoidCallback onTap;
 
-  const _GalleryItem({required this.item});
+  const _GalleryItem({required this.item, required this.onTap});
 
   @override
   State<_GalleryItem> createState() => _GalleryItemState();
@@ -1907,9 +2000,7 @@ class _GalleryItemState extends State<_GalleryItem> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
-        onTap: () {
-          app.SchoolManagementApp.navigatorKey.currentState?.pushReplacementNamed('/gallery');
-        },
+        onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           transform: _isHovered
