@@ -279,11 +279,22 @@ class ApiService {
   }
 
   static Future<List<dynamic>?> fetchStudentExams({
-    required String studentId,
+    String? studentId,
+    String? classId,
+    String? sectionId,
   }) async {
     try {
       final headers = await _getAuthHeaders();
-      final url = '$parentBase/dashboard/student_exams/?student_id=$studentId';
+      String url = '$parentBase/dashboard/student_exams/';
+      
+      List<String> queryParams = [];
+      if (studentId != null && studentId.isNotEmpty) queryParams.add('student_id=$studentId');
+      if (classId != null && classId.isNotEmpty) queryParams.add('class_id=$classId');
+      if (sectionId != null && sectionId.isNotEmpty) queryParams.add('section_id=$sectionId');
+      
+      if (queryParams.isNotEmpty) {
+        url += '?${queryParams.join('&')}';
+      }
       
       print('Fetching student exams: $url');
       final resp = await http.get(Uri.parse(url), headers: headers);

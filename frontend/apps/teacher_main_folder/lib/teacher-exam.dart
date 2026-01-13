@@ -159,7 +159,11 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
       } 
     } catch (e) {
       debugPrint('Error loading teacher classes: $e');
-      // Keep default data initialized in initState
+      if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error loading classes: $e')),
+         );
+      }
     }
     
     try {
@@ -332,7 +336,17 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           ),
         ),
       ),
-      actions: const [],
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white),
+          onPressed: () {
+            _loadData();
+            ScaffoldMessenger.of(context).showSnackBar(
+               const SnackBar(content: Text('Refreshing data...')),
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -1007,24 +1021,24 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
       
-      // Find class ID
-      int? classId;
-      try {
-        final cls = _fetchedClasses.firstWhere(
-            (c) => c['name'].toString() == _class && c['section'].toString() == _section
-        );
-        classId = cls['id'];
-      } catch (_) {
+      // Prepare list of target sections
+      List<String> targetSections = [];
+      if (_section == 'ALL') {
+         if (_class != null && _sectionsMap.containsKey(_class)) {
+            targetSections = _sectionsMap[_class]!;
+         }
+      } else {
+         targetSections = [_section!];
+      }
+      
+      if (targetSections.isEmpty) {
          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invalid Class/Section selection')),
+            const SnackBar(content: Text('No valid sections found for this class')),
          );
          return;
       }
 
       // Combine Date and Time
-      // Backend expects: YYYY-MM-DDTHH:MM:SSZ
-      // _date is YYYY-MM-DD
-      // Ensure _startTime '9:30' becomes '09:30'
       List<String> timeParts = _startTime.split(':');
       if (timeParts.length == 2) {
           timeParts[0] = timeParts[0].padLeft(2, '0');
@@ -1032,74 +1046,103 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           _startTime = timeParts.join(':');
       }
       String isoDateTime = "${_date}T${_startTime}:00";
-      
-      final examData = {
-        'class_id': classId,
-        'title': _title,
-        'description': _description,
-        'instructions': _instructions,
-        'subject': _subject,
-        'exam_type': _type,
-        'duration_minutes': _duration,
-        'room_no': _room,
-        'exam_date': isoDateTime,
-        'total_marks': _marks,
-      };
 
-      final errorMsg = await api.ApiService.createExam(examData);
-      
-      if (errorMsg == null) {
-        // Optimistic Update: Add to list immediately
-        final newExam = Exam(
-          id: DateTime.now().millisecondsSinceEpoch, // Temp ID
-          title: _title,
-          subject: _subject ?? '',
-          className: '$_class - $_section',
-          date: _date,
-          startTime: _startTime,
-          duration: _duration ?? 0,
-          marks: _marks ?? 0,
-          status: 'upcoming',
-          description: _description,
-          instructions: _instructions,
-          type: _type ?? 'Exam',
-          room: _room,
-        );
+      int successCount = 0;
+      int failCount = 0;
+      List<Exam> newExams = [];
+      String? lastError;
 
-        setState(() {
-            exams.add(newExam);
-            // Sort by date descending
-            exams.sort((a, b) => b.date.compareTo(a.date));
-        });
+      // Iterate and create exams
+      for (var sec in targetSections) {
+        int? classId;
+        try {
+          final cls = _fetchedClasses.firstWhere(
+              (c) => c['name'].toString() == _class && c['section'].toString() == sec
+          );
+          classId = cls['id'];
+        } catch (_) {
+           failCount++;
+           continue;
+        }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Exam scheduled successfully!')),
-        );
-        _formKey.currentState!.reset();
-        // Reload data in background
-        _loadData(); 
+        final examData = {
+          'class_id': classId,
+          'title': _title,
+          'description': _description,
+          'instructions': _instructions,
+          'subject': _subject,
+          'exam_type': _type,
+          'duration_minutes': _duration,
+          'room_no': _room,
+          'exam_date': isoDateTime,
+          'total_marks': _marks,
+        };
+
+        final result = await api.ApiService.createExam(examData);
         
-        // Reset form fields
-        final tomorrow = DateTime.now().add(const Duration(days: 1));
-        setState(() {
-            _date =
-                "${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}";
-            _title = '';
-            _startTime = '';
-            _description = '';
-            _instructions = '';
-            _room = '';
-            _subject = null;
-            _class = null;
-            _section = null;
-            _availableSections = [];
-            _type = null;
-            _duration = null;
-            _marks = null;
-        });
+        if (result is! String) {
+           successCount++;
+           final Map<String, dynamic> createdData = result;
+           
+           newExams.add(Exam(
+            id: createdData['id'] ?? DateTime.now().millisecondsSinceEpoch + successCount,
+            title: _title,
+            subject: _subject ?? '',
+            className: '$_class - $sec',
+            date: _date,
+            startTime: _startTime,
+            duration: _duration ?? 0,
+            marks: _marks ?? 0,
+            status: 'upcoming',
+            description: _description,
+            instructions: _instructions,
+            type: _type ?? 'Exam',
+            room: _room,
+          ));
+        } else {
+           failCount++;
+           lastError = result;
+        }
+      }
+      
+      // Update UI results
+      if (successCount > 0) {
+          setState(() {
+              exams.addAll(newExams);
+              // Sort by date descending
+              exams.sort((a, b) => b.date.compareTo(a.date));
+          });
+          
+          String msg = 'Exam scheduled for $successCount sections successfully!';
+          if (failCount > 0) msg += ' ($failCount failed)';
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(msg)),
+          );
+          
+          _formKey.currentState!.reset();
+          
+          // Reset form fields
+          final tomorrow = DateTime.now().add(const Duration(days: 1));
+          setState(() {
+              _date =
+                  "${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}";
+              _title = '';
+              _startTime = '';
+              _description = '';
+              _instructions = '';
+              _room = '';
+              _subject = null;
+              _class = null;
+              _section = null;
+              _availableSections = [];
+              _type = null;
+              _duration = null;
+              _marks = null;
+          });
       } else {
          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed: $errorMsg')),
+            SnackBar(content: Text('Failed to schedule exam. Error: $lastError')),
          );
       }
     }
@@ -1328,7 +1371,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                       _class = val;
                       _section = null;
                       if (val != null && _sectionsMap.containsKey(val)) {
-                        _availableSections = _sectionsMap[val]!;
+                        _availableSections = List.from(_sectionsMap[val]!);
+                        if (_availableSections.isNotEmpty) {
+                          _availableSections.insert(0, 'ALL');
+                        }
                       } else {
                         _availableSections = [];
                       }
@@ -1347,13 +1393,11 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 ),
               ]),
 
-              _buildDropdown<String>(
+              _buildTextFormField(
                 'Subject',
-                _subject,
-                _availableSubjects,
-                'Select subject...',
+                'Enter subject',
                 (value) => _subject = value,
-                onAddPressed: _promptAddSubject,
+                initialValue: _subject,
               ),
 
               _buildFormRow([

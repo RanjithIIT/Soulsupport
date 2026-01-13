@@ -1,0 +1,19 @@
+--- Debugging Specific Students ---
+
+Checking Email: k@std.com
+  Found Student: applicant name (ID: NRK-009)
+  Attendance Count: 7
+  Last 3 Records:
+    - 2026-01-27: absent (Class 5 - B)
+    - 2026-01-22: present (Class 5 - B)
+    - 2026-01-19: present (Class 5 - B)
+  Enrolled in: Class 5 - B (ID: 126)
+
+Checking Email: raosushil@gmail.com
+  Found Student: Sushilrao T (ID: VVHS-001)
+  Attendance Count: 0
+  [!] NO ATTENDANCE FOUND
+  Enrolled in: Class 5 - B (ID: 126)
+
+Checking Email: sushilr@gmail.com
+  [!] Student with email sushilr@gmail.com NOT FOUND

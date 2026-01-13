@@ -271,6 +271,8 @@ class StudentSerializer(serializers.ModelSerializer):
     fees_count = serializers.SerializerMethodField()
     profile_photo_url = serializers.SerializerMethodField()
     
+    student_classes = serializers.SerializerMethodField()
+    
     bus_route = serializers.SerializerMethodField()
 
     class Meta:
@@ -283,7 +285,7 @@ class StudentSerializer(serializers.ModelSerializer):
             'blood_group', 'previous_school', 'remarks',
             'profile_photo', 'profile_photo_url',
             'total_fee_amount', 'paid_fee_amount', 'due_fee_amount', 'fees_count',
-            'bus_route',
+            'bus_route', 'student_classes',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['email', 'school_id', 'created_at', 'updated_at', 'user', 'profile_photo_url']
@@ -305,6 +307,24 @@ class StudentSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.profile_photo)
             return obj.profile_photo
         return None
+
+    def get_student_classes(self, obj):
+        """Get summarized class info for the student without circular imports"""
+        try:
+            # Safely fetch student_classes (related name from teacher.models.ClassStudent)
+            # We don't import ClassStudent here to avoid circular dependencies
+            classes = []
+            for sc in obj.student_classes.all():
+                classes.append({
+                    'id': sc.id,
+                    'class_id': sc.class_obj.id,
+                    'class_name': sc.class_obj.name,
+                    'section': sc.class_obj.section,
+                    'enrolled_date': sc.enrolled_date
+                })
+            return classes
+        except:
+            return []
     
     def get_total_fee_amount(self, obj):
         from django.db.models import Sum

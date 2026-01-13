@@ -297,7 +297,7 @@ class ApiService {
     return [];
   }
 
-  static Future<String?> createExam(Map<String, dynamic> data) async {
+  static Future<dynamic> createExam(Map<String, dynamic> data) async {
     final headers = await _getAuthHeaders();
     debugPrint('Creating exam: $data');
     final resp = await http.post(
@@ -306,7 +306,7 @@ class ApiService {
       body: jsonEncode(data),
     );
     if (resp.statusCode == 201) {
-      return null; // Success
+      return jsonDecode(resp.body); // Success: Return the created object
     }
     debugPrint('Failed to create exam: ${resp.body}');
     return 'Error ${resp.statusCode}: ${resp.body}';

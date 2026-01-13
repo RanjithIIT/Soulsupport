@@ -142,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int currentYear = DateTime.now().year;
 
   String _overallScore = '84%';
-  String _attendanceRate = '97%';
+  String _attendanceRate = '0%';
   String _classRank = '7th';
   String _selectedGradePeriod = 'Monthly'; // For grades period selection
   String _selectedAttendancePeriod = 'Monthly'; // For attendance period selection
@@ -161,8 +161,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _fetchAttendance({String? studentId}) async {
     try {
       final idToUse = studentId ?? _studentId;
-      debugPrint('Fetching attendance for studentId: $idToUse');
+      debugPrint('Step: _fetchAttendance called. Provided: $studentId, Cached: $_studentId, Using: $idToUse');
+      
       final data = await api.ApiService.fetchAttendanceHistory(studentId: idToUse);
+      debugPrint('Step: _fetchAttendance Response: $data');
+      
       if (data != null && mounted) {
         setState(() {
           // Update history list
@@ -172,7 +175,21 @@ class _HomeScreenState extends State<HomeScreen> {
           
           // Update stats
           if (data['stats'] != null) {
-            _attendanceRate = '${data['stats']['percentage']}%';
+            String newRate = '${data['stats']['percentage']}%';
+            
+            // Safeguard: If we already have a valid rate and the new one is 0% or empty, 
+            // check if we really want to overwrite (maybe bad fetch). 
+            // For now, valid is anything not 0.0% if we consistently have data.
+            // Actually, simply trusting the backend is usually best, but if we suspect race conditions:
+            if (_attendanceRate != '0%' && (newRate == '0%' || newRate == '0.0%')) {
+                debugPrint('WARNING: Attempting to overwrite valid rate $_attendanceRate with 0%. Ignoring for safety.');
+            } else {
+                _attendanceRate = newRate;
+                debugPrint('Step: _fetchAttendance Updated Rate: $_attendanceRate');
+            }
+          } else {
+             debugPrint('Step: _fetchAttendance Stats is NULL');
+             // Do NOT reset _attendanceRate here if it was already set
           }
         });
       }
@@ -181,14 +198,73 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _fetchExams({String? studentId}) async {
+    try {
+      final idToUse = studentId ?? _studentId;
+      // If logic: if idToUse is null, we proceed (api handles it by user token), 
+      // OR we return if we want to be strict. Here we want to be permissive for student logins.
+      
+      debugPrint('Fetching exams. ID provided/cached: $idToUse');
+      final exams = await api.ApiService.fetchStudentExams(studentId: idToUse);
+      
+      if (exams != null && mounted) {
+        setState(() {
+          int upcomingCount = 0;
+          for(var exam in exams) {
+             final status = exam['status']?.toString().toLowerCase();
+             
+             if (status == 'upcoming') {
+               upcomingCount++;
+             } else if (status == null) {
+                try {
+                  final date = DateTime.parse(exam['date']);
+                  if (date.isAfter(DateTime.now().subtract(const Duration(days: 1)))) {
+                    upcomingCount++;
+                  }
+                } catch (_) {}
+             }
+          }
+          
+          if (upcomingCount == 0 && exams.isNotEmpty) {
+             upcomingCount = exams.length; 
+          }
+          
+          
+          // CRITICAL FIX: Preserve existing attendance history before overwriting mockData
+          final currentAttendanceHistory = mockData.attendanceHistory;
+          
+          mockData = DashboardData(
+            userName: mockData.userName,
+            totalHomework: mockData.totalHomework,
+            upcomingTests: upcomingCount.toString(),
+            totalResults: mockData.totalResults,
+            academicsScore: mockData.academicsScore,
+            extracurricularCount: mockData.extracurricularCount,
+            feesStatus: mockData.feesStatus,
+            busDetails: mockData.busDetails,
+            homework: mockData.homework,
+            tests: mockData.tests,
+            results: mockData.results,
+          );
+          // Restore attendance history
+          mockData.attendanceHistory = currentAttendanceHistory;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching exams: $e');
+    }
+  }
+
+
+
   Future<void> _loadParentProfile() async {
     try {
       final parentData = await api.ApiService.fetchParentProfile();
       if (parentData != null) {
-        // Extract school_id and school_name from parent profile
+        // ... (Existing parent logic) ...
         _schoolId = parentData['school_id']?.toString();
         _schoolName = parentData['school_name']?.toString();
-        _logoUrl = parentData['logo_url']?.toString(); // Added: Extract logo directly
+        _logoUrl = parentData['logo_url']?.toString();
         
         // Save to cache immediately if available
         if (_logoUrl != null || _schoolName != null) {
@@ -202,70 +278,104 @@ class _HomeScreenState extends State<HomeScreen> {
         final isSchoolNameEmpty = _schoolName == null || _schoolName!.isEmpty || _schoolName == 'null';
         
         if (isSchoolIdEmpty || isSchoolNameEmpty) {
-          // Try to get from students
           final students = parentData['students'];
           if (students is List && students.isNotEmpty) {
-            // Try all students to find one with school data
             for (var student in students) {
               if (student is Map) {
-                // Extract student ID if we don't have one yet
-                if (_studentId == null && student['id'] != null) {
-                  _studentId = student['id'].toString();
-                  debugPrint('Found student ID: $_studentId');
-                }
-
-                // Try to get school_id
-                if (isSchoolIdEmpty) {
-                  final extractedSchoolId = student['school_id']?.toString() ?? 
-                                          student['school']?['school_id']?.toString();
-                  if (extractedSchoolId != null && extractedSchoolId.isNotEmpty && extractedSchoolId != 'null') {
-                    _schoolId = extractedSchoolId;
-                  }
-                }
-                // Try to get school_name
-                if (isSchoolNameEmpty) {
-                  final extractedSchoolName = student['school_name']?.toString() ?? 
-                                             student['school']?['school_name']?.toString() ??
-                                             student['school']?['name']?.toString();
-                  if (extractedSchoolName != null && extractedSchoolName.isNotEmpty && extractedSchoolName != 'null') {
-                    _schoolName = extractedSchoolName;
-                  }
+                if (_studentId == null) {
+                   if (student['student_id'] != null) {
+                      _studentId = student['student_id'].toString();
+                   } else if (student['id'] != null) {
+                      _studentId = student['id'].toString();
+                   }
+                   if (_studentId != null) debugPrint('Found student ID: $_studentId');
                 }
                 
-                // If we found both, break
+                // ... (Existing extraction logic) ...
+                if (isSchoolIdEmpty) {
+                   final extractedSchoolId = student['school_id']?.toString() ?? 
+                                           student['school']?['school_id']?.toString();
+                   if (extractedSchoolId != null && extractedSchoolId.isNotEmpty && extractedSchoolId != 'null') {
+                     _schoolId = extractedSchoolId;
+                   }
+                }
+                if (isSchoolNameEmpty) {
+                   final extractedSchoolName = student['school_name']?.toString() ?? 
+                                              student['school']?['school_name']?.toString() ??
+                                              student['school']?['name']?.toString();
+                   if (extractedSchoolName != null && extractedSchoolName.isNotEmpty && extractedSchoolName != 'null') {
+                     _schoolName = extractedSchoolName;
+                   }
+                }
                 if ((_schoolId != null && _schoolId!.isNotEmpty && _schoolId != 'null') &&
                     (_schoolName != null && _schoolName!.isNotEmpty && _schoolName != 'null')) {
-                  debugPrint('Extracted from student - school_id: $_schoolId, school_name: $_schoolName');
                   break;
                 }
               }
             }
           }
         }
-        
-        // Update UI
-        if (mounted) {
-          setState(() {});
-        }
-        
-        // If school name or logo is missing, try to load it
+      } else {
+         // Parent data is null, try Student Profile fallback
+         debugPrint('Parent profile null, trying Student profile...');
+         final studentData = await api.ApiService.fetchStudentProfile();
+         if (studentData != null) {
+             debugPrint('Student profile found: $studentData');
+             // Extract ID. Use student_id string or id if available
+             // Student profile usually has 'student_id' key
+             if (studentData['student_id'] != null) {
+                 _studentId = studentData['student_id'].toString();
+             } else if (studentData['id'] != null) {
+                 _studentId = studentData['id'].toString();
+             }
+             
+             // Extract school info
+             if (studentData['school'] != null && studentData['school'] is Map) {
+                _schoolId = studentData['school']['school_id']?.toString();
+                _schoolName = studentData['school']['school_name']?.toString();
+             }
+         }
+      }
+      
+      // Update UI
+      if (mounted) {
+        setState(() {});
+      }
+      
+      // If school name or logo is missing, try to load it
+      // Wrap in try-catch so it doesn't fail the whole profile load
+      try {
         if (((_schoolName == null || _schoolName!.isEmpty) || (_logoUrl == null || _logoUrl!.isEmpty)) && 
             _schoolId != null && _schoolId!.isNotEmpty && _schoolId != 'null') {
-          // Fallback: try to load school details if not in profile
           await _loadSchoolName();
         }
+      } catch (e) {
+         debugPrint('Error loading school name details: $e');
+      }
 
-        // Fetch attendance now that we ideally have a student ID
-        if (_studentId != null) {
-          _fetchAttendance(studentId: _studentId);
-        } else {
-           _fetchAttendance(); // Try anyway
-        }
+      // Fetch data
+      bool dataFetched = false;
+      if (_studentId != null) {
+        // We have a student ID, fetch specific data
+        debugPrint('Fetching specific data for student: $_studentId');
+        await _fetchAttendance(studentId: _studentId);
+        await _fetchExams(studentId: _studentId);
+        dataFetched = true;
+      } else {
+         debugPrint('No student ID found, attempting fetch without ID (Student user context)');
+         await _fetchAttendance(); 
+         await _fetchExams();
+         dataFetched = true; 
       }
     } catch (e) {
-      debugPrint('Failed to load parent profile: $e');
-      // If profile fails, still try to fetch attendance (might work if user is student)
-      _fetchAttendance();
+      debugPrint('Failed to load profile (Parent/Student): $e');
+      // If profile fails strictly, try to fetch generic (only if we haven't tried yet)
+      // This checking prevents overwriting good data with bad data if a minor error occurred above
+      if (_studentId == null) {
+          debugPrint('Retrying fetch in catch block...');
+          _fetchAttendance();
+          _fetchExams();
+      }
     }
   }
 
@@ -364,18 +474,23 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _refreshPerformanceStats() {
-    setState(() {
-      final overallScoreValue = (_random.nextDouble() * 30 + 70)
-          .toStringAsFixed(1);
-      final attendanceRateValue = (_random.nextInt(20) + 80);
-      final classRankValue = _random.nextInt(30) + 1;
-
-      _overallScore = '$overallScoreValue%';
-      _attendanceRate = '$attendanceRateValue%';
-      _classRank = '$classRankValue${_getOrdinalSuffix(classRankValue)}';
-    });
-    _showSnackBar('Performance data refreshed!');
+  Future<void> _refreshPerformanceStats() async {
+    _showSnackBar('Refreshing data...');
+    try {
+      if (_studentId != null) {
+          await _fetchAttendance(studentId: _studentId);
+          await _fetchExams(studentId: _studentId);
+      } else {
+          await _fetchAttendance();
+          await _fetchExams();
+      }
+      // Re-load school details too just in case
+      await _loadSchoolName();
+      
+      _showSnackBar('Performance data updated!');
+    } catch (e) {
+      _showSnackBar('Failed to refresh data.');
+    }
   }
 
   String _getOrdinalSuffix(int n) {
@@ -460,11 +575,11 @@ class _HomeScreenState extends State<HomeScreen> {
       {
         'icon': Icons.assessment,
         'number': mockData.upcomingTests,
-        'label': 'Tests',
+        'label': 'Exams',
         'color': const Color(0xFFf093fb),
         'action': () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const TestManagementPage()),
+          MaterialPageRoute(builder: (context) => TestManagementPage(studentId: _studentId)),
         ),
       },
       {

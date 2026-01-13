@@ -1,0 +1,72 @@
+--- Debugging Exams ---
+Total Students: 13
+
+Student: Sushilrao T (ID: VVHS-001, PK: raosushil@gmail.com)
+  Enrolled in: Class 5 - B (ID: 126)
+    Exams found for class 126: 3
+      - Testing only (Status: N/A, Date: 2026-01-14 09:00:00+00:00)
+      - Project (Status: N/A, Date: 2026-01-12 09:00:00+00:00)
+      - Maths (Status: N/A, Date: 2026-01-09 10:00:00+00:00)
+
+Student: Thipparthi Vamshi (ID: DUMSTU-143, PK: vamshi@student.com)
+  [!] No classes enrolled (ClassStudent table empty for this student)
+  Note: applying_class='Class 12', grade='None'
+
+Student: Sushil Rao (ID: STUD-005, PK: sushil1@gmail.com)
+  Enrolled in: 8 - A (ID: 121)
+    Exams found for class 121: 0
+
+Student: Praneeth B (ID: STUD-004, PK: praneeth.b@gmail.com)
+  Enrolled in: 5 - A (ID: 118)
+    Exams found for class 118: 0
+
+Student: Nandu G (ID: STUD-003, PK: nandu.G@gmail.com)
+  Enrolled in: 9 - A (ID: 122)
+    Exams found for class 122: 0
+
+Student: Harika k (ID: STUD-002, PK: harika.k@gmail.com)
+  Enrolled in: Class 5 - B (ID: 126)
+    Exams found for class 126: 3
+      - Testing only (Status: N/A, Date: 2026-01-14 09:00:00+00:00)
+      - Project (Status: N/A, Date: 2026-01-12 09:00:00+00:00)
+      - Maths (Status: N/A, Date: 2026-01-09 10:00:00+00:00)
+
+Student: sushilrao thummanapally (ID: STUD-001, PK: sushil@gmail.com)
+  Enrolled in: 2 - A (ID: 115)
+    Exams found for class 115: 0
+
+Student: twinkle chary (ID: NRK-001, PK: twinkle@student.com)
+  Enrolled in: 1 - A (ID: 114)
+    Exams found for class 114: 0
+
+Student: kumari krishna (ID: NRK-002, PK: krishna@student.com)
+  Enrolled in: 1 - A (ID: 114)
+    Exams found for class 114: 0
+
+Student: frist name (ID: NRK-034, PK: l@std.com)
+  Enrolled in: 10 - A (ID: 123)
+    Exams found for class 123: 0
+
+Student: applicant name (ID: NRK-009, PK: k@std.com)
+  Enrolled in: Class 5 - B (ID: 126)
+    Exams found for class 126: 3
+      - Testing only (Status: N/A, Date: 2026-01-14 09:00:00+00:00)
+      - Project (Status: N/A, Date: 2026-01-12 09:00:00+00:00)
+      - Maths (Status: N/A, Date: 2026-01-09 10:00:00+00:00)
+
+Student: uha krishnan (ID: STUD-9090, PK: uhak@gmail.com)
+  Enrolled in: 5 - A (ID: 118)
+    Exams found for class 118: 0
+
+Student: Test Student 4 (ID: TEST_ADM_4, PK: test_4@example.com)
+  Enrolled in: 10 - A (ID: 123)
+    Exams found for class 123: 0
+
+
+--- All Exams ---
+Exam: Testing only -> Class: Class 5 - D (ID: 156)
+Exam: Testing only -> Class: Class 5 - C (ID: 155)
+Exam: Testing only -> Class: Class 5 - A (ID: 154)
+Exam: Testing only -> Class: Class 5 - B (ID: 126)
+Exam: Project -> Class: Class 5 - B (ID: 126)
+Exam: Maths -> Class: Class 5 - B (ID: 126)

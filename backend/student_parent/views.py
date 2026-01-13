@@ -413,14 +413,22 @@ class StudentDashboardViewSet(viewsets.ViewSet):
         student = None
         
         # Determine student
+        # Determine student
         if request.query_params.get('student_id'):
             # Parent viewing specific child
+            sid_param = request.query_params.get('student_id')
             try:
                 parent = Parent.objects.get(user=user)
-                student = parent.students.get(id=request.query_params.get('student_id'))
+                # Filter by student_id field (string) instead of id (pk)
+                student = parent.students.get(student_id=sid_param)
             except (Parent.DoesNotExist, Student.DoesNotExist):
-                 # Fallback: maybe user IS the student
-                 pass
+                 # Fallback: maybe user IS the student (if param passed accidentally or explicitly)
+                 # Or maybe tried to query by PK? Let's try PK just in case
+                 try:
+                     if parent:
+                         student = parent.students.get(id=sid_param)
+                 except:
+                     pass
         
         if not student:
             try:
@@ -557,33 +565,85 @@ class StudentDashboardViewSet(viewsets.ViewSet):
              print(f"Error fetching events: {e}")
 
         # C. Exams & D. Homework (Shared Class IDs)
-        class_ids = []
+        target_classes = []
         try:
-            # Optimized: Fetch all exams for all student classes in one go
-            student_classes = student.student_classes.select_related('class_obj').all()
-            class_ids = [sc.class_obj.id for sc in student_classes]
-            print(f"DEBUG: Student {student.student_name} (ID: {student.pk}) linked to classes: {class_ids}")
+            from teacher.models import Class
+            class_id_param = request.query_params.get('class_id')
+            section_id_param = request.query_params.get('section_id')
+
+            # 1. Try resolving class_id_param
+            if class_id_param:
+                if class_id_param.isdigit():
+                    cls = Class.objects.filter(id=class_id_param).first()
+                    if cls:
+                        target_classes.append(cls)
+                
+                # If still no classes, try it as a name
+                if not target_classes:
+                    name_filter = Class.objects.filter(name__iexact=class_id_param)
+                    if section_id_param:
+                        name_filter = name_filter.filter(section__iexact=section_id_param)
+                    target_classes = list(name_filter)
             
-            if class_ids:
-                # Fetch Exams
-                exams = Exam.objects.filter(
-                    class_obj__id__in=class_ids, 
-                    exam_date__date=target_date
+            # 2. Try direct links via ClassStudent
+            if not target_classes:
+                student_classes = student.student_classes.select_related('class_obj').all()
+                if student_classes.exists():
+                     target_classes = [sc.class_obj for sc in student_classes]
+            
+            # 3. Fallback to applying_class (Fuzzy matching)
+            if not target_classes and student.applying_class:
+                # 1. Try exact match on name
+                fallback_classes = Class.objects.filter(name__iexact=student.applying_class)
+                
+                # 2. Try match with section if grade is provided
+                if not fallback_classes.exists() and student.grade:
+                     fallback_classes = Class.objects.filter(name__iexact=student.applying_class, section__iexact=student.grade)
+                
+                # 3. Try parsing "Name - Section"
+                if not fallback_classes.exists() and ' - ' in student.applying_class:
+                    parts = student.applying_class.split(' - ')
+                    fallback_classes = Class.objects.filter(name__iexact=parts[0].strip(), section__iexact=parts[1].strip())
+
+                # 4. Final fallback: icontains and stripping "Class "
+                if not fallback_classes.exists():
+                    query_name = student.applying_class
+                    if query_name.lower().startswith('class '):
+                        query_name = query_name[6:].strip()
+                        fallback_classes = Class.objects.filter(name__iexact=query_name)
+                    
+                    if not fallback_classes.exists():
+                        fallback_classes = Class.objects.filter(name__icontains=student.applying_class)
+                
+                if fallback_classes.exists():
+                    target_classes = list(fallback_classes)
+
+            print(f"DEBUG: target_classes found: {[f'{c.name}-{c.section}' for c in target_classes]}")
+            
+            if target_classes:
+                class_ids = [c.id for c in target_classes]
+                # Fetch Exams for these classes (Filter by date in Python to be safe)
+                all_exams = Exam.objects.filter(
+                    class_obj__id__in=class_ids
                 ).select_related('class_obj')
                 
-                print(f"DEBUG: Found {exams.count()} exams for dates {target_date}")
+                print(f"DEBUG: Checking {all_exams.count()} total exams for date match: {target_date}")
                 
-                for exam in exams:
-                    response_data['exams'].append({
-                        'id': exam.id,
-                        'title': exam.title,
-                        'subject': exam.subject or exam.title,
-                        'description': exam.description,
-                        'time': exam.exam_date.strftime('%I:%M %p'),
-                        'duration': f"{exam.duration_minutes} min" if exam.duration_minutes else 'N/A',
-                        'type': exam.exam_type or 'Exam',
-                        'className': f"{exam.class_obj.name} - {exam.class_obj.section}"
-                    })
+                for exam in all_exams:
+                    exam_server_date = exam.exam_date.date()
+                    print(f"DEBUG: Exam '{exam.title}' date: {exam_server_date} vs Target: {target_date}")
+                    
+                    if exam_server_date == target_date:
+                        response_data['exams'].append({
+                            'id': exam.id,
+                            'title': exam.title,
+                            'subject': exam.subject or exam.title,
+                            'description': exam.description,
+                            'time': exam.exam_date.strftime('%I:%M %p'),
+                            'duration': f"{exam.duration_minutes} min" if exam.duration_minutes else 'N/A',
+                            'type': exam.exam_type or 'Exam',
+                            'className': f"{exam.class_obj.name} - {exam.class_obj.section}"
+                        })
 
                 # Fetch Homework (Assignments)
                 assignments = Assignment.objects.filter(
@@ -617,8 +677,103 @@ class StudentDashboardViewSet(viewsets.ViewSet):
         # 1. Get Student
         student = None
         student_id_param = request.query_params.get('student_id')
-        print(f"DEBUG: student_exams called for student_id_param={student_id_param}")
+        class_id_param = request.query_params.get('class_id')
+        section_id_param = request.query_params.get('section_id')
         
+
+        
+        response_data = []
+
+        # COLLECT TARGET CLASSES BASED ON PARAMS
+        target_classes = []
+        from teacher.models import Class
+        
+        # 1. Try resolving class_id_param
+        if class_id_param:
+            if class_id_param.isdigit():
+                cls = Class.objects.filter(id=class_id_param).first()
+                if cls:
+                    target_classes.append(cls)
+            
+            # If still no classes, try it as a name
+            if not target_classes:
+                name_filter = Class.objects.filter(name__iexact=class_id_param)
+                if section_id_param:
+                    name_filter = name_filter.filter(section__iexact=section_id_param)
+                target_classes = list(name_filter)
+        
+        # 2. If only section is provided
+        elif section_id_param:
+             # This is unusual but we can try to find classes for this section 
+             # (might need school filter but Strategy 2 handles student context better)
+             pass
+
+        if target_classes:
+
+            # Map students if needed for grades
+            student = None
+            if student_id_param:
+                if student_id_param.isdigit():
+                    student = Student.objects.filter(pk=student_id_param).first()
+                else:
+                    student = Student.objects.filter(student_id=student_id_param).first()
+
+            for cls in target_classes:
+                exams = Exam.objects.filter(class_obj=cls).order_by('-exam_date')
+                for exam in exams:
+                    exam_data = {
+                        'id': exam.id,
+                        'title': exam.title,
+                        'subject': exam.subject or exam.title,
+                        'description': exam.description,
+                        'examType': exam.exam_type or 'Exam',
+                        'exam_date': exam.exam_date.isoformat() if exam.exam_date else None,
+                        'date': exam.exam_date.strftime('%Y-%m-%d') if exam.exam_date else None,
+                        'start_time': exam.exam_date.strftime('%I:%M %p') if exam.exam_date else 'TBA',
+                        'total_marks': exam.total_marks,
+                        'duration': f"{exam.duration_minutes} mins" if exam.duration_minutes else "N/A",
+                        'room': exam.room_no or "TBA",
+                    }
+                    
+                    # More robust teacher name resolution
+                    try:
+                        if exam.class_obj and exam.class_obj.teacher and exam.class_obj.teacher.user:
+                             exam_data['teacher'] = exam.class_obj.teacher.user.username
+                        elif exam.teacher and exam.teacher.user:
+                             exam_data['teacher'] = exam.teacher.user.username
+                        else:
+                             exam_data['teacher'] = "TBA"
+                    except:
+                        exam_data['teacher'] = "TBA"
+                    
+                    # Try to fetch grade
+                    grade_entry = None
+                    if student:
+                        grade_entry = Grade.objects.filter(exam=exam, student=student).first()
+                    
+                    if grade_entry:
+                        exam_data['score'] = grade_entry.marks_obtained
+                        exam_data['status'] = 'completed'
+                        try:
+                            percentage = (float(grade_entry.marks_obtained) / float(exam.total_marks)) * 100
+                            if percentage >= 90: exam_data['grade'] = 'A'
+                            elif percentage >= 80: exam_data['grade'] = 'B'
+                            elif percentage >= 70: exam_data['grade'] = 'C'
+                            elif percentage >= 60: exam_data['grade'] = 'D'
+                            else: exam_data['grade'] = 'F'
+                        except:
+                            exam_data['grade'] = 'N/A'
+                    else:
+                        exam_data['score'] = 0
+                        exam_data['grade'] = '-'
+                        exam_data['status'] = 'upcoming' if exam.exam_date > timezone.now() else 'pending'
+
+                    response_data.append(exam_data)
+            
+            return Response(response_data)
+        
+        # STRATEGY 2: FALLBACK TO STUDENT LOOKUP
+        print(f"DEBUG: Strategy 2 - Fallback to student lookup. ID: {student_id_param}")
         if student_id_param:
             try:
                 parent = Parent.objects.get(user=user)
@@ -641,16 +796,65 @@ class StudentDashboardViewSet(viewsets.ViewSet):
                          student = Student.objects.filter(student_id=student_id_param).first()
 
                  if not student:
+                     print("DEBUG: Student not found for exam lookup")
                      return Response({'error': 'Student profile not found'}, status=status.HTTP_404_NOT_FOUND)
         
-        print(f"DEBUG: Found student {student.student_name} (PK: {student.pk})")
+        print(f"DEBUG: Found student {student.student_name} (PK: {student.pk}). Checking linked classes...")
 
         # 2. Fetch Exams for Student's Classes
-        response_data = []
+        # 2. Fetch Exams for Student's Classes
         try:
+
+            
+            # STRATEGY 3: FALLBACK TO applying_class IF NO LINKED CLASSES
+            # If the M2M table is empty, try to match by string name (e.g. "Class 5")
             student_classes = student.student_classes.all()
-            for class_link in student_classes:
-                cls = class_link.class_obj
+            print(f"DEBUG: Student {student.student_name} has {student_classes.count()} direct class links.")
+            
+            # STRATEGY 2 & 3
+            target_classes = []
+            if student_classes.exists():
+                target_classes = [sc.class_obj for sc in student_classes]
+            else:
+
+                if student.applying_class:
+                    from teacher.models import Class
+                    # 1. Try exact match on name
+                    fallback_classes = Class.objects.filter(name__iexact=student.applying_class)
+                    
+                    # 2. Try match with section if grade is provided
+                    if not fallback_classes.exists() and student.grade:
+                         print(f"DEBUG: Trying name='{student.applying_class}', section='{student.grade}'")
+                         fallback_classes = Class.objects.filter(name__iexact=student.applying_class, section__iexact=student.grade)
+                    
+                    # 3. Try parsing "Name - Section" if it's in applying_class
+                    if not fallback_classes.exists() and ' - ' in student.applying_class:
+                        parts = student.applying_class.split(' - ')
+                        print(f"DEBUG: Parsing '{student.applying_class}' into {parts}")
+                        fallback_classes = Class.objects.filter(name__iexact=parts[0].strip(), section__iexact=parts[1].strip())
+
+                    # 4. Final fallback: icontains and stripping "Class "
+                    if not fallback_classes.exists():
+                        query_name = student.applying_class
+                        if query_name.lower().startswith('class '):
+                            query_name = query_name[6:].strip()
+                            print(f"DEBUG: Stripped 'Class ' from query, checking for '{query_name}'")
+                            fallback_classes = Class.objects.filter(name__iexact=query_name)
+                        
+                        if not fallback_classes.exists():
+                            print(f"DEBUG: Exact matches failed. Trying icontains on '{student.applying_class}'")
+                            fallback_classes = Class.objects.filter(name__icontains=student.applying_class)
+                    
+                    if fallback_classes.exists():
+                        target_classes = list(fallback_classes)
+                        print(f"DEBUG: Fallback found {len(target_classes)} classes: {[f'{c.name}-{c.section}' for c in target_classes]}")
+                    else:
+                        print(f"DEBUG: No classes found matching '{student.applying_class}'")
+
+            if not target_classes:
+                return Response([])
+                
+            for cls in target_classes:
                 # Fetch exams for this class
                 exams = Exam.objects.filter(class_obj=cls).order_by('-exam_date')
                 
@@ -670,8 +874,18 @@ class StudentDashboardViewSet(viewsets.ViewSet):
                         'total_marks': exam.total_marks,
                         'duration': f"{exam.duration_minutes} mins" if exam.duration_minutes else "N/A",
                         'room': exam.room_no or "TBA",
-                        'teacher': cls.teacher.user.username if cls and cls.teacher and cls.teacher.user else "TBA",
                     }
+                    
+                    # More robust teacher name resolution
+                    try:
+                        if cls and cls.teacher and cls.teacher.user:
+                             exam_data['teacher'] = cls.teacher.user.username
+                        elif exam.teacher and exam.teacher.user:
+                             exam_data['teacher'] = exam.teacher.user.username
+                        else:
+                             exam_data['teacher'] = "TBA"
+                    except:
+                        exam_data['teacher'] = "TBA"
                     
                     if grade_entry:
                         exam_data['score'] = grade_entry.marks_obtained

@@ -1,0 +1,73 @@
+--- Debugging Attendance ---
+Total Students: 13
+
+Student: Sushilrao T (ID: VVHS-001)
+  Total Attendance Records: 0
+  [!] No attendance records found.
+  Enrolled in: Class 5 - B
+
+Student: Thipparthi Vamshi (ID: DUMSTU-143)
+  Total Attendance Records: 0
+  [!] No attendance records found.
+  [!] Student NOT enrolled in any class
+
+Student: Sushil Rao (ID: STUD-005)
+  Total Attendance Records: 0
+  [!] No attendance records found.
+  Enrolled in: 8 - A
+
+Student: Praneeth B (ID: STUD-004)
+  Total Attendance Records: 0
+  [!] No attendance records found.
+  Enrolled in: 5 - A
+
+Student: Nandu G (ID: STUD-003)
+  Total Attendance Records: 0
+  [!] No attendance records found.
+  Enrolled in: 9 - A
+
+Student: Harika k (ID: STUD-002)
+  Total Attendance Records: 0
+  [!] No attendance records found.
+  Enrolled in: Class 5 - B
+
+Student: sushilrao thummanapally (ID: STUD-001)
+  Total Attendance Records: 0
+  [!] No attendance records found.
+  Enrolled in: 2 - A
+
+Student: twinkle chary (ID: NRK-001)
+  Total Attendance Records: 2
+    - Date: 2026-01-14, Status: absent, Class: Class 1 - A
+    - Date: 2026-01-08, Status: present, Class: Class 1 - A
+  Enrolled in: 1 - A
+
+Student: kumari krishna (ID: NRK-002)
+  Total Attendance Records: 2
+    - Date: 2026-01-14, Status: absent, Class: Class 1 - A
+    - Date: 2026-01-08, Status: late, Class: Class 1 - A
+  Enrolled in: 1 - A
+
+Student: frist name (ID: NRK-034)
+  Total Attendance Records: 1
+    - Date: 2026-01-08, Status: absent, Class: Class 10 - C
+  Enrolled in: 10 - A
+
+Student: applicant name (ID: NRK-009)
+  Total Attendance Records: 7
+    - Date: 2026-01-27, Status: absent, Class: Class 5 - B
+    - Date: 2026-01-22, Status: present, Class: Class 5 - B
+    - Date: 2026-01-19, Status: present, Class: Class 5 - B
+    - Date: 2026-01-15, Status: late, Class: Class 5 - B
+    - Date: 2026-01-12, Status: absent, Class: Class 5 - B
+  Enrolled in: Class 5 - B
+
+Student: uha krishnan (ID: STUD-9090)
+  Total Attendance Records: 0
+  [!] No attendance records found.
+  Enrolled in: 5 - A
+
+Student: Test Student 4 (ID: TEST_ADM_4)
+  Total Attendance Records: 0
+  [!] No attendance records found.
+  Enrolled in: 10 - A

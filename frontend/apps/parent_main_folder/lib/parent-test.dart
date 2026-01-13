@@ -24,7 +24,8 @@ class ParentPortalApp extends StatelessWidget {
 }
 
 class TestManagementPage extends StatefulWidget {
-  const TestManagementPage({super.key});
+  final String? studentId;
+  const TestManagementPage({super.key, this.studentId});
 
   @override
   State<TestManagementPage> createState() => _TestManagementPageState();
@@ -49,22 +50,60 @@ class _TestManagementPageState extends State<TestManagementPage> {
     });
 
     try {
-      // 1. Get current student profile to get ID
-      final profile = await api.ApiService.fetchStudentProfile();
-      if (profile != null && profile['id'] != null) {
-        final studentId = profile['id'].toString();
-        
-        // 2. Fetch exams for this student
-        final exams = await api.ApiService.fetchStudentExams(studentId: studentId);
-        
-        if (exams != null) {
-          setState(() {
-            _tests = exams;
-            _isLoading = false;
-          });
-          return;
-        }
+      String? targetStudentId = widget.studentId;
+      String? classId;
+      String? sectionId;
+
+      // Ensure we have a student ID to work with
+      if (targetStudentId == null) {
+          final profile = await api.ApiService.fetchStudentProfile();
+          if (profile != null) {
+            if (profile['student_id'] != null) {
+              targetStudentId = profile['student_id'].toString();
+            } else if (profile['id'] != null) {
+               targetStudentId = profile['id'].toString();
+            }
+
+            // EXTRACT CLASS INFO FROM PROFILE (Now available via updated serializer)
+            if (profile['student_classes'] != null && (profile['student_classes'] as List).isNotEmpty) {
+                final firstClass = (profile['student_classes'] as List)[0];
+                classId = firstClass['class_id']?.toString();
+            }
+          }
       }
+
+      if (targetStudentId != null) {
+          // If we still don't have classId, try to fetch full details (fallback)
+          if (classId == null) {
+              try {
+                  final studentData = await api.ApiService.fetchStudentById(int.parse(targetStudentId));
+                  if (studentData != null) {
+                    if (studentData['student_classes'] != null && (studentData['student_classes'] as List).isNotEmpty) {
+                        final firstClass = (studentData['student_classes'] as List)[0];
+                        classId = (firstClass['class_obj']?['id'] ?? firstClass['class_id'])?.toString();
+                    }
+                  }
+              } catch (e) {
+                print('Error fetching extra student details for class info: $e');
+              }
+          }
+
+          // 2. Fetch exams for this student with class fallback
+          final exams = await api.ApiService.fetchStudentExams(
+              studentId: targetStudentId,
+              classId: classId,
+              sectionId: sectionId
+          );
+          
+          if (exams != null) {
+            setState(() {
+              _tests = exams;
+              _isLoading = false;
+            });
+            return;
+          }
+      }
+
       
       // Fallback if no profile or empty
        setState(() {
@@ -196,7 +235,7 @@ class _TestManagementPageState extends State<TestManagementPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          "Test Dashboard",
+          "Exams Dashboard",
           style: TextStyle(
             fontSize: 20,
             color: Colors.white,
