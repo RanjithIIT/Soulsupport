@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:core/api/api_service.dart';
 import 'package:core/api/endpoints.dart';
 import 'buses.dart';
+import 'utils.dart';
 
 // Data model for stops in the unified form
 class StopData {
@@ -77,6 +78,7 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
   
   // === STATE ===
   bool _isSubmitting = false;
+  bool _isSuccess = false;
   bool _isLoading = false;
   int _currentStep = 0;
   final bool _autoSyncAfternoonStops = true; // Auto-sync afternoon stops from morning
@@ -287,9 +289,6 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
         // Sync afternoon stops from morning if they don't exist
         if (_afternoonStops.isEmpty && _morningStops.isNotEmpty) {
           _syncAfternoonStopsFromMorning();
-        } else {
-          // Sync students from morning stops to afternoon stops (students assigned to morning should appear in afternoon)
-          _syncAfternoonStopsFromMorning();
         }
       }
     } catch (e) {
@@ -408,7 +407,7 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                       ElevatedButton(
                         onPressed: _isSubmitting ? null : _submitForm,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF667EEA),
+                          backgroundColor: _isSuccess ? Colors.green : const Color(0xFF667EEA),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 24,
@@ -424,10 +423,19 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                                   color: Colors.white,
                                 ),
                               )
-                            : Text(widget.bus == null
-                                ? 'Create Bus'
-                                : 'Update Bus'),
-                      ),
+                            : _isSuccess
+                                ? const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text('Saved!'),
+                                      SizedBox(width: 8),
+                                      Icon(Icons.check_circle, size: 18),
+                                    ],
+                                  )
+                                : Text(widget.bus == null
+                                    ? 'Create Bus'
+                                    : 'Update Bus'),
+                        ),
                     ],
                   ),
                 ],
@@ -618,7 +626,7 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                 Expanded(
                   child: ListTile(
                     title: const Text('Morning Start Time *'),
-                    subtitle: Text(_morningStartTime?.format(context) ?? 'Select time'),
+                    subtitle: Text(formatTimeWith24h(context, _morningStartTime)),
                     trailing: const Icon(Icons.access_time),
                     onTap: () async {
                       final time = await showTimePicker(
@@ -634,7 +642,7 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                 Expanded(
                   child: ListTile(
                     title: const Text('Morning End Time *'),
-                    subtitle: Text(_morningEndTime?.format(context) ?? 'Select time'),
+                    subtitle: Text(formatTimeWith24h(context, _morningEndTime)),
                     trailing: const Icon(Icons.access_time),
                     onTap: () async {
                       final time = await showTimePicker(
@@ -655,7 +663,7 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                 Expanded(
                   child: ListTile(
                     title: const Text('Afternoon Start Time *'),
-                    subtitle: Text(_afternoonStartTime?.format(context) ?? 'Select time'),
+                    subtitle: Text(formatTimeWith24h(context, _afternoonStartTime)),
                     trailing: const Icon(Icons.access_time),
                     onTap: () async {
                       final time = await showTimePicker(
@@ -671,7 +679,7 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                 Expanded(
                   child: ListTile(
                     title: const Text('Afternoon End Time *'),
-                    subtitle: Text(_afternoonEndTime?.format(context) ?? 'Select time'),
+                    subtitle: Text(formatTimeWith24h(context, _afternoonEndTime)),
                     trailing: const Icon(Icons.access_time),
                     onTap: () async {
                       final time = await showTimePicker(
@@ -859,7 +867,7 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                       child: ListTile(
                         title: const Text('Stop Time *'),
                         subtitle: Text(
-                          stop.time ?? 'Not set - Click to select time',
+                          formatTimeWith24h(context, stop.time),
                           style: TextStyle(
                             color: stop.time == null ? Colors.orange : Colors.black,
                             fontStyle: stop.time == null ? FontStyle.italic : FontStyle.normal,
@@ -918,15 +926,16 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                       'Students at this stop:',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    ElevatedButton.icon(
-                      onPressed: onAddStudents,
-                      icon: const Icon(Icons.person_add, size: 18),
-                      label: const Text('Add Students'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF51CF66),
-                        foregroundColor: Colors.white,
+                    if (!isAfternoon)
+                      ElevatedButton.icon(
+                        onPressed: onAddStudents,
+                        icon: const Icon(Icons.person_add, size: 18),
+                        label: const Text('Add Students'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF51CF66),
+                          foregroundColor: Colors.white,
+                        ),
                       ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -945,7 +954,7 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
                       ),
                       title: Text(student['student_name'] ?? 'Unknown'),
                       subtitle: Text('ID: ${student['student_id_string'] ?? student['id'] ?? 'N/A'}'),
-                      trailing: IconButton(
+                      trailing: isAfternoon ? null : IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
                         onPressed: () {
                           setState(() {
@@ -1804,42 +1813,50 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
       busSavedSuccessfully = true;
       
       // 2-5. Create stops and assign students (non-critical - errors won't prevent dialog from closing)
+      // 2-5. Create stops and assign students (non-critical - errors won't prevent dialog from closing)
       try {
-      // 2. Delete existing stops for this bus (if editing)
-      if (widget.bus != null) {
-        final existingStopsResponse = await _apiService.get(
-            '${Endpoints.busStops}?bus=$busNumber');
-        if (existingStopsResponse.success &&
-            existingStopsResponse.data is List) {
-          final existingStops = existingStopsResponse.data as List;
-          for (var stop in existingStops) {
-            final stopId = stop['stop_id']?.toString();
-            if (stopId != null) {
-              await _apiService.delete('${Endpoints.busStops}$stopId/');
+        // 2. Delete existing stops for this bus (if editing)
+        if (widget.bus != null) {
+          final existingStopsResponse = await _apiService.get(
+              '${Endpoints.busStops}?bus=$busNumber');
+          if (existingStopsResponse.success &&
+              existingStopsResponse.data != null) {
+            List existingStops = [];
+            if (existingStopsResponse.data is List) {
+              existingStops = existingStopsResponse.data as List;
+            } else if (existingStopsResponse.data is Map) {
+              final dataMap = existingStopsResponse.data as Map<String, dynamic>;
+              existingStops = dataMap['results'] as List? ?? dataMap['data'] as List? ?? [];
+            }
+
+            for (var stop in existingStops) {
+              final stopId = stop['stop_id']?.toString();
+              if (stopId != null) {
+                await _apiService.delete('${Endpoints.busStops}$stopId/');
+              }
             }
           }
         }
-      }
-      
-      // 3. Create Morning Stops
-      for (var stop in _morningStops) {
+        
+        // 3. Create Morning Stops
+        for (var stop in _morningStops) {
           if (stop.name.isEmpty) continue;
           try {
-        final stopData = {
-          'bus': busNumber,
-          'stop_name': stop.name,
-          'stop_address': stop.address,
-          'stop_time': stop.time,
-          'route_type': 'morning',
-          'stop_order': stop.order,
-        };
-        final stopResponse =
-            await _apiService.post(Endpoints.busStops, body: stopData);
+            final stopData = {
+              'bus': busNumber,
+              'stop_name': stop.name,
+              'stop_address': stop.address,
+              'stop_time': stop.time,
+              'route_type': 'morning',
+              'stop_order': stop.order,
+            };
+            final stopResponse =
+                await _apiService.post(Endpoints.busStops, body: stopData);
             if (stopResponse.success) {
-        final responseData = stopResponse.data;
-        if (responseData is Map) {
+              final responseData = stopResponse.data;
+              if (responseData is Map) {
                 final stopId = responseData['stop_id']?.toString() ?? 
-                   responseData['id']?.toString();
+                               responseData['id']?.toString();
                 if (stopId != null && stopId.isNotEmpty) {
                   stop.stopId = stopId;
                 }
@@ -1848,27 +1865,27 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
           } catch (e) {
             debugPrint('Error creating morning stop "${stop.name}": $e');
           }
-      }
-      
-      // 4. Create Afternoon Stops
-      for (var stop in _afternoonStops) {
+        }
+        
+        // 4. Create Afternoon Stops
+        for (var stop in _afternoonStops) {
           if (stop.name.isEmpty) continue;
           try {
-        final stopData = {
-          'bus': busNumber,
-          'stop_name': stop.name,
-          'stop_address': stop.address,
-          'stop_time': stop.time,
-          'route_type': 'afternoon',
-          'stop_order': stop.order,
-        };
-        final stopResponse =
-            await _apiService.post(Endpoints.busStops, body: stopData);
+            final stopData = {
+              'bus': busNumber,
+              'stop_name': stop.name,
+              'stop_address': stop.address,
+              'stop_time': stop.time,
+              'route_type': 'afternoon',
+              'stop_order': stop.order,
+            };
+            final stopResponse =
+                await _apiService.post(Endpoints.busStops, body: stopData);
             if (stopResponse.success) {
-        final responseData = stopResponse.data;
-        if (responseData is Map) {
+              final responseData = stopResponse.data;
+              if (responseData is Map) {
                 final stopId = responseData['stop_id']?.toString() ?? 
-                   responseData['id']?.toString();
+                               responseData['id']?.toString();
                 if (stopId != null && stopId.isNotEmpty) {
                   stop.stopId = stopId;
                 }
@@ -1877,39 +1894,33 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
           } catch (e) {
             debugPrint('Error creating afternoon stop "${stop.name}": $e');
           }
-      }
-      
-      // 5. Assign Students to Stops
-        final assignedStudentIds = <String>{};
-      for (var stop in [..._morningStops, ..._afternoonStops]) {
-        if (stop.stopId != null && stop.students.isNotEmpty) {
-          for (var student in stop.students) {
-            final studentId = student['student_id_string']?.toString() ?? 
-                             student['id']?.toString() ?? '';
-            
-              if (studentId.isEmpty || assignedStudentIds.contains(studentId)) {
-              continue;
-            }
-            
-            try {
-              final response = await _apiService.post(Endpoints.busStopStudents, body: {
-                'stop': stop.stopId,
-                'student_id': studentId,
-              });
+        }
+        
+        // 5. Assign Students to Stops
+        for (var stop in [..._morningStops, ..._afternoonStops]) {
+          if (stop.stopId != null && stop.students.isNotEmpty) {
+            for (var student in stop.students) {
+              final studentId = student['student_id_string']?.toString() ?? 
+                               student['id']?.toString() ?? '';
               
-              if (response.success) {
-                assignedStudentIds.add(studentId);
-              } else {
-                // During form submission, just log the error - don't show popup
-                // The popup should only show when user is actively adding a student to a stop
-                final errorMessage = response.error ?? 'Failed to assign student';
-                debugPrint('Error assigning student $studentId during form submission: $errorMessage');
-                // Note: Students that fail to assign will simply not be added to the stop
-                // User can add them later after resolving the conflict
+              if (studentId.isEmpty) {
+                continue;
               }
-            } catch (e) {
-              debugPrint('Error assigning student: $e');
-            }
+              
+              try {
+                final response = await _apiService.post(Endpoints.busStopStudents, body: {
+                  'stop': stop.stopId,
+                  'student_id': studentId,
+                  'school_id': schoolId,  // Include school_id for proper filtering
+                });
+                
+                if (!response.success) {
+                  final errorMessage = response.error ?? 'Failed to assign student';
+                  debugPrint('Error assigning student $studentId during form submission: $errorMessage');
+                }
+              } catch (e) {
+                debugPrint('Error assigning student: $e');
+              }
             }
           }
         }
@@ -1918,9 +1929,12 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
         debugPrint('Error creating stops or assigning students: $e');
       }
       
-      // Reset submitting state
+      // Reset submitting state and show success briefly
       if (mounted) {
-        setState(() => _isSubmitting = false);
+        setState(() {
+          _isSubmitting = false;
+          _isSuccess = true;
+        });
       }
       
       // Call onSave callback to refresh the bus list (before closing dialog)
@@ -1930,8 +1944,10 @@ class _UnifiedBusFormDialogState extends State<UnifiedBusFormDialog> {
         debugPrint('Error in onSave callback: $e');
       }
       
+      // Wait a moment so the user sees the "Saved!" state (Auto-updated feel)
+      await Future.delayed(const Duration(milliseconds: 800));
+      
       // Close dialog and return true to indicate success
-      // This MUST happen - bus is saved, so dialog should close regardless of stops/students
       if (mounted) {
         Navigator.of(context).pop(true);
       }

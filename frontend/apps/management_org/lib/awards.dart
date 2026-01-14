@@ -1202,6 +1202,7 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
   }
 
   Widget _buildStatsOverview() {
+    // Use _awards for total count (already filtered by school_id from backend)
     final total = _awards.length;
     final thisYear = _awards.where((a) => a.date.year == DateTime.now().year).length;
     final academic = _awards.where((a) => a.category == "Academic").length;
@@ -2246,26 +2247,10 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
 
       if (excelResult == null || excelResult.files.single.bytes == null) return;
 
-      // 2. Pick Images (Optional fallback)
-      bool? pickExtra = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text("Additional Documents?"),
-          content: const Text("You can embed images in the Excel file directly. Do you want to pick additional separate images?"),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("No, Excel only")),
-            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("Yes, pick more")),
-          ],
-        ),
-      );
-
+      // Skip image picking - images are embedded in Excel
       List<XFile> images = [];
-      if (pickExtra == true) {
-        final ImagePicker _picker = ImagePicker();
-        images = await _picker.pickMultiImage();
-      }
 
-      // 3. Upload
+      // Upload without showing progress dialog
       setState(() => _isLoading = true);
       
       final apiService = ApiService();
@@ -2300,10 +2285,32 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data['message'] ?? 'Import successful'), backgroundColor: Colors.green),
-        );
-        _loadAwards(); // Refresh list
+        if (mounted) {
+          // Show success dialog
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green, size: 28),
+                  SizedBox(width: 10),
+                  Text('Success'),
+                ],
+              ),
+              content: Text(data['message'] ?? 'Awards imported successfully'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+          _loadAwards(); // Refresh list after dialog closes
+        }
       } else {
         String msg = 'Import failed';
         List<String> rowErrors = [];
@@ -2315,17 +2322,60 @@ class _AwardsManagementPageState extends State<AwardsManagementPage> {
           }
         } catch (_) {}
         
-        if (rowErrors.isNotEmpty) {
-          _showErrorDialog("Validation Failed", msg, rowErrors);
-        } else {
-          throw Exception(msg);
+        if (mounted) {
+          if (rowErrors.isNotEmpty) {
+            _showErrorDialog("Validation Failed", msg, rowErrors);
+          } else {
+            // Show error dialog
+            await showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Row(
+                  children: [
+                    Icon(Icons.error, color: Colors.red, size: 28),
+                    SizedBox(width: 10),
+                    Text('Error'),
+                  ],
+                ),
+                content: Text(msg),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          }
         }
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        
+        // Show error dialog
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.error, color: Colors.red, size: 28),
+                SizedBox(width: 10),
+                Text('Error'),
+              ],
+            ),
+            content: Text('Error: $e'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          ),
         );
       }
     }

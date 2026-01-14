@@ -66,6 +66,7 @@ class Student {
   final String studentId;
   final double attendance;
   final String busRoute;
+  final String busNumber;
   final String emergencyContact;
   final String medicalInfo;
   final String status;
@@ -90,6 +91,7 @@ class Student {
     required this.studentId,
     required this.attendance,
     required this.busRoute,
+    required this.busNumber,
     required this.emergencyContact,
     required this.medicalInfo,
     required this.status,
@@ -149,6 +151,7 @@ class Student {
       studentId: json['student_id']?.toString() ?? '',
       attendance: 0.0,
       busRoute: json['bus_route'] ?? '',
+      busNumber: json['bus_number'] ?? '',
       emergencyContact: json['emergency_contact'] as String? ?? '',
       medicalInfo: json['medical_information'] as String? ?? '',
       status: 'Active',
@@ -618,7 +621,20 @@ class _StudentsManagementPageState extends State<StudentsManagementPage> {
                 title: 'Additional Details',
                 items: [
                   'Blood Group: ${student.bloodGroup}',
-                  'Bus Route: ${student.busRoute}',
+                  if (student.busNumber.isNotEmpty || student.busRoute.isNotEmpty)
+                    TextSpan(
+                      children: [
+                        const TextSpan(text: 'Bus Number & Route: '),
+                        TextSpan(
+                          text: student.busNumber,
+                          style: const TextStyle(color: Color(0xFFF2994A), fontWeight: FontWeight.bold),
+                        ),
+                        if (student.busRoute.isNotEmpty) ...[
+                          TextSpan(text: student.busNumber.isNotEmpty ? ' | ' : ''),
+                          TextSpan(text: student.busRoute),
+                        ],
+                      ],
+                    ),
                   'Attendance: ${student.attendance}%',
                 ],
               ),
@@ -1547,7 +1563,7 @@ class _GradientButton extends StatelessWidget {
 
 class _DetailCard extends StatelessWidget {
   final String title;
-  final List<String> items;
+  final List<dynamic> items;
   final bool showNumbers;
 
   const _DetailCard({
@@ -1602,8 +1618,10 @@ class _DetailCard extends StatelessWidget {
                       const SizedBox(width: 4),
                     ],
                     Expanded(
-                      child: Text(
-                        item,
+                      child: Text.rich(
+                        item is InlineSpan 
+                          ? item 
+                          : TextSpan(text: item.toString()),
                         maxLines: 5,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(

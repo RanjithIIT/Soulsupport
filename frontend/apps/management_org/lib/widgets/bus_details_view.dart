@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/bus_details_model.dart';
+import '../utils.dart';
 
 class BusDetailsView extends StatelessWidget {
   final BusDetails busDetails;
@@ -19,11 +20,11 @@ class BusDetailsView extends StatelessWidget {
           const SizedBox(height: 20),
           _buildDriverInfo(),
           const SizedBox(height: 20),
-          _buildRouteInfo(),
+          _buildRouteInfo(context),
           const SizedBox(height: 20),
-          _buildStopsSection('Morning Route (Pickup)', busDetails.morningStops),
+          _buildStopsSection(context, 'Morning Route (Pickup)', busDetails.morningStops),
           const SizedBox(height: 20),
-          _buildStopsSection('Afternoon Route (Drop-off)', busDetails.afternoonStops),
+          _buildStopsSection(context, 'Afternoon Route (Drop-off)', busDetails.afternoonStops),
         ],
       ),
     );
@@ -110,24 +111,24 @@ class BusDetailsView extends StatelessWidget {
     );
   }
 
-  Widget _buildRouteInfo() {
+  Widget _buildRouteInfo(BuildContext context) {
     return _buildInfoCard(
       'Route Information',
       [
         _InfoRow('Route Name', busDetails.routeName),
         if (busDetails.routeDistance != null)
           _InfoRow('Distance', '${busDetails.routeDistance} km'),
-        _InfoRow('Morning Start', busDetails.morningStartTime),
-        _InfoRow('Morning End', busDetails.morningEndTime),
-        _InfoRow('Afternoon Start', busDetails.afternoonStartTime),
-        _InfoRow('Afternoon End', busDetails.afternoonEndTime),
+        _InfoRow('Morning Start', formatTimeWith24h(context, busDetails.morningStartTime)),
+        _InfoRow('Morning End', formatTimeWith24h(context, busDetails.morningEndTime)),
+        _InfoRow('Afternoon Start', formatTimeWith24h(context, busDetails.afternoonStartTime)),
+        _InfoRow('Afternoon End', formatTimeWith24h(context, busDetails.afternoonEndTime)),
         if (busDetails.notes.isNotEmpty)
           _InfoRow('Notes', busDetails.notes),
       ],
     );
   }
 
-  Widget _buildStopsSection(String title, List<StopDetails> stops) {
+  Widget _buildStopsSection(BuildContext context, String title, List<StopDetails> stops) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -163,13 +164,13 @@ class BusDetailsView extends StatelessWidget {
               ),
             )
           else
-            ...stops.map((stop) => _buildStopCard(stop)),
+            ...stops.map((stop) => _buildStopCard(context, stop)),
         ],
       ),
     );
   }
 
-  Widget _buildStopCard(StopDetails stop) {
+  Widget _buildStopCard(BuildContext context, StopDetails stop) {
     return Card(
       margin: const EdgeInsets.only(bottom: 15),
       elevation: 2,
@@ -201,11 +202,10 @@ class BusDetailsView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 5),
-            Text('Stop ID: ${stop.stopId}'),
             if (stop.stopAddress.isNotEmpty)
               Text('Address: ${stop.stopAddress}'),
             if (stop.stopTime != null)
-              Text('Time: ${stop.stopTime}'),
+              Text('Time: ${formatTimeWith24h(context, stop.stopTime)}'),
             Text('Students: ${stop.students.length}'),
           ],
         ),
@@ -219,13 +219,15 @@ class BusDetailsView extends StatelessWidget {
               ),
             )
           else
-            ...stop.students.map((student) => _buildStudentTile(student)),
+            ...stop.students.map((student) => _buildStudentTile(context, student, stop.routeType)),
         ],
       ),
     );
   }
 
-  Widget _buildStudentTile(StudentDetails student) {
+  Widget _buildStudentTile(BuildContext context, StudentDetails student, String routeType) {
+    final isMorning = routeType == 'morning';
+    
     return ListTile(
       leading: CircleAvatar(
         child: Text(
@@ -240,10 +242,10 @@ class BusDetailsView extends StatelessWidget {
         children: [
           Text('ID: ${student.studentId}'),
           Text('Class: ${student.studentClass} | Grade: ${student.studentGrade}'),
-          if (student.pickupTime != null)
-            Text('Pickup: ${student.pickupTime}'),
-          if (student.dropoffTime != null)
-            Text('Dropoff: ${student.dropoffTime}'),
+          if (isMorning && student.pickupTime != null)
+            Text('Pickup: ${formatTimeWith24h(context, student.pickupTime)}'),
+          if (!isMorning && student.dropoffTime != null)
+            Text('Dropoff: ${formatTimeWith24h(context, student.dropoffTime)}'),
         ],
       ),
     );

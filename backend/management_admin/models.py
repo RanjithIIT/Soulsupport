@@ -1039,6 +1039,7 @@ class BusStopStudent(models.Model):
     student_name = models.CharField(max_length=255, blank=True, help_text='Student name (cached from student table)')
     student_class = models.CharField(max_length=50, blank=True, help_text='Student class (cached from student table)')
     student_grade = models.CharField(max_length=50, blank=True, help_text='Student grade (cached from student table)')
+    student_section = models.CharField(max_length=50, blank=True, default='', help_text='Student section (cached from student table)')
     pickup_time = models.TimeField(null=True, blank=True, help_text='Pickup time for this student at this stop')
     dropoff_time = models.TimeField(null=True, blank=True, help_text='Dropoff time for this student at this stop')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1055,6 +1056,8 @@ class BusStopStudent(models.Model):
                 self.student_class = self.student.applying_class or ''
             if not self.student_grade:
                 self.student_grade = self.student.grade or ''
+            if not self.student_section:
+                self.student_section = getattr(self.student, 'section', '') or ''
             
             # Get school_id and school_name from student's school
             if self.student.school:
@@ -1076,8 +1079,7 @@ class BusStopStudent(models.Model):
                 if not self.pickup_time:
                     self.pickup_time = self.bus_stop.stop_time
                 
-                # Also check if there's a corresponding afternoon stop with same stop_name
-                # and update its dropoff_time if this student is assigned there
+                # Check if there's a corresponding afternoon stop
                 try:
                     corresponding_afternoon_stop = BusStop.objects.filter(
                         bus=self.bus_stop.bus,
@@ -1086,17 +1088,20 @@ class BusStopStudent(models.Model):
                     ).first()
                     
                     if corresponding_afternoon_stop:
-                        # Update dropoff_time for this student's afternoon stop assignment
+                        # Set this assignment's dropoff_time from the afternoon stop's time
+                        if corresponding_afternoon_stop.stop_time:
+                            self.dropoff_time = corresponding_afternoon_stop.stop_time
+
+                        # Also update the corresponding afternoon assignment's pickup_time
                         afternoon_assignment = BusStopStudent.objects.filter(
                             bus_stop=corresponding_afternoon_stop,
                             student=self.student
                         ).first()
                         
-                        if afternoon_assignment:
-                            afternoon_assignment.dropoff_time = self.bus_stop.stop_time
-                            afternoon_assignment.save(update_fields=['dropoff_time', 'updated_at'])
+                        if afternoon_assignment and afternoon_assignment.pickup_time != self.bus_stop.stop_time:
+                            afternoon_assignment.pickup_time = self.bus_stop.stop_time
+                            afternoon_assignment.save(update_fields=['pickup_time', 'updated_at'])
                 except Exception:
-                    # Silently fail if there's any issue finding/updating afternoon stop
                     pass
                     
             elif self.bus_stop.route_type == 'afternoon':
@@ -1104,8 +1109,7 @@ class BusStopStudent(models.Model):
                 if not self.dropoff_time:
                     self.dropoff_time = self.bus_stop.stop_time
                 
-                # Also check if there's a corresponding morning stop with same stop_name
-                # and update its pickup_time if this student is assigned there
+                # Check if there's a corresponding morning stop
                 try:
                     corresponding_morning_stop = BusStop.objects.filter(
                         bus=self.bus_stop.bus,
@@ -1114,17 +1118,20 @@ class BusStopStudent(models.Model):
                     ).first()
                     
                     if corresponding_morning_stop:
-                        # Update pickup_time for this student's morning stop assignment
+                        # Set this assignment's pickup_time from the morning stop's time
+                        if corresponding_morning_stop.stop_time:
+                            self.pickup_time = corresponding_morning_stop.stop_time
+
+                        # Also update the corresponding morning assignment's dropoff_time
                         morning_assignment = BusStopStudent.objects.filter(
                             bus_stop=corresponding_morning_stop,
                             student=self.student
                         ).first()
                         
-                        if morning_assignment:
-                            morning_assignment.pickup_time = self.bus_stop.stop_time
-                            morning_assignment.save(update_fields=['pickup_time', 'updated_at'])
+                        if morning_assignment and morning_assignment.dropoff_time != self.bus_stop.stop_time:
+                            morning_assignment.dropoff_time = self.bus_stop.stop_time
+                            morning_assignment.save(update_fields=['dropoff_time', 'updated_at'])
                 except Exception:
-                    # Silently fail if there's any issue finding/updating morning stop
                     pass
         
         super().save(*args, **kwargs)

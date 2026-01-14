@@ -2,6 +2,7 @@
 Serializers for management_admin app
 """
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 from .models import File, Department, Teacher, Student, DashboardStats, NewAdmission, Examination_management, Fee, PaymentHistory, Bus, BusStop, BusStopStudent, Event, Award, AwardCertificate, CampusFeature, Activity, Gallery, GalleryImage
 
 from main_login.serializers import UserSerializer
@@ -238,6 +239,7 @@ class StudentSerializer(serializers.ModelSerializer):
     profile_photo_url = serializers.SerializerMethodField()
     
     bus_route = serializers.SerializerMethodField()
+    bus_number = serializers.SerializerMethodField()
     awards = serializers.SerializerMethodField()
 
     class Meta:
@@ -251,16 +253,23 @@ class StudentSerializer(serializers.ModelSerializer):
             'profile_photo', 'profile_photo_url',
             'activities', 'leadership', 'achievements', 'participation',
             'total_fee_amount', 'paid_fee_amount', 'due_fee_amount', 'fees_count',
-            'bus_route', 'awards',
+            'bus_route', 'bus_number', 'awards',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['email', 'school_id', 'created_at', 'updated_at', 'user', 'profile_photo_url']
 
     def get_bus_route(self, obj):
         # Find the student's bus route via BusStopStudent -> BusStop -> Bus
-        bus_stop_student = obj.bus_stops.first()  # related_name='bus_stops' in BusStopStudent
+        bus_stop_student = obj.bus_stops.first()
         if bus_stop_student and bus_stop_student.bus_stop and bus_stop_student.bus_stop.bus:
             return bus_stop_student.bus_stop.bus.route_name
+        return None
+
+    def get_bus_number(self, obj):
+        # Find the student's bus number via BusStopStudent -> BusStop -> Bus
+        bus_stop_student = obj.bus_stops.first()
+        if bus_stop_student and bus_stop_student.bus_stop and bus_stop_student.bus_stop.bus:
+            return bus_stop_student.bus_stop.bus.bus_number
         return None
     
     def get_profile_photo_url(self, obj):
@@ -523,7 +532,47 @@ class BusSerializer(SchoolIdMixin, serializers.ModelSerializer):
         return stops_data
 
     def get_afternoon_stops(self, obj):
-        return []
+        """Get afternoon stops with their students"""
+        # Get all afternoon stops for this bus, ordered by stop_order
+        afternoon_stops = obj.stops.filter(route_type='afternoon').order_by('stop_order')
+        
+        stops_data = []
+        for stop in afternoon_stops:
+            # Get students for this stop
+            students = stop.stop_students.all()
+            
+            # Serialize students
+            students_data = []
+            for student_link in students:
+                students_data.append({
+                    'id': str(student_link.id),
+                    'student_id_string': student_link.student_id_string or '',
+                    'student_name': student_link.student_name or '',
+                    'student_class': student_link.student_class or '',
+                    'student_grade': student_link.student_grade or '',
+                    'pickup_time': student_link.pickup_time.strftime('%H:%M:%S') if student_link.pickup_time else None,
+                    'dropoff_time': student_link.dropoff_time.strftime('%H:%M:%S') if student_link.dropoff_time else None,
+                    'bus_stop_name': stop.stop_name,
+                })
+            
+            # Serialize stop with students
+            stop_data = {
+                'stop_id': stop.stop_id,
+                'stop_name': stop.stop_name,
+                'stop_address': stop.stop_address,
+                'stop_time': stop.stop_time.strftime('%H:%M:%S') if stop.stop_time else None,
+                'route_type': stop.route_type,
+                'stop_order': stop.stop_order,
+                'latitude': float(stop.latitude) if stop.latitude else None,
+                'longitude': float(stop.longitude) if stop.longitude else None,
+                'students': students_data,
+                'student_count': len(students_data),
+                'created_at': stop.created_at.isoformat() if stop.created_at else None,
+                'updated_at': stop.updated_at.isoformat() if stop.updated_at else None,
+            }
+            stops_data.append(stop_data)
+        
+        return stops_data
 
 
 class EventSerializer(SchoolIdMixin, serializers.ModelSerializer):
@@ -671,3 +720,90 @@ class GallerySerializer(SchoolIdMixin, serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'school_id', 'school_name', 'created_at']
 
+
+class BusStopStudentSerializer(serializers.ModelSerializer):
+    """Serializer for BusStopStudent model - handles student assignment to bus stops"""
+    student_id = serializers.CharField(write_only=True, required=True, help_text='Student ID string')
+    stop = serializers.CharField(write_only=True, required=True, help_text='Bus stop ID')
+    
+    # Add nested details for student/parent portal
+    bus_details = serializers.SerializerMethodField()
+    stop_details = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = BusStopStudent
+        fields = [
+            'id', 'bus_stop', 'student', 'student_id', 'stop', 'school_id', 'school_name',
+            'student_id_string', 'student_name', 'student_class', 'student_grade', 'student_section',
+            'pickup_time', 'dropoff_time', 'created_at', 'updated_at',
+            'bus_details', 'stop_details'
+        ]
+        read_only_fields = [
+            'id', 'bus_stop', 'student', 'school_id', 'school_name', 
+            'student_id_string', 'student_name', 'student_class', 'student_grade', 'student_section',
+            'pickup_time', 'dropoff_time', 'created_at', 'updated_at',
+            'bus_details', 'stop_details'
+        ]
+    
+    def get_bus_details(self, obj):
+        """Get bus details from the stop's bus"""
+        if obj.bus_stop and obj.bus_stop.bus:
+            bus = obj.bus_stop.bus
+            return {
+                'bus_number': bus.bus_number,
+                'route': bus.route_name,
+                'driver_name': bus.driver_name,
+                'driver_contact': bus.driver_phone,
+                'capacity': bus.capacity,
+                'status': 'Active' if bus.is_active else 'Inactive',
+            }
+        return None
+    
+    def get_stop_details(self, obj):
+        """Get stop details"""
+        if obj.bus_stop:
+            stop = obj.bus_stop
+            return {
+                'stop_id': stop.stop_id,
+                'stop_name': stop.stop_name,
+                'address': stop.stop_address,
+                'stop_time': str(stop.stop_time) if stop.stop_time else None,
+                'route_type': stop.route_type,
+                'stop_order': stop.stop_order,
+            }
+        return None
+    
+    def create(self, validated_data):
+        """Create BusStopStudent instance by resolving student_id and stop_id to objects"""
+        student_id_str = validated_data.pop('student_id')
+        stop_id_str = validated_data.pop('stop')
+        school_id = validated_data.pop('school_id', None)
+        
+        # Lookup student by student_id
+        student_query = Student.objects.filter(student_id=student_id_str)
+        if school_id:
+            student_query = student_query.filter(school__school_id=school_id)
+        
+        student = student_query.first()
+        if not student:
+            raise ValidationError({
+                'student_id': f'Student with ID {student_id_str} not found' + 
+                             (f' in school {school_id}' if school_id else '')
+            })
+        
+        # Lookup bus stop by stop_id
+        bus_stop = BusStop.objects.filter(stop_id=stop_id_str).first()
+        if not bus_stop:
+            raise ValidationError({'stop': f'Bus stop with ID {stop_id_str} not found'})
+        
+        # Check if student is already assigned to this stop
+        existing = BusStopStudent.objects.filter(bus_stop=bus_stop, student=student).first()
+        if existing:
+            # Return existing assignment instead of creating duplicate
+            return existing
+        
+        # Create the assignment
+        validated_data['student'] = student
+        validated_data['bus_stop'] = bus_stop
+        
+        return super().create(validated_data)

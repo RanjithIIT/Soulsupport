@@ -1487,7 +1487,7 @@ class EventViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
     filterset_fields = ['category', 'status', 'date']
     search_fields = ['name', 'location', 'organizer', 'description']
     ordering_fields = ['date', 'created_at', 'name']
-    ordering = ['-date', '-created_at']
+    ordering = ['-date']
     
     def get_permissions(self):
         """Allow read/create/update/delete without auth for development - can be adjusted"""
@@ -1739,6 +1739,23 @@ class AwardViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
         if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy', 'import_excel', 'download_template']:
             return [AllowAny()]
         return [IsAuthenticated(), IsManagementAdmin()]
+    
+    def get_queryset(self):
+        """Filter awards by school_id"""
+        queryset = super().get_queryset()
+        
+        # Get school_id from user or use first school for development
+        school_id = get_user_school_id(self.request.user)
+        if not school_id:
+            # Development fallback
+            school = School.objects.first()
+            if school:
+                school_id = school.school_id
+        
+        if school_id:
+            queryset = queryset.filter(school_id=school_id)
+        
+        return queryset
     
     def create(self, request, *args, **kwargs):
         """Override create to handle school assignment and validation"""
@@ -2360,3 +2377,37 @@ class GalleryViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
                         image=file  # Django handles file upload to MEDIA_ROOT
                     )
 
+
+class BusStopStudentViewSet(SchoolFilterMixin, viewsets.ModelViewSet):
+    """ViewSet for Bus Stop Student assignments"""
+    queryset = BusStopStudent.objects.select_related('bus_stop', 'student').all()
+    serializer_class = BusStopStudentSerializer
+    permission_classes = [IsAuthenticated, IsManagementAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['bus_stop', 'student', 'school_id']
+    search_fields = ['student_id_string', 'student_name']
+    ordering_fields = ['created_at', 'student_name']
+    ordering = ['bus_stop', 'student_name']
+    
+    def get_permissions(self):
+        """Allow read/create/update/delete without auth for development - can be adjusted"""
+        if self.action in ['list', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
+            return [AllowAny()]
+        return [IsAuthenticated(), IsManagementAdmin()]
+    
+    def get_queryset(self):
+        """Filter bus stop students by school_id"""
+        queryset = super().get_queryset()
+        
+        # Get school_id from user or use first school for development
+        school_id = get_user_school_id(self.request.user)
+        if not school_id:
+            # Development fallback
+            school = School.objects.first()
+            if school:
+                school_id = school.school_id
+        
+        if school_id:
+            queryset = queryset.filter(school_id=school_id)
+        
+        return queryset

@@ -11,6 +11,7 @@ import 'unified_bus_form.dart';
 import 'models/bus_details_model.dart';
 import 'widgets/bus_details_view.dart';
 import 'widgets/management_sidebar.dart';
+import 'utils.dart';
 
 class BusStop {
   final String name;
@@ -78,11 +79,13 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
     _loadBuses();
   }
 
-  Future<void> _loadBuses() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  Future<void> _loadBuses({bool showLoader = true}) async {
+    if (showLoader) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       await _apiService.initialize();
@@ -264,14 +267,6 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
                                   _editBus(bus);
                                 },
                                 tooltip: 'Edit Bus',
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.people, color: Colors.white),
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                  _manageStudents(bus);
-                                },
-                                tooltip: 'Manage Students',
                               ),
                               IconButton(
                                 icon: const Icon(Icons.close, color: Colors.white),
@@ -478,7 +473,7 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              stop.time,
+                              formatTimeWith24h(context, stop.time),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -600,36 +595,35 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
       builder: (context) => UnifiedBusFormDialog(
         bus: bus,
         onSave: () {
-          _loadBuses();
+          _loadBuses(showLoader: false);
         },
       ),
     );
     
     // Show success popup and refresh list after dialog closes
     if (result == true && mounted) {
-      _loadBuses();
-      // Show success popup dialog
-      await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.green, size: 28),
-              SizedBox(width: 10),
-              Text('Success'),
-            ],
-          ),
-          content: const Text('Updated Successfully'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('OK'),
+      // Refresh the list in the background first
+      await _loadBuses(showLoader: false);
+      
+      // Use SnackBar for non-blocking success indication (Auto-updated mode)
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 10),
+                Text('Bus Updated Successfully'),
+              ],
             ),
-          ],
-        ),
-      );
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            margin: const EdgeInsets.all(20),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -665,10 +659,30 @@ class _BusesManagementPageState extends State<BusesManagementPage> {
                   
                   if (response.success) {
                     if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Bus deleted successfully!')),
-                      );
                       _loadBuses(); // Refresh the list
+                      
+                      // Show success popup dialog
+                      await showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Row(
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.green, size: 28),
+                              SizedBox(width: 10),
+                              Text('Success'),
+                            ],
+                          ),
+                          content: const Text('Bus record deleted successfully'),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                              child: const Text('OK'),
+                            ),
+                          ],
+                        ),
+                      );
                     }
                   } else {
                     if (mounted) {

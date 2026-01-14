@@ -137,13 +137,37 @@ class _HomeScreenState extends State<HomeScreen> {
   // Initialize state variables for Calendar
   int currentMonth = DateTime.now().month - 1; // 0-indexed for month names
   int currentYear = DateTime.now().year;
-
+  
   String _overallScore = '84%';
   String _attendanceRate = '97%';
   String _classRank = '7th';
   String _selectedPeriod = 'Monthly'; // For performance period selection
   String? _schoolName;
   String? _schoolId;
+  String? _studentName;
+  String? _studentId;
+
+  // Helper method to format time to 12-hour format
+  String _formatTime(String? timeStr) {
+    if (timeStr == null || timeStr.isEmpty || timeStr == 'N/A') return 'N/A';
+    try {
+      // Split by ':' - handle HH:mm:ss or HH:mm
+      final parts = timeStr.split(':');
+      if (parts.length < 2) return timeStr;
+      
+      int hour = int.parse(parts[0]);
+      int minute = int.parse(parts[1]);
+      
+      final period = hour >= 12 ? 'PM' : 'AM';
+      int hour12 = hour % 12;
+      if (hour12 == 0) hour12 = 12;
+      
+      final minuteStr = minute.toString().padLeft(2, '0');
+      return '$hour12:$minuteStr $period';
+    } catch (e) {
+      return timeStr;
+    }
+  }
 
   @override
   void initState() {
@@ -158,6 +182,8 @@ class _HomeScreenState extends State<HomeScreen> {
         // Extract school_id and school_name from parent profile
         _schoolId = parentData['school_id']?.toString();
         _schoolName = parentData['school_name']?.toString();
+        _studentName = parentData['student_name']?.toString();
+        _studentId = parentData['student_id']?.toString();
         
         debugPrint('Parent profile - school_id: $_schoolId, school_name: $_schoolName');
         
@@ -172,6 +198,14 @@ class _HomeScreenState extends State<HomeScreen> {
             // Try all students to find one with school data
             for (var student in students) {
               if (student is Map) {
+                // Also set student details if missing
+                if (_studentId == null) {
+                  _studentId = student['student_id']?.toString() ?? student['id']?.toString();
+                }
+                if (_studentName == null) {
+                  _studentName = student['student_name']?.toString() ?? student['name']?.toString();
+                }
+
                 // Try to get school_id
                 if (isSchoolIdEmpty) {
                   final extractedSchoolId = student['school_id']?.toString() ?? 
@@ -205,6 +239,9 @@ class _HomeScreenState extends State<HomeScreen> {
         if (mounted) {
           setState(() {});
         }
+        
+        // Fetch bus details
+        _fetchBusDetails();
         
         // If school name is still not available, try to load it
         if ((_schoolName == null || _schoolName!.isEmpty) && _schoolId != null && _schoolId!.isNotEmpty) {
@@ -265,10 +302,61 @@ class _HomeScreenState extends State<HomeScreen> {
         _schoolName = 'School';
       });
     } catch (e) {
-      debugPrint('Failed to load school name: $e');
       setState(() {
         _schoolName = 'School';
       });
+    }
+  }
+
+  Future<void> _fetchBusDetails() async {
+    try {
+      // Use the existing fetchParentProfile to get student IDs
+      final parentData = await api.ApiService.fetchParentProfile();
+      if (parentData == null) return;
+      
+      final students = parentData['students'];
+      if (students is List && students.isNotEmpty) {
+        final student = students[0];
+        if (student is Map) {
+          final studentId = student['student_id']?.toString() ?? student['id']?.toString();
+          if (studentId != null) {
+            final busInfo = await api.ApiService.fetchStudentBusDetails(studentId);
+            if (busInfo != null && mounted) {
+              setState(() {
+                // Map the API fields to the internal busDetails structure
+                // API likely returns nested data from the new serializer
+                // If using the enhanced serializer:
+                final busData = busInfo['bus_details'] as Map<String, dynamic>?;
+                final stopData = busInfo['stop_details'] as Map<String, dynamic>?;
+                
+                final routeType = stopData?['route_type']?.toString() ?? 'morning';
+
+                mockData = DashboardData(
+                  userName: mockData.userName,
+                  totalHomework: mockData.totalHomework,
+                  upcomingTests: mockData.upcomingTests,
+                  totalResults: mockData.totalResults,
+                  academicsScore: mockData.academicsScore,
+                  extracurricularCount: mockData.extracurricularCount,
+                  feesStatus: mockData.feesStatus,
+                  homework: mockData.homework,
+                  tests: mockData.tests,
+                  results: mockData.results,
+                  busDetails: {
+                    'busNumber': busData?['bus_number']?.toString() ?? 'Bus',
+                    'route': busData?['route']?.toString() ?? 'Bus_route_name',
+                    'driver': busData?['driver_name']?.toString() ?? 'N/A',
+                    'pickupTime': routeType == 'morning' ? _formatTime(stopData?['stop_time']?.toString()) : 'N/A',
+                    'dropTime': routeType == 'afternoon' ? _formatTime(stopData?['stop_time']?.toString()) : 'N/A',
+                  },
+                );
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to fetch bus details: $e');
     }
   }
 
@@ -345,12 +433,12 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       {
         'icon': Icons.directions_bus,
-        'number': (mockData.busDetails['busNumber'] as String?) ?? 'N/A',
+        'number': 'Bus',
         'label': 'Bus Details',
         'color': const Color(0xFF17a2b8),
         'action': () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const BusDetailsPage()),
+          MaterialPageRoute(builder: (context) => BusDetailsPage(studentId: _studentId)),
         ),
       },
       {

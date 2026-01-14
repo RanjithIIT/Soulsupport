@@ -1324,7 +1324,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       _StatCard(
         icon: Icons.directions_bus,
-        number: mockData.busDetails['busNumber'] as String,
+        number: 'Bus',
         label: 'Bus Details',
         color: const Color(0xFF17a2b8),
         onTap: () => _showSnackBar("Redirecting to Bus Details"),
